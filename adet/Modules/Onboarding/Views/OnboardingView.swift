@@ -1,0 +1,91 @@
+import SwiftUI
+
+struct OnboardingView: View {
+    @State private var currentStep = 0
+    @State private var answers: [String] = Array(repeating: "", count: onboardingSteps.count)
+    @State private var extras = Array(repeating: "", count: onboardingSteps.count)
+    @State private var isFinished = false
+
+    var body: some View {
+        NavigationStack {
+            VStack {
+                VStack(spacing: 8) {
+                    Text("Step \(currentStep + 1) of \(onboardingSteps.count)")
+                        .font(.subheadline)
+                        .foregroundColor(.white.opacity(0.7))
+
+                    HStack(spacing: 8) {
+                        ForEach(0..<onboardingSteps.count, id: \.self) { index in
+                            Circle()
+                                .fill(currentStep == index ? Color.white : Color.white.opacity(0.3))
+                                .frame(width: 8, height: 8)
+                                .scaleEffect(currentStep == index ? 1.2 : 1)
+                                .animation(.spring(response: 0.3), value: currentStep)
+                        }
+                    }
+                }
+                .padding(.top, 20)
+
+                TabView(selection: $currentStep) {
+                    ForEach(onboardingSteps.indices, id: \.self) { currentStep in
+                        QuestionPageView(
+                            step: onboardingSteps[currentStep],
+                            answer: $answers[currentStep],
+                            extraDescription: $extras[currentStep]
+                        )
+                        .tag(currentStep)
+                        .padding()
+                    }
+                }
+                .tabViewStyle(.page(indexDisplayMode: .never))
+                .animation(.easeInOut, value: currentStep)
+
+                Spacer()
+
+                HStack(spacing: 16) {
+                    if currentStep > 0 {
+                        Button {
+                            currentStep -= 1
+                        } label: {
+                            Text("Back")
+                                .frame(maxWidth: .infinity, minHeight: 48)
+                        }
+                        .buttonStyle(SecondaryButtonStyle())
+                    }
+
+                    Button {
+                        if currentStep < onboardingSteps.count - 1 {
+                            currentStep += 1
+                        } else {
+                            let allQuestionsAnswered = answers.allSatisfy { !$0.isEmpty }
+                            if allQuestionsAnswered {
+                                isFinished = true
+                            }
+                        }
+                    } label: {
+                        Text(currentStep < onboardingSteps.count - 1 ? "Next" : "Create Account")
+                            .frame(maxWidth: .infinity, minHeight: 48)
+                    }
+                    .buttonStyle(PrimaryButtonStyle())
+                }
+                .padding(.horizontal, 24)
+            }
+            .foregroundStyle(.white)
+            .background(
+                LinearGradient(
+                    colors: [Color(.black), Color(.darkGray)],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                .ignoresSafeArea()
+            )
+            .navigationDestination(isPresented: $isFinished) {
+                SignUpView()
+            }
+        }
+    }
+}
+
+#Preview {
+    OnboardingView()
+}
