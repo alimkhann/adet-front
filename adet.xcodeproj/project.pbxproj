@@ -29,9 +29,22 @@
 		47C5041E2DF69FE900D30B0B /* adetUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = adetUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		47CF71712DFC1BC600CAC212 /* Exceptions for "adet" folder in "adet" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 47C504032DF69FE700D30B0B /* adet */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		47C504062DF69FE700D30B0B /* adet */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				47CF71712DFC1BC600CAC212 /* Exceptions for "adet" folder in "adet" target */,
+			);
 			path = adet;
 			sourceTree = "<group>";
 		};
@@ -400,6 +413,7 @@
 				DEVELOPMENT_TEAM = M5YPTF3F3J;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = adet/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "ädet";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -434,6 +448,7 @@
 				DEVELOPMENT_TEAM = M5YPTF3F3J;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = adet/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "ädet";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;

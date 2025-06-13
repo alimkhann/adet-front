@@ -16,13 +16,13 @@ class AuthViewModel: ObservableObject {
         }
     }
 
-    func signUp(user: User) {
+    func signUp(email: String, username: String, password: String) {
         Task {
             isLoading = true
             authError = nil
 
             do {
-                self.user = try await authService.signUp(user: user)
+                self.user = try await authService.signUp(email: email, username: username, password: password)
             } catch let error as AuthenticationError {
                 authError = error.localizedDescription
             } catch {

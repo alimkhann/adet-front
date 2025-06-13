@@ -54,14 +54,7 @@ struct SignUpView: View {
                         title: "Sign Up",
                         isLoading: viewModel.isLoading
                     ) {
-                        let user = User(
-                            id: UUID(),
-                            email: email,
-                            username: username,
-                            password: password,
-                            createdAt: Date()
-                        )
-                        viewModel.signUp(user: user)
+                        viewModel.signUp(email: email, username: username, password: password)
                     }
                     .accessibilityIdentifier("Sign Up")
                     .padding(.horizontal, 24)
