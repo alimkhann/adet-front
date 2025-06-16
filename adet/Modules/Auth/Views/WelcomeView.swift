@@ -4,27 +4,17 @@ struct WelcomeView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                LinearGradient(
-                    colors: [Color(.black), Color(.darkGray)],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-                .ignoresSafeArea()
+                GradientBackgroundView()
+                    .ignoresSafeArea()
 
                 VStack(spacing: 40) {
                     Spacer()
 
-                    Text("ädet")
-                        .font(.system(size: 48, weight: .heavy, design: .rounded))
-                        .foregroundLinearGradient(
-                            colors: [Color.white, Color(.lightGray)],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
+                    LargeRoundedTextView(label: "ädet")
 
                     Text("Build habits that last.")
                         .font(.headline)
-                        .foregroundColor(.white.opacity(0.8))
+                        .foregroundColor(.primary.opacity(0.8))
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 30)
 

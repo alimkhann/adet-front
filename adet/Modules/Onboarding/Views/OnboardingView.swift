@@ -12,12 +12,12 @@ struct OnboardingView: View {
                 VStack(spacing: 8) {
                     Text("Step \(currentStep + 1) of \(onboardingSteps.count)")
                         .font(.subheadline)
-                        .foregroundColor(.white.opacity(0.7))
+                        .foregroundColor(.primary.opacity(0.7))
 
                     HStack(spacing: 8) {
                         ForEach(0..<onboardingSteps.count, id: \.self) { index in
                             Circle()
-                                .fill(currentStep == index ? Color.white : Color.white.opacity(0.3))
+                                .fill(currentStep == index ? Color.white : Color.primary.opacity(0.3))
                                 .frame(width: 8, height: 8)
                                 .scaleEffect(currentStep == index ? 1.2 : 1)
                                 .animation(.spring(response: 0.3), value: currentStep)
@@ -72,12 +72,7 @@ struct OnboardingView: View {
             }
             .foregroundStyle(.white)
             .background(
-                LinearGradient(
-                    colors: [Color(.black), Color(.darkGray)],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-                .ignoresSafeArea()
+                GradientBackgroundView()
             )
             .navigationDestination(isPresented: $isFinished) {
                 SignUpView()

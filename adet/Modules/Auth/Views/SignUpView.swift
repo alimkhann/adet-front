@@ -13,14 +13,7 @@ struct SignUpView: View {
                 GradientBackgroundView()
 
                 VStack {
-                    Text("Create Account")
-                        .font(.system(size: 36, weight: .heavy, design: .rounded))
-                        .foregroundLinearGradient(
-                            colors: [Color.white, Color(.lightGray)],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                        .padding(.top, 40)
+                    LargeRoundedTextView(label: "Create Account")                        .padding(.top, 40)
                         .padding(.bottom, 32)
 
                     Group {
@@ -60,7 +53,7 @@ struct SignUpView: View {
                     .padding(.horizontal, 24)
 
                     NavigationLink("Already have an account? Sign In", destination: SignInView())
-                        .foregroundColor(.white.opacity(0.7))
+                        .foregroundColor(.primary.opacity(0.7))
                         .font(.footnote)
                         .padding(.top, 12)
 

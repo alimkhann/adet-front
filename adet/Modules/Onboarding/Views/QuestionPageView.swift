@@ -5,22 +5,18 @@ struct QuestionPageView: View {
     @Binding var answer: String
     @State private var isCustomEntry = false
     @Binding var extraDescription: String
-
-    private let selectedGradient = LinearGradient(
-        colors: [Color.blue, Color.purple],
-        startPoint: .leading,
-        endPoint: .trailing
-    )
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         VStack(spacing: 24) {
             Text(step.title)
+                .foregroundColor(.primary)
                 .font(.title2)
                 .fontWeight(.semibold)
 
             Text(step.subtitle)
                 .font(.subheadline)
-                .foregroundColor(.white.opacity(0.7))
+                .foregroundColor(.primary.opacity(0.7))
                 .multilineTextAlignment(.center)
                 .padding(.horizontal)
 
@@ -38,11 +34,15 @@ struct QuestionPageView: View {
                                     RoundedRectangle(cornerRadius: 10)
                                         .fill(
                                             answer == option
-                                            ? AnyShapeStyle(selectedGradient)
-                                            : AnyShapeStyle(.zinc900)
+                                            ? Color.primary
+                                            : (colorScheme == .dark ? Color.zinc900 : Color.zinc100)
                                         )
                                 )
-                                .foregroundColor(.white)
+                                .foregroundColor(
+                                    answer == option
+                                    ? (colorScheme == .dark ? .black : .white)
+                                    : (colorScheme == .dark ? .white : .black)
+                                )
                         }
                     }
 
@@ -51,6 +51,9 @@ struct QuestionPageView: View {
                             placeholder: "Type your own…",
                             text: $answer
                         )
+                        .background(colorScheme == .dark ? Color.zinc900 : Color.zinc100)
+                        .foregroundColor(colorScheme == .dark ? .white : .black)
+                        .cornerRadius(10)
                     } else if options.contains("Other") {
                         Button {
                             answer = ""
@@ -61,11 +64,9 @@ struct QuestionPageView: View {
                                 .padding()
                                 .background(
                                     RoundedRectangle(cornerRadius: 10)
-                                        .fill(
-                                            AnyShapeStyle(.zinc900)
-                                        )
+                                        .fill(colorScheme == .dark ? Color.zinc900 : Color.zinc100)
                                 )
-                                .foregroundColor(.white)
+                                .foregroundColor(colorScheme == .dark ? .white : .black)
                         }
                     }
                 }
@@ -75,6 +76,9 @@ struct QuestionPageView: View {
                     placeholder: "Enter your answer…",
                     text: $answer
                 )
+                .background(colorScheme == .dark ? Color.zinc900 : Color.zinc100)
+                .foregroundColor(colorScheme == .dark ? .white : .black)
+                .cornerRadius(10)
                 .padding(.horizontal, 24)
             }
 
@@ -84,14 +88,14 @@ struct QuestionPageView: View {
                         .scrollContentBackground(.hidden)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 14)
-                        .background(.zinc900)
+                        .background(colorScheme == .dark ? Color.zinc900 : Color.zinc100)
                         .cornerRadius(10)
-                        .foregroundColor(.white)
+                        .foregroundColor(colorScheme == .dark ? .white : .black)
                         .disableAutocorrection(true)
 
                     if extraDescription.isEmpty {
                         Text("More details (optional)…")
-                            .foregroundColor(.white.opacity(0.3))
+                            .foregroundColor(.primary.opacity(0.3))
                             .padding(.horizontal, 16)
                             .padding(.vertical, 12)
                             .padding(.top, 12)

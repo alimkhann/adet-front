@@ -11,13 +11,7 @@ struct SignInView: View {
             GradientBackgroundView()
 
             VStack {
-                Text("Sign Into Account")
-                    .font(.system(size: 36, weight: .heavy, design: .rounded))
-                    .foregroundLinearGradient(
-                        colors: [Color.white, Color(.lightGray)],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
+                LargeRoundedTextView(label: "Sign Into Account")
                     .padding(.top, 40)
                     .padding(.bottom, 32)
 

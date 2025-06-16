@@ -50,6 +50,8 @@ protocol AuthenticationServiceProtocol {
     func signOut() async throws
     func fetchCurrentUserProfile() async throws -> User
     func updateUsername(newUsername: String) async throws -> User
+    func updatePassword(currentPassword: String, newPassword: String) async throws
+    func deleteAccount() async throws
 }
 
 actor AuthenticationService: AuthenticationServiceProtocol {
@@ -207,28 +209,95 @@ actor AuthenticationService: AuthenticationServiceProtocol {
             throw AuthenticationError.authorizationFailed
         }
 
+        do {
+            try ValidationService.validateUsername(newUsername)
+        } catch let error as ValidationError {
+            logger.error("Username validation error: \(error.localizedDescription)")
+            throw AuthenticationError.invalidUsername
+        } catch {
+            logger.error("Unknown validation error during username update: \(error.localizedDescription)")
+            throw AuthenticationError.unknown(error)
+        }
+
         let headers = ["Authorization": "Bearer \(accessToken)"]
-        let updatePayload = ["username": newUsername]
+        let payload = ["username": newUsername]
 
         do {
             let updatedUser: User = try await APIManager.shared.request(
                 endpoint: "auth/me",
                 method: "PUT",
-                body: updatePayload,
+                body: payload,
                 headers: headers
             )
             logger.info("Username updated successfully.")
             return updatedUser
         } catch let apiError as APIError {
-            if case .requestFailed(let statusCode) = apiError {
-                logger.error("API Error during username update: \(statusCode). Response: \(apiError.localizedDescription)")
-                throw AuthenticationError.userUpdateFailed(apiError.localizedDescription)
-            } else {
-                logger.error("Unknown API Error during username update: \(apiError.localizedDescription)")
-                throw AuthenticationError.unknown(apiError)
-            }
+            logger.error("API Error during username update: \(apiError.localizedDescription)")
+            throw AuthenticationError.userUpdateFailed(apiError.localizedDescription)
         } catch {
             logger.error("Unknown error during username update: \(error.localizedDescription)")
+            throw AuthenticationError.unknown(error)
+        }
+    }
+
+    func updatePassword(currentPassword: String, newPassword: String) async throws {
+        guard let accessToken = currentAccessToken else {
+            logger.error("No access token found for updating password.")
+            throw AuthenticationError.authorizationFailed
+        }
+
+        do {
+            try ValidationService.validatePassword(newPassword)
+        } catch let error as ValidationError {
+            logger.error("New password validation error: \(error.localizedDescription)")
+            throw AuthenticationError.weakPassword
+        } catch {
+            logger.error("Unknown validation error during password update: \(error.localizedDescription)")
+            throw AuthenticationError.unknown(error)
+        }
+
+        let headers = ["Authorization": "Bearer \(accessToken)"]
+        let payload = ["current_password": currentPassword, "new_password": newPassword]
+
+        do {
+            _ = try await APIManager.shared.request(
+                endpoint: "auth/password",
+                method: "PUT",
+                body: payload,
+                headers: headers
+            ) as String // Expect a simple success, no specific model to decode
+            logger.info("Password updated successfully.")
+        } catch let apiError as APIError {
+            logger.error("API Error during password update: \(apiError.localizedDescription)")
+            throw AuthenticationError.userUpdateFailed(apiError.localizedDescription)
+        } catch {
+            logger.error("Unknown error during password update: \(error.localizedDescription)")
+            throw AuthenticationError.unknown(error)
+        }
+    }
+
+    func deleteAccount() async throws {
+        guard let accessToken = currentAccessToken else {
+            logger.error("No access token found for deleting account.")
+            throw AuthenticationError.authorizationFailed
+        }
+
+        let headers = ["Authorization": "Bearer \(accessToken)"]
+
+        do {
+            _ = try await APIManager.shared.request(
+                endpoint: "auth/me",
+                method: "DELETE",
+                headers: headers
+            ) as String // Expect a simple success, no specific model to decode
+            logger.info("User account deleted successfully.")
+            // Immediately sign out after successful deletion
+            try await signOut()
+        } catch let apiError as APIError {
+            logger.error("API Error during account deletion: \(apiError.localizedDescription)")
+            throw AuthenticationError.userUpdateFailed(apiError.localizedDescription)
+        } catch {
+            logger.error("Unknown error during account deletion: \(error.localizedDescription)")
             throw AuthenticationError.unknown(error)
         }
     }

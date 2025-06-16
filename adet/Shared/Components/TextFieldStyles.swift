@@ -4,6 +4,7 @@ struct StyledTextField: View {
     let placeholder: String
     @Binding var text: String
     var isSecure: Bool = false
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         Group {
@@ -15,9 +16,9 @@ struct StyledTextField: View {
         }
         .padding(.vertical, 14)
         .padding(.horizontal, 12)
-        .background(.zinc900)
+        .background(colorScheme == .dark ? .zinc900 : .zinc100)
         .cornerRadius(10)
-        .foregroundColor(.white)
+        .foregroundColor(colorScheme == .dark ? .white : .black)
         .autocapitalization(.none)
         .disableAutocorrection(true)
     }
