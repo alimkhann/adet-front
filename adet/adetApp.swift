@@ -4,14 +4,12 @@ import Clerk
 @main
 struct adetApp: App {
     @State private var clerk = Clerk.shared
-    @StateObject private var authViewModel = AuthViewModel()
 
     var body: some Scene {
         WindowGroup {
             ZStack {
                 if clerk.isLoaded {
                     RootView()
-                        .environmentObject(authViewModel)
                 } else {
                     ProgressView()
                 }
