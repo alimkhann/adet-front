@@ -29,7 +29,7 @@ struct ProfileView: View {
                         .shadow(radius: 2)
 
                     if let user = authViewModel.user {
-                        Text(user.username)
+                        Text(user.username ?? "No username")
                             .font(.title2)
                             .fontWeight(.bold)
                             .foregroundStyle(.primary)

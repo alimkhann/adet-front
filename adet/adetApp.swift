@@ -1,19 +1,25 @@
 import SwiftUI
+import Clerk
 
 @main
 struct adetApp: App {
+    @State private var clerk = Clerk.shared
     @StateObject private var authViewModel = AuthViewModel()
-    
+
     var body: some Scene {
         WindowGroup {
-            NavigationView {
-                if authViewModel.user == nil {
-                    WelcomeView()
+            ZStack {
+                if clerk.isLoaded {
+                    RootView()
                         .environmentObject(authViewModel)
                 } else {
-                    TabBarView()
-                        .environmentObject(authViewModel)
+                    ProgressView()
                 }
+            }
+            .environment(clerk)
+            .task {
+                clerk.configure(publishableKey: "pk_test_dGVuZGVyLWFscGFjYS0xMC5jbGVyay5hY2NvdW50cy5kZXYk")
+                try? await clerk.load()
             }
         }
     }

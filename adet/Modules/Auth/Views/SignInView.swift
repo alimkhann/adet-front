@@ -32,14 +32,16 @@ struct SignInView: View {
                 }
                 .padding(.horizontal, 24)
 
-                ErrorMessageView(message: viewModel.authError)
-                    .accessibilityIdentifier("Error")
+                if let error = viewModel.clerkError {
+                    ErrorMessageView(message: error)
+                        .accessibilityIdentifier("Error")
+                }
 
                 LoadingButton(
                     title: "Sign In",
-                    isLoading: viewModel.isLoading
+                    isLoading: false
                 ) {
-                    viewModel.signIn(email: email, password: password)
+                    Task { await viewModel.signInClerk(email: email, password: password) }
                 }
                 .accessibilityIdentifier("Sign In")
                 .padding(.horizontal, 24)
@@ -47,6 +49,12 @@ struct SignInView: View {
                 Spacer()
             }
         }
+        .navigationDestination(isPresented: Binding(
+            get: { viewModel.user != nil },
+            set: { _ in }
+        ), destination: {
+            TabBarView()
+        })
     }
 }
 
