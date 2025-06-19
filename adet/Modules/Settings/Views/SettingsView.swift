@@ -4,7 +4,8 @@ import Clerk
 struct SettingsView: View {
     @EnvironmentObject var authViewModel: AuthViewModel
     @Environment(Clerk.self) private var clerk
-    
+    @State private var showDeleteAlert = false
+
     var body: some View {
         NavigationStack {
             VStack {
@@ -21,7 +22,7 @@ struct SettingsView: View {
 //                    } header: {
 //                        Text("Debug Info")
 //                    }
-                    
+
                     if let user = authViewModel.user {
                         Section {
                             VStack(alignment: .leading, spacing: 4) {
@@ -51,7 +52,7 @@ struct SettingsView: View {
                     }
                 }
                 .listStyle(.insetGrouped)
-                
+
                 LoadingButton(title: "Sign Out",
                               isLoading: false) {
                     Task { try? await clerk.signOut() }
@@ -59,6 +60,20 @@ struct SettingsView: View {
                 .accessibilityIdentifier("Sign In")
                 .padding(.horizontal, 24)
                 .padding(.bottom, 12)
+
+                LoadingButton(title: "Delete Account",
+                              isLoading: false) {
+                    showDeleteAlert = true
+                }
+                .accessibilityIdentifier("Delete Account")
+                .padding(.horizontal, 24)
+                .padding(.bottom, 12)
+                .alert("Are you sure you want to delete your account? This action cannot be undone.", isPresented: $showDeleteAlert) {
+                    Button("Delete", role: .destructive) {
+                        Task { await authViewModel.deleteClerk() }
+                    }
+                    Button("Cancel", role: .cancel) {}
+                }
             }
             .navigationTitle("Settings")
             .onAppear {

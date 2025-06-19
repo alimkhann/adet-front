@@ -52,4 +52,15 @@ class ClerkAuthService: ObservableObject {
             dump(error)
         }
     }
+
+    func delete() async {
+        do {
+            if let user = Clerk.shared.user {
+                try await user.delete()
+                try? await Clerk.shared.signOut()
+            }
+        } catch {
+            dump(error)
+        }
+    }
 }

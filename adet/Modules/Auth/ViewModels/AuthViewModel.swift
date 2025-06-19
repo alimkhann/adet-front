@@ -35,4 +35,9 @@ class AuthViewModel: ObservableObject {
         await authService.submit(email: email, password: password)
         self.user = Clerk.shared.user
     }
+
+    func deleteClerk() async {
+        await authService.delete()
+        self.user = nil
+    }
 }
