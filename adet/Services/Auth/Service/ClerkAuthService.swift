@@ -16,7 +16,7 @@ class ClerkAuthService: ObservableObject {
             print("Starting sign up process...")
 
             // First check if we have any existing sign up
-            if let existingSignUp = self.signUp {
+            if self.signUp != nil {
                 print("Found existing sign up, cleaning up...")
                 self.signUp = nil
             }
