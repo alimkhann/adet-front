@@ -77,6 +77,8 @@ struct HabitsView: View {
             .navigationBarHidden(true)
             .onAppear {
                 Task {
+                    // Add a short delay to ensure the auth token is ready
+                    try? await Task.sleep(nanoseconds: 1_000_000_000)
                     await viewModel.fetchHabits()
                 }
             }

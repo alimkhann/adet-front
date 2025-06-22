@@ -42,6 +42,11 @@ actor APIService {
         let _: OnboardingAnswer = try await networkService.makeAuthenticatedRequest(endpoint: "/api/v1/onboarding/", method: "POST", body: answers)
     }
 
+    /// Fetches the user's onboarding answers.
+    func getOnboardingAnswers() async throws -> OnboardingAnswer {
+        return try await networkService.makeAuthenticatedRequest(endpoint: "/api/v1/onboarding/", method: "GET", body: (nil as String?))
+    }
+
     /// Tests network connectivity to the backend
     func testConnectivity() async throws -> Bool {
         do {
@@ -54,10 +59,15 @@ actor APIService {
     }
 
     func fetchHabits() async throws -> [Habit] {
+        return try await networkService.makeAuthenticatedRequest(endpoint: "/api/v1/habits/", method: "GET", body: (nil as String?))
+    }
+
+    func createHabit(name: String) async throws -> Habit {
+        let requestBody = HabitCreateRequest(name: name)
         return try await networkService.makeAuthenticatedRequest(
-            endpoint: "api/v1/habits",
-            method: "GET",
-            body: (nil as String?)
+            endpoint: "/api/v1/habits/",
+            method: "POST",
+            body: requestBody
         )
     }
 
@@ -74,6 +84,10 @@ struct HealthResponse: Codable {
 
 struct UsernameUpdateRequest: Codable {
     let username: String
+}
+
+struct HabitCreateRequest: Codable {
+    let name: String
 }
 
 struct OnboardingAnswer: Codable {
