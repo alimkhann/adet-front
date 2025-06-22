@@ -4,6 +4,8 @@ struct QuestionPageView: View {
     let step: OnboardingStep
     @Binding var answer: String
     @State private var isCustomEntry = false
+    @State private var isTimePicker = false
+    @State private var selectedTime = Date()
     @Binding var extraDescription: String
     @Environment(\.colorScheme) private var colorScheme
 
@@ -26,6 +28,7 @@ struct QuestionPageView: View {
                         Button {
                             answer = option
                             isCustomEntry = false
+                            isTimePicker = false
                         } label: {
                             Text(option)
                                 .frame(maxWidth: .infinity)
@@ -46,7 +49,15 @@ struct QuestionPageView: View {
                         }
                     }
 
-                    if isCustomEntry {
+                    if isTimePicker && step.title.contains("validation/proof time") {
+                        TimePickerView(selectedTime: $selectedTime, answer: $answer)
+                            .padding(.vertical, 10)
+                            .frame(maxWidth: .infinity)
+                            .background(
+                                RoundedRectangle(cornerRadius: 10)
+                                    .fill(colorScheme == .dark ? Color.zinc900 : Color.zinc100)
+                            )
+                    } else if isCustomEntry {
                         StyledTextField(
                             placeholder: "Type your own…",
                             text: $answer
@@ -57,7 +68,18 @@ struct QuestionPageView: View {
                     } else if options.contains("Other") {
                         Button {
                             answer = ""
-                            isCustomEntry = true
+                            isCustomEntry = false
+                            isTimePicker = false
+
+                            if step.title.contains("validation/proof time") {
+                                isTimePicker = true
+                                selectedTime = Date()
+                                let formatter = DateFormatter()
+                                formatter.timeStyle = .short
+                                answer = formatter.string(from: selectedTime)
+                            } else {
+                                isCustomEntry = true
+                            }
                         } label: {
                             Text("Other")
                                 .frame(maxWidth: .infinity)
@@ -106,5 +128,23 @@ struct QuestionPageView: View {
                 .padding(.horizontal, 24)
             }
         }
+    }
+}
+
+struct TimePickerView: View {
+    @Binding var selectedTime: Date
+    @Binding var answer: String
+
+    var body: some View {
+        DatePicker("", selection: $selectedTime, displayedComponents: .hourAndMinute)
+            .datePickerStyle(.wheel)
+            .labelsHidden()
+            .frame(height: 120)
+            .clipped()
+            .onChange(of: selectedTime) { newTime in
+                let formatter = DateFormatter()
+                formatter.timeStyle = .short
+                answer = formatter.string(from: newTime)
+            }
     }
 }

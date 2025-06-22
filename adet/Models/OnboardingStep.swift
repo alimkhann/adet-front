@@ -32,10 +32,5 @@ let onboardingSteps: [OnboardingStep] = [
         title: "Validation/proof style preference?",
         subtitle: "Photo, video, audio or text",
         options: ["Photo", "Video", "Audio", "Text"]
-    ),
-    .init(
-        title: "Share your progress?",
-        subtitle: "Would you like to share your progress with your friends?",
-        options: ["Yes", "No"]
     )
 ]
