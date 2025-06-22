@@ -2,7 +2,6 @@ import Foundation
 import Clerk
 import OSLog
 
-// MARK: - API Service
 actor APIService {
     static let shared = APIService()
     private let networkService = NetworkService.shared
@@ -53,6 +52,18 @@ actor APIService {
             return false
         }
     }
+
+    func fetchHabits() async throws -> [Habit] {
+        return try await networkService.makeAuthenticatedRequest(
+            endpoint: "api/v1/habits",
+            method: "GET",
+            body: (nil as String?)
+        )
+    }
+
+//    func submitTaskProof(taskId: UUID, proof: Proof) async throws {
+//        // Implementation for POSTing task proof
+//    }
 }
 
 // MARK: - API Response Types
