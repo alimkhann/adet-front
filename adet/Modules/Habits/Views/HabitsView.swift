@@ -35,30 +35,30 @@ struct HabitsView: View {
                 VStack(alignment: .leading, spacing: 10) {
                     Text("Today's Task:")
                         .font(.title2).bold()
+                    
                     Text("AI-Generated Tasks to validate the habit recurring based on users set intervals")
                         .font(.body)
                         .foregroundColor(.secondary)
+                    
+                    // Easier/Harder Buttons (Dummy)
+                    HStack {
+                        Button {} label: {
+                            Text("Easier")
+                                .frame(minHeight: 48)
+                        }
+                        .buttonStyle(PrimaryButtonStyle())
+
+                        Button {} label: {
+                            Text("Harder")
+                                .frame(minHeight: 48)
+                        }
+                        .buttonStyle(PrimaryButtonStyle())
+                    }
                 }
                 .padding()
                 .frame(maxWidth: .infinity)
-                .background(colorScheme == .dark ? Color("Zinc900") : Color("Zinc100"))
+                .background(colorScheme == .dark ? .zinc900 : .zinc100)
                 .cornerRadius(10)
-                .padding(.horizontal)
-
-                // Easier/Harder Buttons (Dummy)
-                HStack {
-                    Button {} label: {
-                        Text("Easier")
-                            .frame(minHeight: 48)
-                    }
-                    .buttonStyle(PrimaryButtonStyle())
-
-                    Button {} label: {
-                        Text("Harder")
-                            .frame(minHeight: 48)
-                    }
-                    .buttonStyle(PrimaryButtonStyle())
-                }
                 .padding(.horizontal)
 
                 // Proof Submission Section (Dummy)
@@ -78,7 +78,7 @@ struct HabitsView: View {
                 }
                 .padding()
                 .frame(maxWidth: .infinity)
-                .background(colorScheme == .dark ? Color("Zinc900") : Color("Zinc100"))
+                .background(colorScheme == .dark ? .zinc900 : .zinc100)
                 .cornerRadius(10)
                 .padding(.horizontal)
 
@@ -87,7 +87,6 @@ struct HabitsView: View {
             .navigationBarHidden(true)
             .onAppear {
                 Task {
-                    // Add a short delay to ensure the auth token is ready
                     try? await Task.sleep(nanoseconds: 1_000_000_000)
                     await viewModel.fetchHabits()
                 }

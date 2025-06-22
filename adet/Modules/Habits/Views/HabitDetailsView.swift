@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct HabitDetailsView: View {
-    @State var habit: Habit // Use @State to make it mutable for editing
+    @State var habit: Habit
     @State private var isEditing = false
     @State private var showingDeleteAlert = false
     @Environment(\.dismiss) private var dismiss
@@ -13,8 +13,18 @@ struct HabitDetailsView: View {
         Form {
             Section(header: Text("Habit Info")) {
                 if isEditing {
-                    TextField("Habit Name", text: $habit.name)
-                    TextField("Description", text: Binding($habit.description, replacingNilWith: ""))
+                    VStack(alignment: .leading, spacing: 12) {
+                        TextField("Habit Name", text: $habit.name)
+                            .textFieldStyle(.roundedBorder)
+
+                        TextEditor(text: Binding($habit.description, replacingNilWith: ""))
+                            .frame(height: 100)
+                            .cornerRadius(8)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .stroke(Color(.systemGray5), lineWidth: 1)
+                            )
+                    }
                 } else {
                     Text(habit.name)
                         .font(.headline)
@@ -27,11 +37,43 @@ struct HabitDetailsView: View {
 
             Section(header: Text("Configuration")) {
                 if isEditing {
-                    // Replace with proper pickers later
-                    TextField("Frequency", text: $habit.frequency)
-                    TextField("Validation Time", text: $habit.validationTime)
-                    TextField("Difficulty", text: $habit.difficulty)
-                    TextField("Proof Style", text: $habit.proofStyle)
+                    VStack(alignment: .leading, spacing: 10) {
+                        HabitWeekdayPicker(frequency: $habit.frequency)
+                            .padding(.bottom, 8)
+
+                        VStack {
+                            HStack {
+                                Text("Validation Time")
+                                
+                                Spacer()
+                            }
+                            
+                            HabitTimePicker(validationTime: $habit.validationTime)
+                        }
+                        .padding(.bottom, 8)
+
+                        VStack {
+                            HStack {
+                                Text("Difficulty")
+                                
+                                Spacer()
+                            }
+                            
+                            HabitDifficultyPicker(difficulty: $habit.difficulty)
+                        }
+                        .padding(.bottom, 8)
+
+                        VStack {
+                            HStack {
+                                Text("Proof Style")
+                                
+                                Spacer()
+                            }
+
+                            HabitProofStylePicker(proofStyle: $habit.proofStyle)
+                        }
+                    }
+                    .padding(.vertical, 8)
                 } else {
                     DetailRow(title: "Frequency", value: habit.frequency)
                     DetailRow(title: "Validation Time", value: habit.validationTime)
@@ -40,8 +82,10 @@ struct HabitDetailsView: View {
                 }
             }
 
-            Section(header: Text("Stats")) {
-                DetailRow(title: "Current Streak", value: "\(habit.streak) days")
+            if !isEditing {
+                Section(header: Text("Stats")) {
+                    DetailRow(title: "Current Streak", value: "\(habit.streak) days")
+                }
             }
         }
         .navigationTitle(isEditing ? "Edit Habit" : "Habit Details")
@@ -91,6 +135,7 @@ struct HabitDetailsView: View {
         } message: {
             Text("Are you sure you want to delete '\(habit.name)'? This action cannot be undone.")
         }
+        .navigationBarBackButtonHidden(isEditing)
     }
 
     private func saveHabit() async {

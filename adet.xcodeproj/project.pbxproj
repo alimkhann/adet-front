@@ -68,6 +68,7 @@
 				Shared/Components/ButtonStyles.swift,
 				Shared/Components/ErrorMessageView.swift,
 				Shared/Components/GradientBackgroundView.swift,
+				Shared/Components/HabitDetailPickers.swift,
 				Shared/Components/LoadingButton.swift,
 				Shared/Components/TextFieldStyles.swift,
 				Shared/Components/TextStyles.swift,
