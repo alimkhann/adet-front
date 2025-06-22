@@ -5,6 +5,7 @@ struct QuestionPageView: View {
     @Binding var answer: String
     @State private var isCustomEntry = false
     @State private var isTimePicker = false
+    @State private var isWeekdayPicker = false
     @State private var selectedTime = Date()
     @Binding var extraDescription: String
     @Environment(\.colorScheme) private var colorScheme
@@ -29,6 +30,7 @@ struct QuestionPageView: View {
                             answer = option
                             isCustomEntry = false
                             isTimePicker = false
+                            isWeekdayPicker = false
                         } label: {
                             Text(option)
                                 .frame(maxWidth: .infinity)
@@ -57,6 +59,14 @@ struct QuestionPageView: View {
                                 RoundedRectangle(cornerRadius: 10)
                                     .fill(colorScheme == .dark ? Color.zinc900 : Color.zinc100)
                             )
+                    } else if isWeekdayPicker && step.title.contains("frequency") {
+                        WeekdayPickerView(answer: $answer)
+                            .padding(.vertical, 10)
+                            .frame(maxWidth: .infinity)
+                            .background(
+                                RoundedRectangle(cornerRadius: 10)
+                                    .fill(colorScheme == .dark ? Color.zinc900 : Color.zinc100)
+                            )
                     } else if isCustomEntry {
                         StyledTextField(
                             placeholder: "Type your own…",
@@ -70,6 +80,7 @@ struct QuestionPageView: View {
                             answer = ""
                             isCustomEntry = false
                             isTimePicker = false
+                            isWeekdayPicker = false
 
                             if step.title.contains("validation/proof time") {
                                 isTimePicker = true
@@ -77,6 +88,8 @@ struct QuestionPageView: View {
                                 let formatter = DateFormatter()
                                 formatter.timeStyle = .short
                                 answer = formatter.string(from: selectedTime)
+                            } else if step.title.contains("frequency") {
+                                isWeekdayPicker = true
                             } else {
                                 isCustomEntry = true
                             }
@@ -146,5 +159,65 @@ struct TimePickerView: View {
                 formatter.timeStyle = .short
                 answer = formatter.string(from: newTime)
             }
+    }
+}
+
+struct WeekdayPickerView: View {
+    @Binding var answer: String
+    @State private var selectedDays: [Bool] = Array(repeating: false, count: 7)
+    @Environment(\.colorScheme) private var colorScheme
+
+    private let weekdays = ["M", "T", "W", "T", "F", "S", "S"]
+
+    var body: some View {
+        HStack {
+            ForEach(0..<7, id: \.self) { index in
+                Button(action: {
+                    selectedDays[index].toggle()
+                    updateAnswer()
+                }) {
+                    Text(weekdays[index])
+                        .font(.system(size: 14, weight: .bold))
+                        .frame(width: 36, height: 36)
+                        .foregroundColor(selectedDays[index] ? (colorScheme == .dark ? .black : .white) : .primary)
+                        .background(
+                            Circle()
+                                .fill(selectedDays[index] ? Color.primary : Color.clear)
+                        )
+                        .overlay(
+                            Circle()
+                                .stroke(Color.primary.opacity(0.3), lineWidth: 1)
+                        )
+                }
+            }
+        }
+        .onAppear(perform: parseAnswer)
+    }
+
+    private func updateAnswer() {
+        let fullWeekdays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+        let selected = selectedDays.indices.filter { selectedDays[$0] }.map { fullWeekdays[$0] }
+
+        if selected.isEmpty {
+            answer = ""
+        } else if selected.count == 7 {
+            answer = "Every day"
+        } else if selected == ["Sat", "Sun"] {
+            answer = "Weekends"
+        } else if selected == ["Mon", "Tue", "Wed", "Thu", "Fri"] {
+            answer = "Weekdays"
+        } else {
+            answer = selected.joined(separator: ", ")
+        }
+    }
+
+    private func parseAnswer() {
+        let fullWeekdays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+        let components = answer.components(separatedBy: ", ")
+        for (index, day) in fullWeekdays.enumerated() {
+            if components.contains(day) {
+                selectedDays[index] = true
+            }
+        }
     }
 }
