@@ -93,4 +93,19 @@ class HabitViewModel: ObservableObject {
             // Don't show this error to the user as it's just a fallback
         }
     }
+
+    func createHabit(_ habit: Habit) async {
+        isLoading = true
+        errorMessage = nil
+        defer { isLoading = false }
+
+        do {
+            let _ = try await apiService.createHabit(habit)
+            await fetchHabits() // Refresh the list
+            resetFallbackFlag() // Allow fallback creation again if needed
+        } catch {
+            errorMessage = "Failed to create habit: \(error.localizedDescription)"
+            print(errorMessage ?? "Unknown error")
+        }
+    }
 }

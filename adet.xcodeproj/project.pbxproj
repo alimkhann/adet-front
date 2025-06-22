@@ -50,6 +50,7 @@
 				Modules/Friends/Views/FriendsView.swift,
 				Modules/Habits/ViewModels/HabitViewModel.swift,
 				Modules/Habits/Views/AddHabitCardView.swift,
+				Modules/Habits/Views/AddHabitView.swift,
 				Modules/Habits/Views/HabitCardView.swift,
 				Modules/Habits/Views/HabitDetailsView.swift,
 				Modules/Habits/Views/HabitsView.swift,

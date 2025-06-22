@@ -62,6 +62,22 @@ actor APIService {
         return try await networkService.makeAuthenticatedRequest(endpoint: "/api/v1/habits/", method: "GET", body: (nil as String?))
     }
 
+    func createHabit(_ habit: Habit) async throws -> Habit {
+        let requestBody = HabitCreateRequest(
+            name: habit.name,
+            description: habit.description,
+            frequency: habit.frequency,
+            validationTime: habit.validationTime,
+            difficulty: habit.difficulty,
+            proofStyle: habit.proofStyle
+        )
+        return try await networkService.makeAuthenticatedRequest(
+            endpoint: "/api/v1/habits/",
+            method: "POST",
+            body: requestBody
+        )
+    }
+
     func createHabit(from onboardingAnswer: OnboardingAnswer) async throws -> Habit {
         let requestBody = HabitCreateRequest(
             name: onboardingAnswer.habit_name,
@@ -115,7 +131,7 @@ struct UsernameUpdateRequest: Codable {
 
 struct HabitCreateRequest: Codable {
     let name: String
-    let description: String?
+    let description: String
     let frequency: String
     let validationTime: String
     let difficulty: String
@@ -135,7 +151,7 @@ struct OnboardingAnswer: Codable {
     let id: Int
     let user_id: Int
     let habit_name: String
-    let habit_description: String?
+    let habit_description: String
     let frequency: String
     let validation_time: String
     let difficulty: String

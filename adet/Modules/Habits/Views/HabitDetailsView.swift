@@ -5,6 +5,7 @@ struct HabitDetailsView: View {
     @State private var isEditing = false
     @State private var showingDeleteAlert = false
     @Environment(\.dismiss) private var dismiss
+    @FocusState private var isDescriptionEditorFocused: Bool
 
     // To be replaced with a ViewModel
     private let apiService = APIService.shared
@@ -17,19 +18,34 @@ struct HabitDetailsView: View {
                         TextField("Habit Name", text: $habit.name)
                             .textFieldStyle(.roundedBorder)
 
-                        TextEditor(text: Binding($habit.description, replacingNilWith: ""))
-                            .frame(height: 100)
-                            .cornerRadius(8)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 8)
-                                    .stroke(Color(.systemGray5), lineWidth: 1)
-                            )
+                        ZStack(alignment: .topLeading) {
+                            TextEditor(text: $habit.description)
+                                .frame(minHeight: 100)
+                                .focused($isDescriptionEditorFocused)
+
+                            if habit.description.isEmpty {
+                                Text("Describe your habit and what your goal is...")
+                                    .foregroundColor(Color(UIColor.placeholderText))
+                                    .padding(.top, 8)
+                                    .padding(.leading, 5)
+                                    .onTapGesture {
+                                        isDescriptionEditorFocused = true
+                                    }
+                            }
+                        }
+                        .padding(EdgeInsets(top: -4, leading: -4, bottom: -4, trailing: -4))
+                        .background(Color(UIColor.systemBackground))
+                        .cornerRadius(8)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(Color(UIColor.systemGray5), lineWidth: 1)
+                        )
                     }
                 } else {
                     Text(habit.name)
                         .font(.headline)
-                    if let description = habit.description, !description.isEmpty {
-                        Text(description)
+                    if !habit.description.isEmpty {
+                        Text(habit.description)
                             .foregroundColor(.secondary)
                     }
                 }
@@ -44,10 +60,10 @@ struct HabitDetailsView: View {
                         VStack {
                             HStack {
                                 Text("Validation Time")
-                                
+
                                 Spacer()
                             }
-                            
+
                             HabitTimePicker(validationTime: $habit.validationTime)
                         }
                         .padding(.bottom, 8)
@@ -55,10 +71,10 @@ struct HabitDetailsView: View {
                         VStack {
                             HStack {
                                 Text("Difficulty")
-                                
+
                                 Spacer()
                             }
-                            
+
                             HabitDifficultyPicker(difficulty: $habit.difficulty)
                         }
                         .padding(.bottom, 8)
@@ -66,7 +82,7 @@ struct HabitDetailsView: View {
                         VStack {
                             HStack {
                                 Text("Proof Style")
-                                
+
                                 Spacer()
                             }
 
@@ -174,18 +190,3 @@ struct DetailRow: View {
     }
 }
 
-// Binding extension to handle optional strings in TextFields
-extension Binding where Value == String {
-    init(_ source: Binding<String?>, replacingNilWith nilValue: String) {
-        self.init(
-            get: { source.wrappedValue ?? nilValue },
-            set: { newValue in
-                if newValue == nilValue {
-                    source.wrappedValue = nil
-                } else {
-                    source.wrappedValue = newValue
-                }
-            }
-        )
-    }
-}

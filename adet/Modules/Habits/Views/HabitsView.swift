@@ -4,6 +4,7 @@ struct HabitsView: View {
     @StateObject private var viewModel = HabitViewModel()
     @Environment(\.colorScheme) private var colorScheme
     @State private var showingHabitDetails = false
+    @State private var showingAddHabitSheet = false
 
     var body: some View {
         NavigationStack {
@@ -24,7 +25,9 @@ struct HabitsView: View {
                                 }
                             )
                         }
-                        AddHabitCardView()
+                        AddHabitCardView(onTap: {
+                            showingAddHabitSheet = true
+                        })
                     }
                     .padding(.horizontal)
                 }
@@ -35,11 +38,11 @@ struct HabitsView: View {
                 VStack(alignment: .leading, spacing: 10) {
                     Text("Today's Task:")
                         .font(.title2).bold()
-                    
+
                     Text("AI-Generated Tasks to validate the habit recurring based on users set intervals")
                         .font(.body)
                         .foregroundColor(.secondary)
-                    
+
                     // Easier/Harder Buttons (Dummy)
                     HStack {
                         Button {} label: {
@@ -95,6 +98,10 @@ struct HabitsView: View {
                 if let selectedHabit = viewModel.selectedHabit {
                     HabitDetailsView(habit: selectedHabit)
                 }
+            }
+            .sheet(isPresented: $showingAddHabitSheet) {
+                AddHabitView()
+                    .environmentObject(viewModel)
             }
         }
     }
