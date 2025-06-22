@@ -2,7 +2,7 @@ import Foundation
 
 struct OnboardingAnswers: Codable {
     var habitName: String = ""
-    var habitDescription: String?
+    var habitDescription: String = ""
     var frequency: String = ""
     var validationTime: String = ""
     var difficulty: String = ""

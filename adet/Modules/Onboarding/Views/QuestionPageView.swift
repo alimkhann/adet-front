@@ -35,10 +35,7 @@ struct QuestionPageView: View {
     }
 
     private var extraDescriptionBinding: Binding<String> {
-        Binding<String>(
-            get: { self.answers.habitDescription ?? "" },
-            set: { self.answers.habitDescription = $0 }
-        )
+        $answers.habitDescription
     }
 
     var body: some View {
@@ -160,7 +157,7 @@ struct QuestionPageView: View {
                         .disableAutocorrection(true)
 
                     if extraDescriptionBinding.wrappedValue.isEmpty {
-                        Text("More details (optional)…")
+                        Text("More details…")
                             .foregroundColor(.primary.opacity(0.3))
                             .padding(.horizontal, 16)
                             .padding(.vertical, 12)
