@@ -29,18 +29,26 @@ struct ProfileView: View {
                         .shadow(radius: 2)
 
                     if let user = authViewModel.user {
-                        Text(user.username ?? "No username")
-                            .font(.title2)
-                            .fontWeight(.bold)
-                            .foregroundStyle(.primary)
+                        VStack(spacing: 4) {
+                            if let username = user.username {
+                                Text(username)
+                                    .font(.title2)
+                                    .fontWeight(.bold)
+                                    .foregroundStyle(.primary)
+                            } else {
+                                Text("User")
+                                    .font(.title2)
+                                    .fontWeight(.bold)
+                                    .foregroundStyle(.primary)
+                            }
+                        }
                     } else {
-                        Text("username")
+                        Text("Loading...")
                             .font(.title2)
                             .fontWeight(.bold)
                             .foregroundStyle(.primary)
                     }
                 }
-                .padding(.top, 8)
 
                 HStack(spacing: 24) {
                     StatCard(title: "Habits", value: "7", gradient: [Color.purple.opacity(0.08), Color.purple.opacity(0.16)])

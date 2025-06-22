@@ -4,6 +4,7 @@ import Clerk
 @main
 struct adetApp: App {
     @State private var clerk = Clerk.shared
+    @StateObject private var authManager = AuthManager()
 
     var body: some Scene {
         WindowGroup {
@@ -15,6 +16,7 @@ struct adetApp: App {
                 }
             }
             .environment(clerk)
+            .environmentObject(authManager)
             .task {
                 clerk.configure(publishableKey: "pk_test_dGVuZGVyLWFscGFjYS0xMC5jbGVyay5hY2NvdW50cy5kZXYk")
                 try? await clerk.load()

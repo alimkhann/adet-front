@@ -5,15 +5,38 @@ import Clerk
 @MainActor
 class AuthViewModel: ObservableObject {
     private let authService = ClerkAuthService()
+    private let apiService = APIService.shared
 
     @Published var user: User?
     @Published var isClerkVerifying = false
     @Published var clerkError: String?
     @Published var isUpdatingUsername = false
+    @Published var isDeletingAccount = false
+    @Published var isSigningOut = false
+    @Published var isTestingNetwork = false
+    @Published var networkStatus: Bool?
 
-    func fetchUser() {
-        self.user = Clerk.shared.user
-        print("Fetched user: \(String(describing: user?.username))")
+    // Debouncing for username updates
+    private var lastUsernameUpdateTime: Date = Date.distantPast
+    private let usernameUpdateDebounceInterval: TimeInterval = 1.0 // 1 second
+
+    func fetchUser() async {
+        do {
+            self.user = try await apiService.getCurrentUser()
+            print("Fetched user: \(String(describing: user?.username))")
+        } catch {
+            print("Failed to fetch user: \(error.localizedDescription)")
+            self.user = nil
+        }
+    }
+
+    func syncUserFromClerk() async {
+        do {
+            self.user = try await apiService.syncUserFromClerk()
+            print("Synced user from Clerk: \(String(describing: user?.username))")
+        } catch {
+            print("Failed to sync user from Clerk: \(error.localizedDescription)")
+        }
     }
 
     func signUpClerk(email: String, password: String, username: String?) async {
@@ -33,12 +56,28 @@ class AuthViewModel: ObservableObject {
         self.isClerkVerifying = authService.isVerifying
         self.clerkError = authService.error
 
-        // Wait briefly for the session to be established
         try? await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
 
-        // Fetch user after verification
-        fetchUser()
-        print("Verification complete, user: \(String(describing: user?.username))")
+        // Try to sync user data from Clerk after successful verification
+        // If it fails, we'll still consider the user authenticated via Clerk
+        await syncUserFromClerk()
+        print("Verification complete, user synced: \(String(describing: user?.username))")
+
+        // If sync failed, create a minimal user object from Clerk data
+        if self.user == nil {
+            if let clerkUser = Clerk.shared.user {
+                self.user = User(
+                    id: 0, // Will be set by backend when sync works
+                    clerkId: clerkUser.id,
+                    email: clerkUser.emailAddresses.first?.emailAddress ?? "",
+                    username: clerkUser.username,
+                    isActive: true,
+                    createdAt: Date(),
+                    updatedAt: nil
+                )
+                print("Created fallback user object from Clerk data")
+            }
+        }
     }
 
     func signInClerk(email: String, password: String) async {
@@ -46,29 +85,117 @@ class AuthViewModel: ObservableObject {
         clerkError = nil
         await authService.submit(email: email, password: password)
 
-        // Wait briefly for the session to be established
         try? await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
 
-        // Fetch user after sign in
-        fetchUser()
+        // Try to sync user data from Clerk after successful sign in
+        // If it fails, we'll still consider the user authenticated via Clerk
+        await syncUserFromClerk()
+        print("Sign in complete, user synced: \(String(describing: user?.username))")
+
+        // If sync failed, create a minimal user object from Clerk data
+        if self.user == nil {
+            if let clerkUser = Clerk.shared.user {
+                self.user = User(
+                    id: 0, // Will be set by backend when sync works
+                    clerkId: clerkUser.id,
+                    email: clerkUser.emailAddresses.first?.emailAddress ?? "",
+                    username: clerkUser.username,
+                    isActive: true,
+                    createdAt: Date(),
+                    updatedAt: nil
+                )
+                print("Created fallback user object from Clerk data")
+            }
+        }
         self.clerkError = authService.error
-        print("Sign in complete, user: \(String(describing: user?.username))")
     }
 
     func deleteClerk() async {
-        await authService.delete()
-        self.user = nil
+        isDeletingAccount = true
+        defer { isDeletingAccount = false }
+
+        do {
+            // First delete from backend
+            try await apiService.deleteAccount()
+            print("Account deleted from backend successfully")
+
+            // Then delete from Clerk
+            await authService.delete()
+            print("Account deleted from Clerk successfully")
+
+            // Clear local user data
+            self.user = nil
+
+        } catch {
+            print("Failed to delete account: \(error.localizedDescription)")
+            // Even if backend deletion fails, still try to delete from Clerk
+            await authService.delete()
+            self.user = nil
+        }
     }
 
     func updateUsername(_ username: String) async {
         guard !username.isEmpty else { return }
-        isUpdatingUsername = true
-        do {
-            try await authService.updateUsername(username)
-            fetchUser()
-        } catch {
-            self.clerkError = error.localizedDescription
+
+        // Debouncing: prevent rapid updates
+        let now = Date()
+        if now.timeIntervalSince(lastUsernameUpdateTime) < usernameUpdateDebounceInterval {
+            print("Username update debounced - too soon since last update")
+            return
         }
-        isUpdatingUsername = false
+        lastUsernameUpdateTime = now
+
+        isUpdatingUsername = true
+        defer { isUpdatingUsername = false }
+
+        do {
+            // Update username in backend
+            try await apiService.updateUsername(username)
+            print("Username updated in backend successfully")
+
+            // Update username in Clerk
+            try await authService.updateUsername(username)
+            print("Username updated in Clerk successfully")
+
+            // Refresh user data
+            await fetchUser()
+
+        } catch {
+            print("Failed to update username: \(error.localizedDescription)")
+            self.clerkError = "Failed to update username: \(error.localizedDescription)"
+        }
+    }
+
+    func signOut() async {
+        isSigningOut = true
+        defer { isSigningOut = false }
+
+        do {
+            // Sign out from Clerk
+            try await Clerk.shared.signOut()
+            print("Signed out from Clerk successfully")
+
+            // Clear local user data
+            self.user = nil
+
+        } catch {
+            print("Failed to sign out: \(error.localizedDescription)")
+            // Even if sign out fails, clear local data
+            self.user = nil
+        }
+    }
+
+    func testNetworkConnectivity() async {
+        isTestingNetwork = true
+        defer { isTestingNetwork = false }
+
+        do {
+            let isConnected = try await apiService.testConnectivity()
+            self.networkStatus = isConnected
+            print("Network connectivity test result: \(isConnected)")
+        } catch {
+            self.networkStatus = false
+            print("Network connectivity test failed: \(error.localizedDescription)")
+        }
     }
 }

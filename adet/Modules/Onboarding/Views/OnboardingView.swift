@@ -78,6 +78,7 @@ struct OnboardingView: View {
                 SignUpView()
             }
         }
+        .tint(.primary)
     }
 }
 

@@ -54,6 +54,7 @@ struct SignUpView: View {
                         )
                         .accessibilityIdentifier("VerificationCode")
                         .padding(.horizontal, 24)
+                        .padding(.bottom, 12)
 
                         LoadingButton(
                             title: "Verify",
@@ -83,15 +84,8 @@ struct SignUpView: View {
                 }
             }
             .onAppear {
-                // Clear any existing errors when view appears
                 viewModel.clerkError = nil
             }
-            .navigationDestination(isPresented: Binding(
-                get: { viewModel.user != nil },
-                set: { _ in }
-            ), destination: {
-                TabBarView()
-            })
         }
     }
 }

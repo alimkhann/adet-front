@@ -1,0 +1,22 @@
+import Foundation
+
+// Represents user data decoded from the backend API
+struct User: Codable, Identifiable {
+    let id: Int
+    let clerkId: String
+    let email: String
+    let username: String?
+    let isActive: Bool
+    let createdAt: Date
+    let updatedAt: Date?
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case clerkId = "clerk_id"
+        case email
+        case username
+        case isActive = "is_active"
+        case createdAt = "created_at"
+        case updatedAt = "updated_at"
+    }
+}

@@ -34,20 +34,49 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		47CF71712DFC1BC600CAC212 /* Exceptions for "adet" folder in "adet" target */ = {
+		47992BD72E071E8300D0756A /* Exceptions for "adet" folder in "adet" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
-				Info.plist,
+				adetApp.swift,
+				Models/OnboardingStep.swift,
+				Models/User.swift,
+				Modules/Auth/ViewModels/AuthViewModel.swift,
+				Modules/Auth/Views/SignInView.swift,
+				Modules/Auth/Views/SignUpView.swift,
+				Modules/Auth/Views/WelcomeView.swift,
+				Modules/Chats/Views/ChatsView.swift,
+				Modules/Friends/Views/FriendsView.swift,
+				Modules/Habits/Views/HabitsView.swift,
+				Modules/Home/Views/HomeView.swift,
+				Modules/Onboarding/Views/OnboardingView.swift,
+				Modules/Onboarding/Views/QuestionPageView.swift,
+				Modules/Profile/Views/ProfileView.swift,
+				Modules/Settings/Views/SettingsView.swift,
+				Resources/Assets.xcassets,
+				Services/Auth/AuthManager.swift,
+				Services/Auth/ClerkAuthService.swift,
+				Services/Network/APIError.swift,
+				Services/Network/APIService.swift,
+				Services/Network/NetworkError.swift,
+				Services/Network/NetworkService.swift,
+				Shared/Components/ButtonStyles.swift,
+				Shared/Components/ErrorMessageView.swift,
+				Shared/Components/GradientBackgroundView.swift,
+				Shared/Components/LoadingButton.swift,
+				Shared/Components/TextFieldStyles.swift,
+				Shared/Components/TextStyles.swift,
+				Shared/RootView.swift,
+				Shared/TabBarView.swift,
 			);
 			target = 47C504032DF69FE700D30B0B /* adet */;
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		47C504062DF69FE700D30B0B /* adet */ = {
+		47992BAC2E071E6600D0756A /* adet */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
-				47CF71712DFC1BC600CAC212 /* Exceptions for "adet" folder in "adet" target */,
+				47992BD72E071E8300D0756A /* Exceptions for "adet" folder in "adet" target */,
 			);
 			path = adet;
 			sourceTree = "<group>";
@@ -93,7 +122,7 @@
 		47C503FB2DF69FE700D30B0B = {
 			isa = PBXGroup;
 			children = (
-				47C504062DF69FE700D30B0B /* adet */,
+				47992BAC2E071E6600D0756A /* adet */,
 				47C504172DF69FE900D30B0B /* adetTests */,
 				47C504212DF69FE900D30B0B /* adetUITests */,
 				47C504052DF69FE700D30B0B /* Products */,
@@ -124,9 +153,6 @@
 			buildRules = (
 			);
 			dependencies = (
-			);
-			fileSystemSynchronizedGroups = (
-				47C504062DF69FE700D30B0B /* adet */,
 			);
 			name = adet;
 			packageProductDependencies = (
@@ -418,7 +444,7 @@
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_ASSET_PATHS = "\"adet/Preview Content\"";
+				DEVELOPMENT_ASSET_PATHS = "\"adet/Resources/Preview Content\"";
 				DEVELOPMENT_TEAM = M5YPTF3F3J;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -453,7 +479,7 @@
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_ASSET_PATHS = "\"adet/Preview Content\"";
+				DEVELOPMENT_ASSET_PATHS = "\"adet/Resources/Preview Content\"";
 				DEVELOPMENT_TEAM = M5YPTF3F3J;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;

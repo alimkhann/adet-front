@@ -7,108 +7,196 @@ struct SettingsView: View {
     @State private var isEditingUsername = false
     @State private var newUsername = ""
     @State private var showDeleteAlert = false
+    @State private var showSignOutAlert = false
 
     var body: some View {
         NavigationStack {
-            VStack {
-                List {
-                    // Debug section to show authentication state
-//                    Section {
-//                        Text("Auth Status: \(clerk.user != nil ? "Signed In" : "Not Signed In")")
-//                        if let clerkUser = clerk.user {
-//                            Text("Clerk User ID: \(clerkUser.id)")
-//                        }
-//                        Button("Refresh User") {
-//                            authViewModel.fetchUser()
-//                        }
-//                    } header: {
-//                        Text("Debug Info")
-//                    }
+            List {
+                if let user = authViewModel.user {
+                    Section {
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text(user.email)
+                                .font(.headline)
+                                .foregroundStyle(.primary)
 
-                    if let user = authViewModel.user {
-                        Section {
-                            VStack(alignment: .leading, spacing: 4) {
-                                if isEditingUsername {
+                            if isEditingUsername {
+                                VStack(spacing: 12) {
                                     HStack {
-                                        TextField("Username", text: $newUsername)
-                                            .textFieldStyle(.roundedBorder)
-                                        Button("Save") {
+                                        StyledTextField(
+                                            placeholder: "Username",
+                                            text: $newUsername
+                                        )
+                                        .disabled(authViewModel.isUpdatingUsername)
+
+                                        if authViewModel.isUpdatingUsername {
+                                            ProgressView()
+                                                .progressViewStyle(CircularProgressViewStyle(tint: .primary))
+                                                .scaleEffect(0.8)
+                                        }
+                                    }
+
+                                    HStack(spacing: 12) {
+                                        Button {
                                             Task {
                                                 await authViewModel.updateUsername(newUsername)
-                                                isEditingUsername = false
+                                                if authViewModel.clerkError == nil {
+                                                    isEditingUsername = false
+                                                }
                                             }
+                                        } label: {
+                                            Text("Save")
+                                                .frame(minHeight: 36)
                                         }
-                                        .disabled(newUsername.isEmpty)
-                                    }
-                                } else {
-                                    HStack {
-                                        Text(user.username ?? "No username")
-                                            .font(.headline)
-                                        Spacer()
-                                        Button("Edit") {
+                                        .buttonStyle(PrimaryButtonStyle())
+                                        .disabled(newUsername.isEmpty || authViewModel.isUpdatingUsername)
+                                        .allowsHitTesting(!authViewModel.isUpdatingUsername)
+
+                                        Button {
                                             newUsername = user.username ?? ""
-                                            isEditingUsername = true
+                                            isEditingUsername = false
+                                            authViewModel.clerkError = nil
+                                        } label: {
+                                            Text("Cancel")
+                                                .frame(minHeight: 36)
                                         }
+                                        .buttonStyle(SecondaryButtonStyle())
+                                        .disabled(authViewModel.isUpdatingUsername)
                                     }
                                 }
-
-                                if let email = user.primaryEmailAddress?.emailAddress {
-                                    Text(email)
+                            } else {
+                                HStack {
+                                    Text(user.username ?? "No username set")
                                         .font(.subheadline)
                                         .foregroundStyle(.secondary)
-                                } else {
-                                    Text("No email")
-                                        .font(.subheadline)
-                                        .foregroundStyle(.secondary)
+                                    Spacer()
+                                    Button {
+                                        newUsername = user.username ?? ""
+                                        isEditingUsername = true
+                                        authViewModel.clerkError = nil
+                                    } label: {
+                                        Image(systemName: "square.and.pencil")
+                                            .resizable()
+                                            .frame(width: 16, height: 16)
+                                            .foregroundColor(.primary)
+                                    }
                                 }
                             }
-                            .padding(.vertical, 8)
-                        } header: {
-                            Text("Account")
+
+                            if let error = authViewModel.clerkError {
+                                Text(error)
+                                    .font(.caption)
+                                    .foregroundColor(.red)
+                                    .padding(.top, 4)
+                            }
                         }
-                    } else {
-                        Section {
-                            Text("User data not available")
-                                .foregroundStyle(.secondary)
-                        } header: {
-                            Text("Account")
-                        }
+                        .padding(.vertical, 8)
+                    } header: {
+                        Text("Account")
+                    }
+                } else {
+                    Section {
+                        Text("User data not available")
+                            .foregroundStyle(.secondary)
+                    } header: {
+                        Text("Account")
                     }
                 }
-                .listStyle(.insetGrouped)
 
-                LoadingButton(title: "Sign Out",
-                              isLoading: false) {
-                    Task { try? await clerk.signOut() }
-                }
-                .accessibilityIdentifier("SignOut")
-                .padding(.horizontal, 24)
-                .padding(.bottom, 12)
+                Section {
+                    Button {
+                        showSignOutAlert = true
+                    } label: {
+                        HStack {
+                            Image(systemName: "rectangle.portrait.and.arrow.right")
+                                .foregroundColor(.orange)
+                            Text("Sign Out")
+                                .foregroundColor(.orange)
+                            Spacer()
+                        }
+                    }
+                    .disabled(authViewModel.isSigningOut)
+                    .accessibilityIdentifier("SignOut")
 
-                Button(role: .destructive) {
-                    showDeleteAlert = true
-                } label: {
-                    Text("Delete Account")
+                    Button {
+                        showDeleteAlert = true
+                    } label: {
+                        HStack {
+                            if authViewModel.isDeletingAccount {
+                                ProgressView()
+                                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                    .scaleEffect(0.8)
+                            } else {
+                                Image(systemName: "trash")
+                                    .foregroundColor(.red)
+                            }
+                            Text("Delete Account")
+                                .foregroundColor(.red)
+                            Spacer()
+                        }
                         .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(Color.red.opacity(0.1))
-                        .foregroundColor(.red)
-                        .cornerRadius(10)
-                }
-                .padding(.horizontal, 24)
-                .padding(.bottom, 12)
-                .alert("Delete Account", isPresented: $showDeleteAlert) {
-                    Button("Delete", role: .destructive) {
-                        Task { await authViewModel.deleteClerk() }
                     }
-                    Button("Cancel", role: .cancel) {}
-                } message: {
-                    Text("Are you sure you want to delete your account? This action cannot be undone.")
+                    .disabled(authViewModel.isDeletingAccount)
+                    .accessibilityIdentifier("DeleteAccount")
+                } header: {
+                    Text("Actions")
+                }
+
+                Section {
+                    Button {
+                        Task {
+                            await authViewModel.testNetworkConnectivity()
+                        }
+                    } label: {
+                        HStack {
+                            Image(systemName: "network")
+                                .foregroundColor(.primary)
+                            Text("Test Network Connection")
+                                .foregroundColor(.primary)
+                            Spacer()
+                            if authViewModel.isTestingNetwork {
+                                ProgressView()
+                                    .progressViewStyle(CircularProgressViewStyle(tint: .blue))
+                                    .scaleEffect(0.8)
+                            }
+                        }
+                    }
+                    .disabled(authViewModel.isTestingNetwork)
+
+                    if let networkStatus = authViewModel.networkStatus {
+                        HStack {
+                            Image(systemName: networkStatus ? "checkmark.circle.fill" : "xmark.circle.fill")
+                                .foregroundColor(networkStatus ? .green : .red)
+                            Text(networkStatus ? "Connection OK" : "Connection Failed")
+                                .foregroundColor(networkStatus ? .green : .red)
+                            Spacer()
+                        }
+                    }
+                } header: {
+                    Text("Network Diagnostics")
                 }
             }
+            .listStyle(.insetGrouped)
             .navigationTitle("Settings")
             .onAppear {
-                authViewModel.fetchUser()
+                Task {
+                    await authViewModel.fetchUser()
+                }
+            }
+            .alert("Sign Out", isPresented: $showSignOutAlert) {
+                Button("Sign Out", role: .destructive) {
+                    Task { await authViewModel.signOut() }
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("Are you sure you want to sign out?")
+            }
+            .alert("Delete Account", isPresented: $showDeleteAlert) {
+                Button("Delete", role: .destructive) {
+                    Task { await authViewModel.deleteClerk() }
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("Are you sure you want to delete your account? This action cannot be undone.")
             }
         }
     }
