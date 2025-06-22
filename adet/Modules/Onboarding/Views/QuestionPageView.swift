@@ -2,13 +2,44 @@ import SwiftUI
 
 struct QuestionPageView: View {
     let step: OnboardingStep
-    @Binding var answer: String
+    @Binding var answers: OnboardingAnswers
     @State private var isCustomEntry = false
     @State private var isTimePicker = false
     @State private var isWeekdayPicker = false
     @State private var selectedTime = Date()
-    @Binding var extraDescription: String
     @Environment(\.colorScheme) private var colorScheme
+
+    private var answerBinding: Binding<String> {
+        Binding<String>(
+            get: {
+                switch step.id {
+                case onboardingSteps[0].id: return self.answers.habitName
+                case onboardingSteps[1].id: return self.answers.frequency
+                case onboardingSteps[2].id: return self.answers.validationTime
+                case onboardingSteps[3].id: return self.answers.difficulty
+                case onboardingSteps[4].id: return self.answers.proofStyle
+                default: return ""
+                }
+            },
+            set: { newValue in
+                switch step.id {
+                case onboardingSteps[0].id: self.answers.habitName = newValue
+                case onboardingSteps[1].id: self.answers.frequency = newValue
+                case onboardingSteps[2].id: self.answers.validationTime = newValue
+                case onboardingSteps[3].id: self.answers.difficulty = newValue
+                case onboardingSteps[4].id: self.answers.proofStyle = newValue
+                default: break
+                }
+            }
+        )
+    }
+
+    private var extraDescriptionBinding: Binding<String> {
+        Binding<String>(
+            get: { self.answers.habitDescription ?? "" },
+            set: { self.answers.habitDescription = $0 }
+        )
+    }
 
     var body: some View {
         VStack(spacing: 24) {
@@ -27,7 +58,7 @@ struct QuestionPageView: View {
                 VStack(spacing: 16) {
                     ForEach(options.filter { $0 != "Other" }, id: \.self) { option in
                         Button {
-                            answer = option
+                            answerBinding.wrappedValue = option
                             isCustomEntry = false
                             isTimePicker = false
                             isWeekdayPicker = false
@@ -38,13 +69,13 @@ struct QuestionPageView: View {
                                 .background(
                                     RoundedRectangle(cornerRadius: 10)
                                         .fill(
-                                            answer == option
+                                            answerBinding.wrappedValue == option
                                             ? Color.primary
                                             : (colorScheme == .dark ? Color.zinc900 : Color.zinc100)
                                         )
                                 )
                                 .foregroundColor(
-                                    answer == option
+                                    answerBinding.wrappedValue == option
                                     ? (colorScheme == .dark ? .black : .white)
                                     : (colorScheme == .dark ? .white : .black)
                                 )
@@ -52,7 +83,7 @@ struct QuestionPageView: View {
                     }
 
                     if isTimePicker && step.title.contains("validation/proof time") {
-                        TimePickerView(selectedTime: $selectedTime, answer: $answer)
+                        TimePickerView(selectedTime: $selectedTime, answer: answerBinding)
                             .padding(.vertical, 10)
                             .frame(maxWidth: .infinity)
                             .background(
@@ -60,7 +91,7 @@ struct QuestionPageView: View {
                                     .fill(colorScheme == .dark ? Color.zinc900 : Color.zinc100)
                             )
                     } else if isWeekdayPicker && step.title.contains("frequency") {
-                        WeekdayPickerView(answer: $answer)
+                        WeekdayPickerView(answer: answerBinding)
                             .padding(.vertical, 10)
                             .frame(maxWidth: .infinity)
                             .background(
@@ -70,14 +101,14 @@ struct QuestionPageView: View {
                     } else if isCustomEntry {
                         StyledTextField(
                             placeholder: "Type your own…",
-                            text: $answer
+                            text: answerBinding
                         )
                         .background(colorScheme == .dark ? Color.zinc900 : Color.zinc100)
                         .foregroundColor(colorScheme == .dark ? .white : .black)
                         .cornerRadius(10)
                     } else if options.contains("Other") {
                         Button {
-                            answer = ""
+                            answerBinding.wrappedValue = ""
                             isCustomEntry = false
                             isTimePicker = false
                             isWeekdayPicker = false
@@ -87,7 +118,7 @@ struct QuestionPageView: View {
                                 selectedTime = Date()
                                 let formatter = DateFormatter()
                                 formatter.timeStyle = .short
-                                answer = formatter.string(from: selectedTime)
+                                answerBinding.wrappedValue = formatter.string(from: selectedTime)
                             } else if step.title.contains("frequency") {
                                 isWeekdayPicker = true
                             } else {
@@ -109,7 +140,7 @@ struct QuestionPageView: View {
             } else {
                 StyledTextField(
                     placeholder: "Enter your answer…",
-                    text: $answer
+                    text: answerBinding
                 )
                 .background(colorScheme == .dark ? Color.zinc900 : Color.zinc100)
                 .foregroundColor(colorScheme == .dark ? .white : .black)
@@ -119,7 +150,7 @@ struct QuestionPageView: View {
 
             if step.id == onboardingSteps.first!.id {
                 ZStack(alignment: .topLeading) {
-                    TextEditor(text: $extraDescription)
+                    TextEditor(text: extraDescriptionBinding)
                         .scrollContentBackground(.hidden)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 14)
@@ -128,7 +159,7 @@ struct QuestionPageView: View {
                         .foregroundColor(colorScheme == .dark ? .white : .black)
                         .disableAutocorrection(true)
 
-                    if extraDescription.isEmpty {
+                    if extraDescriptionBinding.wrappedValue.isEmpty {
                         Text("More details (optional)…")
                             .foregroundColor(.primary.opacity(0.3))
                             .padding(.horizontal, 16)

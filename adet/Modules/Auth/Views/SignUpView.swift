@@ -3,6 +3,8 @@ import SwiftUI
 struct SignUpView: View {
     @EnvironmentObject var viewModel: AuthViewModel
 
+    let onboardingAnswers: OnboardingAnswers
+
     @State private var email    = ""
     @State private var username = ""
     @State private var password = ""
@@ -69,7 +71,12 @@ struct SignUpView: View {
                             title: "Sign Up",
                             isLoading: false
                         ) {
-                            Task { await viewModel.signUpClerk(email: email, password: password, username: username) }
+                            Task { await viewModel.signUpClerk(
+                                email: email,
+                                password: password,
+                                username: username,
+                                answers: onboardingAnswers
+                            ) }
                         }
                         .accessibilityIdentifier("Sign Up")
                         .padding(.horizontal, 24)

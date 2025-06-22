@@ -38,6 +38,7 @@
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				adetApp.swift,
+				Models/OnboardingAnswers.swift,
 				Models/OnboardingStep.swift,
 				Models/User.swift,
 				Modules/Auth/ViewModels/AuthViewModel.swift,

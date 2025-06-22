@@ -16,6 +16,8 @@ class AuthViewModel: ObservableObject {
     @Published var isTestingNetwork = false
     @Published var networkStatus: Bool?
 
+    private var pendingOnboardingAnswers: OnboardingAnswers?
+
     // Debouncing for username updates
     private var lastUsernameUpdateTime: Date = Date.distantPast
     private let usernameUpdateDebounceInterval: TimeInterval = 1.0 // 1 second
@@ -39,8 +41,9 @@ class AuthViewModel: ObservableObject {
         }
     }
 
-    func signUpClerk(email: String, password: String, username: String?) async {
+    func signUpClerk(email: String, password: String, username: String?, answers: OnboardingAnswers) async {
         print("Starting sign up in AuthViewModel...")
+        self.pendingOnboardingAnswers = answers
         clerkError = nil
         isClerkVerifying = false
         await authService.signUp(email: email, password: password, username: username)
@@ -59,12 +62,14 @@ class AuthViewModel: ObservableObject {
         try? await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
 
         // Try to sync user data from Clerk after successful verification
-        // If it fails, we'll still consider the user authenticated via Clerk
         await syncUserFromClerk()
-        print("Verification complete, user synced: \(String(describing: user?.username))")
 
-        // If sync failed, create a minimal user object from Clerk data
-        if self.user == nil {
+        // If user was created or synced, submit onboarding answers
+        if self.user != nil, let answers = pendingOnboardingAnswers {
+            await submitOnboardingAnswers(answers)
+            pendingOnboardingAnswers = nil // Clear after submitting
+        } else if self.user == nil {
+            // Fallback if sync fails
             if let clerkUser = Clerk.shared.user {
                 self.user = User(
                     id: 0, // Will be set by backend when sync works
@@ -76,6 +81,11 @@ class AuthViewModel: ObservableObject {
                     updatedAt: nil
                 )
                 print("Created fallback user object from Clerk data")
+                // Still try to submit answers
+                if let answers = pendingOnboardingAnswers {
+                    await submitOnboardingAnswers(answers)
+                    pendingOnboardingAnswers = nil // Clear after submitting
+                }
             }
         }
     }
@@ -108,6 +118,16 @@ class AuthViewModel: ObservableObject {
             }
         }
         self.clerkError = authService.error
+    }
+
+    func submitOnboardingAnswers(_ answers: OnboardingAnswers) async {
+        do {
+            try await apiService.submitOnboarding(answers: answers)
+            print("Successfully submitted onboarding answers.")
+        } catch {
+            print("Failed to submit onboarding answers: \(error.localizedDescription)")
+            self.clerkError = "Account created, but failed to save onboarding answers."
+        }
     }
 
     func deleteClerk() async {

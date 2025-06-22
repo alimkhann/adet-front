@@ -38,6 +38,11 @@ actor APIService {
         try await networkService.makeAuthenticatedRequest(endpoint: "/api/v1/users/me", method: "DELETE")
     }
 
+    /// Submits the user's onboarding answers.
+    func submitOnboarding(answers: OnboardingAnswers) async throws {
+        let _: OnboardingAnswer = try await networkService.makeAuthenticatedRequest(endpoint: "/api/v1/onboarding/", method: "POST", body: answers)
+    }
+
     /// Tests network connectivity to the backend
     func testConnectivity() async throws -> Bool {
         do {
@@ -58,4 +63,15 @@ struct HealthResponse: Codable {
 
 struct UsernameUpdateRequest: Codable {
     let username: String
+}
+
+struct OnboardingAnswer: Codable {
+    let id: Int
+    let user_id: Int
+    let habit_name: String
+    let habit_description: String?
+    let frequency: String
+    let validation_time: String
+    let difficulty: String
+    let proof_style: String
 }

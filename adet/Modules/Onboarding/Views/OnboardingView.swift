@@ -2,8 +2,7 @@ import SwiftUI
 
 struct OnboardingView: View {
     @State private var currentStep = 0
-    @State private var answers: [String] = Array(repeating: "", count: onboardingSteps.count)
-    @State private var extras = Array(repeating: "", count: onboardingSteps.count)
+    @State private var answers = OnboardingAnswers()
     @State private var isFinished = false
 
     var body: some View {
@@ -27,13 +26,12 @@ struct OnboardingView: View {
                 .padding(.top, 20)
 
                 TabView(selection: $currentStep) {
-                    ForEach(onboardingSteps.indices, id: \.self) { currentStep in
+                    ForEach(onboardingSteps.indices, id: \.self) { index in
                         QuestionPageView(
-                            step: onboardingSteps[currentStep],
-                            answer: $answers[currentStep],
-                            extraDescription: $extras[currentStep]
+                            step: onboardingSteps[index],
+                            answers: $answers
                         )
-                        .tag(currentStep)
+                        .tag(index)
                         .padding()
                     }
                 }
@@ -57,10 +55,7 @@ struct OnboardingView: View {
                         if currentStep < onboardingSteps.count - 1 {
                             currentStep += 1
                         } else {
-                            let allQuestionsAnswered = answers.allSatisfy { !$0.isEmpty }
-                            if allQuestionsAnswered {
-                                isFinished = true
-                            }
+                            isFinished = true
                         }
                     } label: {
                         Text(currentStep < onboardingSteps.count - 1 ? "Next" : "Create Account")
@@ -75,7 +70,7 @@ struct OnboardingView: View {
                 GradientBackgroundView()
             )
             .navigationDestination(isPresented: $isFinished) {
-                SignUpView()
+                SignUpView(onboardingAnswers: answers)
             }
         }
         .tint(.primary)
