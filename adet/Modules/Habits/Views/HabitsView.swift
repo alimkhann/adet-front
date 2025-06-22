@@ -3,16 +3,26 @@ import SwiftUI
 struct HabitsView: View {
     @StateObject private var viewModel = HabitViewModel()
     @Environment(\.colorScheme) private var colorScheme
+    @State private var showingHabitDetails = false
 
     var body: some View {
-        NavigationView {
-
+        NavigationStack {
             VStack(alignment: .leading, spacing: 20) {
                 // Carousel for Habits
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 15) {
                         ForEach(viewModel.habits) { habit in
-                            HabitCardView(habit: habit)
+                            HabitCardView(
+                                habit: habit,
+                                isSelected: viewModel.selectedHabit?.id == habit.id,
+                                onTap: {
+                                    viewModel.selectHabit(habit)
+                                },
+                                onLongPress: {
+                                    print("Long press detected for habit: \(habit.name)")
+                                    showingHabitDetails = true
+                                }
+                            )
                         }
                         AddHabitCardView()
                     }
@@ -41,13 +51,13 @@ struct HabitsView: View {
                         Text("Easier")
                             .frame(minHeight: 48)
                     }
-                        .buttonStyle(SecondaryButtonStyle())
+                    .buttonStyle(PrimaryButtonStyle())
 
                     Button {} label: {
                         Text("Harder")
                             .frame(minHeight: 48)
                     }
-                        .buttonStyle(SecondaryButtonStyle())
+                    .buttonStyle(PrimaryButtonStyle())
                 }
                 .padding(.horizontal)
 
@@ -63,8 +73,8 @@ struct HabitsView: View {
                         Text("Upload Proof")
                             .frame(minHeight: 48)
                     }
-                        .buttonStyle(PrimaryButtonStyle())
-                        .padding(.top)
+                    .buttonStyle(PrimaryButtonStyle())
+                    .padding(.top)
                 }
                 .padding()
                 .frame(maxWidth: .infinity)
@@ -80,6 +90,11 @@ struct HabitsView: View {
                     // Add a short delay to ensure the auth token is ready
                     try? await Task.sleep(nanoseconds: 1_000_000_000)
                     await viewModel.fetchHabits()
+                }
+            }
+            .navigationDestination(isPresented: $showingHabitDetails) {
+                if let selectedHabit = viewModel.selectedHabit {
+                    HabitDetailsView(habit: selectedHabit)
                 }
             }
         }

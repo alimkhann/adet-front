@@ -185,7 +185,7 @@ struct TimePickerView: View {
             .labelsHidden()
             .frame(height: 120)
             .clipped()
-            .onChange(of: selectedTime) { newTime in
+            .onChange(of: selectedTime) { newTime, _ in
                 let formatter = DateFormatter()
                 formatter.timeStyle = .short
                 answer = formatter.string(from: newTime)

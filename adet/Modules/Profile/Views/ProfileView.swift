@@ -51,9 +51,9 @@ struct ProfileView: View {
                 }
 
                 HStack(spacing: 24) {
-                    StatCard(title: "Habits", value: "7", gradient: [Color.purple.opacity(0.08), Color.purple.opacity(0.16)])
-                    StatCard(title: "Max Streak", value: "21", gradient: [Color.orange.opacity(0.08), Color.orange.opacity(0.16)])
-                    StatCard(title: "Friends", value: "5", gradient: [Color.blue.opacity(0.08), Color.blue.opacity(0.16)])
+                    ProfileStatCard(title: "Habits", value: "7", gradient: [Color.purple.opacity(0.08), Color.purple.opacity(0.16)])
+                    ProfileStatCard(title: "Max Streak", value: "21", gradient: [Color.orange.opacity(0.08), Color.orange.opacity(0.16)])
+                    ProfileStatCard(title: "Friends", value: "5", gradient: [Color.blue.opacity(0.08), Color.blue.opacity(0.16)])
                 }
                 .padding(.horizontal)
 
@@ -65,7 +65,7 @@ struct ProfileView: View {
     }
 }
 
-struct StatCard: View {
+struct ProfileStatCard: View {
     let title: String
     let value: String
     let gradient: [Color]
