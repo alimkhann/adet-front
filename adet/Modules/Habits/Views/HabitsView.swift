@@ -97,6 +97,7 @@ struct HabitsView: View {
             .navigationDestination(isPresented: $showingHabitDetails) {
                 if let selectedHabit = viewModel.selectedHabit {
                     HabitDetailsView(habit: selectedHabit)
+                        .environmentObject(viewModel)
                 }
             }
             .sheet(isPresented: $showingAddHabitSheet) {

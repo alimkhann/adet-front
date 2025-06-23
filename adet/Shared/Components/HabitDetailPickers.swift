@@ -29,8 +29,8 @@ struct HabitWeekdayPicker: View {
                 }
             }
             .pickerStyle(.menu)
-            .onChange(of: frequencyType) {
-                updateDaysForFrequencyType(frequencyType)
+            .onChange(of: frequencyType) { _, newValue in
+                updateDaysForFrequencyType(newValue)
             }
 
             // Weekday Picker
@@ -173,7 +173,7 @@ struct HabitTimePicker: View {
             .labelsHidden()
             .frame(height: 120)
             .clipped()
-            .onChange(of: selectedTime) {
+            .onChange(of: selectedTime) { _, _ in
                 updateValidationTime()
             }
             .onAppear(perform: parseCurrentTime)

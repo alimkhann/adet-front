@@ -108,4 +108,31 @@ class HabitViewModel: ObservableObject {
             print(errorMessage ?? "Unknown error")
         }
     }
+
+    func updateHabit(_ habit: Habit) async -> Habit? {
+        isLoading = true
+        errorMessage = nil
+        defer { isLoading = false }
+
+        do {
+            let updatedHabit = try await apiService.updateHabit(id: habit.id, data: habit)
+            print("Successfully updated habit: \(updatedHabit.name)")
+
+            // Update the habit in the local array
+            if let index = habits.firstIndex(where: { $0.id == habit.id }) {
+                habits[index] = updatedHabit
+            }
+
+            // Update selected habit if it's the one being updated
+            if selectedHabit?.id == habit.id {
+                selectedHabit = updatedHabit
+            }
+
+            return updatedHabit
+        } catch {
+            errorMessage = "Failed to update habit: \(error.localizedDescription)"
+            print(errorMessage ?? "Unknown error")
+            return nil
+        }
+    }
 }

@@ -6,9 +6,7 @@ struct HabitDetailsView: View {
     @State private var showingDeleteAlert = false
     @Environment(\.dismiss) private var dismiss
     @FocusState private var isDescriptionEditorFocused: Bool
-
-    // To be replaced with a ViewModel
-    private let apiService = APIService.shared
+    @EnvironmentObject var habitViewModel: HabitViewModel
 
     var body: some View {
         Form {
@@ -22,6 +20,8 @@ struct HabitDetailsView: View {
                             TextEditor(text: $habit.description)
                                 .frame(minHeight: 100)
                                 .focused($isDescriptionEditorFocused)
+                                .padding(.top, 4)
+                                .padding(.leading, 4)
 
                             if habit.description.isEmpty {
                                 Text("Describe your habit and what your goal is...")
@@ -43,10 +43,8 @@ struct HabitDetailsView: View {
                     }
                 } else {
                     Text(habit.name)
-                        .font(.headline)
                     if !habit.description.isEmpty {
                         Text(habit.description)
-                            .foregroundColor(.secondary)
                     }
                 }
             }
@@ -155,24 +153,15 @@ struct HabitDetailsView: View {
     }
 
     private func saveHabit() async {
-        do {
-            let updatedHabit = try await apiService.updateHabit(id: habit.id, data: habit)
+        if let updatedHabit = await habitViewModel.updateHabit(habit) {
             self.habit = updatedHabit
             isEditing = false
-        } catch {
-            // Handle error appropriately
-            print("Failed to update habit: \(error.localizedDescription)")
         }
     }
 
     private func deleteHabit() async {
-        do {
-            try await apiService.deleteHabit(id: habit.id)
-            dismiss()
-        } catch {
-            // Handle error appropriately
-            print("Failed to delete habit: \(error.localizedDescription)")
-        }
+        await habitViewModel.deleteHabit(habit)
+        dismiss()
     }
 }
 
