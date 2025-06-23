@@ -81,6 +81,11 @@ actor NetworkService {
                 logger.debug("Received raw JSON response: \(jsonString)")
             }
 
+            // Handle empty responses (like 204 No Content)
+            if data.isEmpty && T.self == EmptyResponse.self {
+                return EmptyResponse() as! T
+            }
+
             let decoder = JSONDecoder()
             let formatter = DateFormatter()
             formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSSSSS'Z'"

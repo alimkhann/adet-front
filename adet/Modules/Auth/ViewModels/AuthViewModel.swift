@@ -168,21 +168,45 @@ class AuthViewModel: ObservableObject {
         isUpdatingUsername = true
         defer { isUpdatingUsername = false }
 
+        // Immediately update local user data for responsive UI
+        if let currentUser = self.user {
+            self.user = User(
+                id: currentUser.id,
+                clerkId: currentUser.clerkId,
+                email: currentUser.email,
+                username: username,
+                isActive: currentUser.isActive,
+                createdAt: currentUser.createdAt,
+                updatedAt: currentUser.updatedAt
+            )
+        }
+
         do {
-            // Update username in backend
-            try await apiService.updateUsername(username)
-            print("Username updated in backend successfully")
+            // Run backend and Clerk updates in parallel since they're independent
+            try await withThrowingTaskGroup(of: Void.self) { group in
+                group.addTask {
+                    try await self.apiService.updateUsername(username)
+                    print("Username updated in backend successfully")
+                }
 
-            // Update username in Clerk
-            try await authService.updateUsername(username)
-            print("Username updated in Clerk successfully")
+                group.addTask {
+                    try await self.authService.updateUsername(username)
+                    print("Username updated in Clerk successfully")
+                }
 
-            // Refresh user data
-            await fetchUser()
+                // Wait for both tasks to complete
+                try await group.waitForAll()
+            }
+
+            // Clear any previous errors on success
+            self.clerkError = nil
 
         } catch {
             print("Failed to update username: \(error.localizedDescription)")
             self.clerkError = "Failed to update username: \(error.localizedDescription)"
+
+            // Revert local changes on error
+            await fetchUser()
         }
     }
 
