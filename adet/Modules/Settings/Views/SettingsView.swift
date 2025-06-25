@@ -18,126 +18,22 @@ struct SettingsView: View {
         NavigationStack {
             List {
                 if let user = authViewModel.user {
-                    Section {
-                        VStack(alignment: .leading, spacing: 16) {
-                            // Profile Image Section
-                            HStack {
-                                ProfileImageView(
-                                    user: user,
-                                    size: 80,
-                                    isEditable: true,
-                                    onImageTap: {
-                                        showingImagePicker = true
-                                    },
-                                    onDeleteTap: user.profileImageUrl != nil ? {
-                                        showingDeleteImageAlert = true
-                                    } : nil,
-                                    jwtToken: authViewModel.jwtToken
-                                )
-
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(user.email)
-                                        .font(.headline)
-                                        .foregroundStyle(.primary)
-
-                                    Text("Tap to change profile image")
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-
-                                    if authViewModel.isUploadingProfileImage || authViewModel.isDeletingProfileImage {
-                                        HStack {
-                                            ProgressView()
-                                                .progressViewStyle(CircularProgressViewStyle(tint: .primary))
-                                                .scaleEffect(0.7)
-                                            Text(authViewModel.isUploadingProfileImage ? "Uploading..." : "Deleting...")
-                                                .font(.caption)
-                                                .foregroundStyle(.secondary)
-                                        }
-                                    }
-                                }
-                                Spacer()
-                            }
-
-                            if isEditingUsername {
-                                VStack(spacing: 12) {
-                                    HStack {
-                                        StyledTextField(
-                                            placeholder: "Username",
-                                            text: $newUsername
-                                        )
-                                        .disabled(authViewModel.isUpdatingUsername)
-
-                                        if authViewModel.isUpdatingUsername {
-                                            ProgressView()
-                                                .progressViewStyle(CircularProgressViewStyle(tint: .primary))
-                                                .scaleEffect(0.8)
-                                        }
-                                    }
-
-                                    HStack(spacing: 12) {
-                                        Button {
-                                            Task {
-                                                await authViewModel.updateUsername(newUsername)
-                                                if authViewModel.clerkError == nil {
-                                                    isEditingUsername = false
-                                                }
-                                            }
-                                        } label: {
-                                            Text("Save")
-                                                .frame(minHeight: 36)
-                                        }
-                                        .buttonStyle(PrimaryButtonStyle())
-                                        .disabled(newUsername.isEmpty || authViewModel.isUpdatingUsername)
-                                        .allowsHitTesting(!authViewModel.isUpdatingUsername)
-
-                                        Button {
-                                            newUsername = user.username ?? ""
-                                            isEditingUsername = false
-                                            authViewModel.clerkError = nil
-                                        } label: {
-                                            Text("Cancel")
-                                                .frame(minHeight: 36)
-                                        }
-                                        .buttonStyle(SecondaryButtonStyle())
-                                        .disabled(authViewModel.isUpdatingUsername)
-                                    }
-                                }
-                            } else {
-                                HStack {
-                                    Text(user.username ?? "No username set")
-                                        .font(.subheadline)
-                                        .foregroundStyle(.secondary)
-                                    Spacer()
-                                    Button {
-                                        newUsername = user.username ?? ""
-                                        isEditingUsername = true
-                                        authViewModel.clerkError = nil
-                                    } label: {
-                                        Image(systemName: "square.and.pencil")
-                                            .resizable()
-                                            .frame(width: 16, height: 16)
-                                            .foregroundColor(.primary)
-                                    }
-                                }
-                            }
-
-                            if let error = authViewModel.clerkError {
-                                Text(error)
-                                    .font(.caption)
-                                    .foregroundColor(.red)
-                                    .padding(.top, 4)
-                            }
+                    Section(header: Text("Account")) {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Email")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            Text(user.email)
+                                .font(.body)
+                                .foregroundColor(.primary)
+                            Text("Username")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            Text(user.username ?? "-")
+                                .font(.body)
+                                .foregroundColor(.primary)
                         }
                         .padding(.vertical, 8)
-                    } header: {
-                        Text("Account")
-                    }
-                } else {
-                    Section {
-                        Text("User data not available")
-                            .foregroundStyle(.secondary)
-                    } header: {
-                        Text("Account")
                     }
                 }
 

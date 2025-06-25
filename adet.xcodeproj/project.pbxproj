@@ -58,6 +58,7 @@
 				Modules/Home/Views/HomeView.swift,
 				Modules/Onboarding/Views/OnboardingView.swift,
 				Modules/Onboarding/Views/QuestionPageView.swift,
+				Modules/Profile/Views/EditProfileView.swift,
 				Modules/Profile/Views/ProfileView.swift,
 				Modules/Settings/Views/SettingsView.swift,
 				Resources/Assets.xcassets,
