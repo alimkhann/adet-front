@@ -22,13 +22,13 @@ struct SettingsView: View {
         set { themeRawValue = newValue.rawValue }
     }
     @State private var haptics = true
-    @State private var language = "English"
+    @AppStorage("appLanguage") private var language: String = "en"
 
     var body: some View {
         NavigationStack {
             List {
                 // Account Section
-                Section(header: Text("Account")) {
+                Section(header: Text("account".t(language))) {
                     HStack(spacing: 16) {
                         ProfileImageView(
                             user: authViewModel.user,
@@ -50,64 +50,64 @@ struct SettingsView: View {
                         }
                     }
                     NavigationLink(destination: EditProfileView().environmentObject(authViewModel)) {
-                        Text("Edit Profile")
+                        Text("edit_profile".t(language))
                     }
                     Button(role: .destructive) {
                         showSignOutAlert = true
                     } label: {
-                        Text("Sign Out")
+                        Text("sign_out".t(language))
                     }
                 }
 
                 // Notifications Section
-                Section(header: Text("Notifications")) {
-                    Toggle("Push Notifications", isOn: $pushNotifications)
-                    Toggle("Motivational Messages", isOn: $motivationalMessages)
+                Section(header: Text("notifications".t(language))) {
+                    Toggle("push_notifications".t(language), isOn: $pushNotifications)
+                    Toggle("motivational_messages".t(language), isOn: $motivationalMessages)
                 }
 
                 // App Section
-                Section(header: Text("App")) {
-                    Picker("Theme", selection: $themeRawValue) {
+                Section(header: Text("app".t(language))) {
+                    Picker("theme".t(language), selection: $themeRawValue) {
                         ForEach(Theme.allCases, id: \.self) { theme in
                             Text(theme.displayName).tag(theme.rawValue)
                         }
                     }
-                    Toggle("Haptics", isOn: $haptics)
-                    Picker("Language", selection: $language) {
-                        Text("English").tag("English")
-                        Text("Kazakh").tag("Kazakh")
-                        Text("Русский").tag("Русский")
-                        Text("Chinese (Simplified)").tag("Chinese (Simplified)")
-                        Text("Cantonese").tag("Cantonese")
+                    Toggle("haptics".t(language), isOn: $haptics)
+                    Picker("language".t(language), selection: $language) {
+                        Text("English").tag("en")
+                        Text("Русский").tag("ru")
+                        Text("Қазақша").tag("kk")
+                        Text("简体中文").tag("zh-Hans")
+                        Text("粤语").tag("yue")
                     }
                 }
 
                 // Support Section
-                Section(header: Text("Support")) {
+                Section(header: Text("support".t(language))) {
                     NavigationLink(destination: FAQView()) {
-                        Text("FAQ / Help Center")
+                        Text("faq".t(language))
                     }
                     NavigationLink(destination: ContactSupportView()) {
-                        Text("Contact Support")
+                        Text("contact_support".t(language))
                     }
                     NavigationLink(destination: ReportBugView()) {
-                        Text("Report a Bug")
+                        Text("report_bug".t(language))
                     }
                 }
 
                 // About Section
-                Section(header: Text("About")) {
+                Section(header: Text("about".t(language))) {
                     HStack {
-                        Text("App Version")
+                        Text("app_version".t(language))
                         Spacer()
                         Text(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0")
                             .foregroundColor(.secondary)
                     }
                     NavigationLink(destination: PrivacyPolicyView()) {
-                        Text("Privacy Policy")
+                        Text("privacy_policy".t(language))
                     }
                     NavigationLink(destination: TermsOfServiceView()) {
-                        Text("Terms of Service")
+                        Text("terms_of_service".t(language))
                     }
                 }
 
@@ -116,12 +116,12 @@ struct SettingsView: View {
                     Button(role: .destructive) {
                         showDeleteAlert = true
                     } label: {
-                        Text("Delete Account")
+                        Text("delete_account".t(language))
                     }
                 }
             }
             .listStyle(.insetGrouped)
-            .navigationTitle("Settings")
+            .navigationTitle("settings_title".t(language))
             .onAppear {
                 Task {
                     await authViewModel.fetchUser()
@@ -134,18 +134,18 @@ struct SettingsView: View {
                     }
                 }
             }
-            .confirmationDialog("Select Profile Image", isPresented: $showingImagePicker) {
-                Button("Take Photo") {
+            .confirmationDialog("select_profile_image".t(language), isPresented: $showingImagePicker) {
+                Button("take_photo".t(language)) {
                     if UIImagePickerController.isSourceTypeAvailable(.camera) {
                         showingCamera = true
                     }
                 }
-                Button("Choose from Library") {
+                Button("choose_from_library".t(language)) {
                     showingPhotoLibrary = true
                 }
-                Button("Cancel", role: .cancel) {}
+                Button("cancel".t(language), role: .cancel) {}
             } message: {
-                Text("Choose how you'd like to add your profile image")
+                Text("choose_how_add_profile_image".t(language))
             }
             .sheet(isPresented: $showingCamera) {
                 ImagePicker(sourceType: .camera, selectedImage: $selectedImage)
@@ -153,31 +153,31 @@ struct SettingsView: View {
             .sheet(isPresented: $showingPhotoLibrary) {
                 ImagePicker(sourceType: .photoLibrary, selectedImage: $selectedImage)
             }
-            .alert("Delete Profile Image", isPresented: $showingDeleteImageAlert) {
-                Button("Delete", role: .destructive) {
+            .alert("delete_profile_image".t(language), isPresented: $showingDeleteImageAlert) {
+                Button("delete_account".t(language), role: .destructive) {
                     Task {
                         await authViewModel.deleteProfileImage()
                     }
                 }
-                Button("Cancel", role: .cancel) {}
+                Button("cancel".t(language), role: .cancel) {}
             } message: {
-                Text("Are you sure you want to delete your profile image?")
+                Text("are_you_sure_delete_image".t(language))
             }
-            .alert("Sign Out", isPresented: $showSignOutAlert) {
-                Button("Sign Out", role: .destructive) {
+            .alert("sign_out".t(language), isPresented: $showSignOutAlert) {
+                Button("sign_out".t(language), role: .destructive) {
                     Task { await authViewModel.signOut() }
                 }
-                Button("Cancel", role: .cancel) {}
+                Button("cancel".t(language), role: .cancel) {}
             } message: {
-                Text("Are you sure you want to sign out?")
+                Text("are_you_sure_sign_out".t(language))
             }
-            .alert("Delete Account", isPresented: $showDeleteAlert) {
-                Button("Delete", role: .destructive) {
+            .alert("delete_account".t(language), isPresented: $showDeleteAlert) {
+                Button("delete_account".t(language), role: .destructive) {
                     Task { await authViewModel.deleteClerk() }
                 }
-                Button("Cancel", role: .cancel) {}
+                Button("cancel".t(language), role: .cancel) {}
             } message: {
-                Text("Are you sure you want to delete your account? This action cannot be undone.")
+                Text("are_you_sure_delete_account".t(language))
             }
         }
     }

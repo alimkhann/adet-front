@@ -85,6 +85,7 @@
 				Shared/Components/ToastView.swift,
 				Shared/RootView.swift,
 				Shared/TabBarView.swift,
+				Shared/Utilities/Translations.swift,
 			);
 			target = 47C504032DF69FE700D30B0B /* adet */;
 		};
