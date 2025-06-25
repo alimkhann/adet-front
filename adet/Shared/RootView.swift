@@ -18,6 +18,9 @@ struct RootView: View {
                 WelcomeView()
                     .environmentObject(authViewModel)
             }
+
+            // Global toast overlay
+            ToastOverlay()
         }
         .onAppear {
             Task {

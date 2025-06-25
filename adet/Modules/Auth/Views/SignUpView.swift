@@ -44,11 +44,6 @@ struct SignUpView: View {
                     }
                     .padding(.horizontal, 24)
 
-                    if let error = viewModel.clerkError {
-                        ErrorMessageView(message: error)
-                            .accessibilityIdentifier("Error")
-                    }
-
                     if viewModel.isClerkVerifying {
                         StyledTextField(
                             placeholder: "Verification Code",
@@ -68,7 +63,7 @@ struct SignUpView: View {
                         .padding(.horizontal, 24)
                     } else {
                         LoadingButton(
-                            title: "Sign Up",
+                            title: "Get Started",
                             isLoading: false
                         ) {
                             Task { await viewModel.signUpClerk(
@@ -91,7 +86,7 @@ struct SignUpView: View {
                 }
             }
             .onAppear {
-                viewModel.clerkError = nil
+                viewModel.clearErrors()
             }
         }
     }

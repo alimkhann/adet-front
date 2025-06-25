@@ -6,10 +6,10 @@ import Clerk
 class AuthViewModel: ObservableObject {
     private let authService = ClerkAuthService()
     private let apiService = APIService.shared
+    private let toastManager = ToastManager.shared
 
     @Published var user: User?
     @Published var isClerkVerifying = false
-    @Published var clerkError: String?
     @Published var isUpdatingUsername = false
     @Published var isDeletingAccount = false
     @Published var isSigningOut = false
@@ -50,21 +50,25 @@ class AuthViewModel: ObservableObject {
     func signUpClerk(email: String, password: String, username: String?, answers: OnboardingAnswers) async {
         print("Starting sign up in AuthViewModel...")
         self.pendingOnboardingAnswers = answers
-        clerkError = nil
+        clearErrors()
         isClerkVerifying = false
         await authService.signUp(email: email, password: password, username: username)
         self.isClerkVerifying = authService.isVerifying
-        self.clerkError = authService.error
+        if let error = authService.error {
+            toastManager.showError(error)
+        }
         print("Sign up initiated, isVerifying: \(isClerkVerifying)")
         await fetchJWT()
     }
 
     func verifyClerk(_ code: String) async {
         print("Starting verification in AuthViewModel...")
-        clerkError = nil
+        clearErrors()
         await authService.verify(code: code)
         self.isClerkVerifying = authService.isVerifying
-        self.clerkError = authService.error
+        if let error = authService.error {
+            toastManager.showError(error)
+        }
 
         try? await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
 
@@ -102,7 +106,7 @@ class AuthViewModel: ObservableObject {
 
     func signInClerk(email: String, password: String) async {
         print("Starting sign in in AuthViewModel...")
-        clerkError = nil
+        clearErrors()
         await authService.submit(email: email, password: password)
 
         try? await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
@@ -131,7 +135,9 @@ class AuthViewModel: ObservableObject {
                 print("Created fallback user object from Clerk data")
             }
         }
-        self.clerkError = authService.error
+        if let error = authService.error {
+            toastManager.showError(error)
+        }
     }
 
     func submitOnboardingAnswers(_ answers: OnboardingAnswers) async {
@@ -140,7 +146,7 @@ class AuthViewModel: ObservableObject {
             print("Successfully submitted onboarding answers.")
         } catch {
             print("Failed to submit onboarding answers: \(error.localizedDescription)")
-            self.clerkError = "Account created, but failed to save onboarding answers."
+            toastManager.showError("Account created, but failed to save onboarding answers.")
         }
     }
 
@@ -216,11 +222,11 @@ class AuthViewModel: ObservableObject {
             }
 
             // Clear any previous errors on success
-            self.clerkError = nil
+            toastManager.dismiss()
 
         } catch {
             print("Failed to update username: \(error.localizedDescription)")
-            self.clerkError = "Failed to update username: \(error.localizedDescription)"
+            toastManager.showError("Failed to update username: \(error.localizedDescription)")
 
             // Revert local changes on error
             await fetchUser()
@@ -267,11 +273,11 @@ class AuthViewModel: ObservableObject {
         do {
             let updatedUser = try await apiService.uploadProfileImage(imageData, fileName: fileName, mimeType: mimeType)
             self.user = updatedUser
-            self.clerkError = nil
+            toastManager.dismiss()
             print("Profile image uploaded successfully")
         } catch {
             print("Failed to upload profile image: \(error.localizedDescription)")
-            self.clerkError = "Failed to upload profile image: \(error.localizedDescription)"
+            toastManager.showError("Failed to upload profile image: \(error.localizedDescription)")
         }
     }
 
@@ -282,11 +288,11 @@ class AuthViewModel: ObservableObject {
         do {
             let updatedUser = try await apiService.updateProfileImageUrl(imageUrl)
             self.user = updatedUser
-            self.clerkError = nil
+            toastManager.dismiss()
             print("Profile image URL updated successfully")
         } catch {
             print("Failed to update profile image URL: \(error.localizedDescription)")
-            self.clerkError = "Failed to update profile image: \(error.localizedDescription)"
+            toastManager.showError("Failed to update profile image: \(error.localizedDescription)")
         }
     }
 
@@ -297,11 +303,11 @@ class AuthViewModel: ObservableObject {
         do {
             let updatedUser = try await apiService.deleteProfileImage()
             self.user = updatedUser
-            self.clerkError = nil
+            toastManager.dismiss()
             print("Profile image deleted successfully")
         } catch {
             print("Failed to delete profile image: \(error.localizedDescription)")
-            self.clerkError = "Failed to delete profile image: \(error.localizedDescription)"
+            toastManager.showError("Failed to delete profile image: \(error.localizedDescription)")
         }
     }
 
@@ -324,11 +330,15 @@ class AuthViewModel: ObservableObject {
         do {
             let updatedUser = try await NetworkService.shared.updateProfile(name: name, username: username, bio: bio)
             self.user = updatedUser
-            self.clerkError = nil
+            toastManager.dismiss()
         } catch let NetworkError.requestFailed(statusCode, body) where statusCode == 409 {
-            self.clerkError = "Username already taken. Please choose another."
+            toastManager.showError("Username already taken. Please choose another.")
         } catch {
-            self.clerkError = "Failed to update profile: \(error.localizedDescription)"
+            toastManager.showError("Failed to update profile: \(error.localizedDescription)")
         }
+    }
+
+    func clearErrors() {
+        toastManager.dismiss()
     }
 }

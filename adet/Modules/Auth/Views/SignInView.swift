@@ -33,11 +33,6 @@ struct SignInView: View {
                     }
                     .padding(.horizontal, 24)
 
-                    if let error = viewModel.clerkError {
-                        ErrorMessageView(message: error)
-                            .accessibilityIdentifier("Error")
-                    }
-
                     LoadingButton(
                         title: "Sign In",
                         isLoading: false
@@ -51,7 +46,7 @@ struct SignInView: View {
                 }
             }
             .onAppear {
-                viewModel.clerkError = nil
+                viewModel.clearErrors()
             }
         }
     }

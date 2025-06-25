@@ -127,6 +127,7 @@ struct EditProfileView: View {
                 newUsername = authViewModel.user?.username ?? ""
                 newName = authViewModel.user?.name ?? ""
                 newBio = authViewModel.user?.bio ?? ""
+                authViewModel.clearErrors()
             }
         }
     }

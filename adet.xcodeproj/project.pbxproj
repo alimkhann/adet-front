@@ -69,7 +69,6 @@
 				Services/Network/NetworkError.swift,
 				Services/Network/NetworkService.swift,
 				Shared/Components/ButtonStyles.swift,
-				Shared/Components/ErrorMessageView.swift,
 				Shared/Components/GradientBackgroundView.swift,
 				Shared/Components/HabitDetailPickers.swift,
 				Shared/Components/ImagePicker.swift,
@@ -77,6 +76,8 @@
 				Shared/Components/ProfileImageView.swift,
 				Shared/Components/TextFieldStyles.swift,
 				Shared/Components/TextStyles.swift,
+				Shared/Components/ToastManager.swift,
+				Shared/Components/ToastView.swift,
 				Shared/RootView.swift,
 				Shared/TabBarView.swift,
 			);

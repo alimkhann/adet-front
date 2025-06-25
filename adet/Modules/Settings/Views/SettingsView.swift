@@ -97,15 +97,6 @@ struct SettingsView: View {
                     }
                     .disabled(authViewModel.isTestingNetwork)
 
-                    if let networkStatus = authViewModel.networkStatus {
-                        HStack {
-                            Image(systemName: networkStatus ? "checkmark.circle.fill" : "xmark.circle.fill")
-                                .foregroundColor(networkStatus ? .green : .red)
-                            Text(networkStatus ? "Connection OK" : "Connection Failed")
-                                .foregroundColor(networkStatus ? .green : .red)
-                            Spacer()
-                        }
-                    }
                 } header: {
                     Text("Network Diagnostics")
                 }
@@ -174,7 +165,6 @@ struct SettingsView: View {
 
     private func uploadSelectedImage(_ image: UIImage) async {
         guard let imageData = image.jpegData(compressionQuality: 0.8) else {
-            authViewModel.clerkError = "Failed to process selected image"
             return
         }
 
