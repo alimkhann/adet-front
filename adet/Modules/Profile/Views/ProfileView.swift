@@ -20,13 +20,14 @@ struct ProfileView: View {
                 .padding(.trailing, 8)
 
                 VStack(spacing: 12) {
-                    Image(systemName: "person.crop.circle.fill")
-                        .resizable()
-                        .frame(width: 90, height: 90)
-                        .foregroundStyle(.gray.opacity(0.3))
-                        .background(Circle().fill(Color.white))
-                        .overlay(Circle().stroke(Color.gray.opacity(0.2), lineWidth: 2))
-                        .shadow(radius: 2)
+                    ProfileImageView(
+                        user: authViewModel.user,
+                        size: 90,
+                        isEditable: false,
+                        onImageTap: nil,
+                        onDeleteTap: nil,
+                        jwtToken: authViewModel.jwtToken
+                    )
 
                     if let user = authViewModel.user {
                         VStack(spacing: 4) {

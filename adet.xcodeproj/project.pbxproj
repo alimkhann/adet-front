@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		47992D052E0BBD9200D0756A /* Kingfisher in Frameworks */ = {isa = PBXBuildFile; productRef = 47992D042E0BBD9200D0756A /* Kingfisher */; };
 		47A725F22E03D2B700616FE2 /* Clerk in Frameworks */ = {isa = PBXBuildFile; productRef = 47A725F12E03D2B700616FE2 /* Clerk */; };
 /* End PBXBuildFile section */
 
@@ -70,7 +71,9 @@
 				Shared/Components/ErrorMessageView.swift,
 				Shared/Components/GradientBackgroundView.swift,
 				Shared/Components/HabitDetailPickers.swift,
+				Shared/Components/ImagePicker.swift,
 				Shared/Components/LoadingButton.swift,
+				Shared/Components/ProfileImageView.swift,
 				Shared/Components/TextFieldStyles.swift,
 				Shared/Components/TextStyles.swift,
 				Shared/RootView.swift,
@@ -106,6 +109,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				47992D052E0BBD9200D0756A /* Kingfisher in Frameworks */,
 				47A725F22E03D2B700616FE2 /* Clerk in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -165,6 +169,7 @@
 			name = adet;
 			packageProductDependencies = (
 				47A725F12E03D2B700616FE2 /* Clerk */,
+				47992D042E0BBD9200D0756A /* Kingfisher */,
 			);
 			productName = adet;
 			productReference = 47C504042DF69FE700D30B0B /* adet.app */;
@@ -250,6 +255,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				47A725F02E03D2B700616FE2 /* XCRemoteSwiftPackageReference "clerk-ios" */,
+				47992D032E0BBD9200D0756A /* XCRemoteSwiftPackageReference "Kingfisher" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 47C504052DF69FE700D30B0B /* Products */;
@@ -628,6 +634,14 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
+		47992D032E0BBD9200D0756A /* XCRemoteSwiftPackageReference "Kingfisher" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/onevcat/Kingfisher.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 8.3.3;
+			};
+		};
 		47A725F02E03D2B700616FE2 /* XCRemoteSwiftPackageReference "clerk-ios" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/clerk/clerk-ios";
@@ -639,6 +653,11 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		47992D042E0BBD9200D0756A /* Kingfisher */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 47992D032E0BBD9200D0756A /* XCRemoteSwiftPackageReference "Kingfisher" */;
+			productName = Kingfisher;
+		};
 		47A725F12E03D2B700616FE2 /* Clerk */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 47A725F02E03D2B700616FE2 /* XCRemoteSwiftPackageReference "clerk-ios" */;

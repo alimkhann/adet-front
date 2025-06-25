@@ -37,6 +37,28 @@ actor APIService {
         try await networkService.makeAuthenticatedRequest(endpoint: "/api/v1/users/me", method: "DELETE")
     }
 
+    /// Uploads a profile image for the user.
+    func uploadProfileImage(_ imageData: Data, fileName: String, mimeType: String) async throws -> User {
+        return try await networkService.uploadFile(
+            endpoint: "/api/v1/users/me/profile-image",
+            fileData: imageData,
+            fileName: fileName,
+            mimeType: mimeType,
+            fieldName: "file"
+        )
+    }
+
+    /// Updates the user's profile image URL.
+    func updateProfileImageUrl(_ imageUrl: String) async throws -> User {
+        let requestBody = ProfileImageUpdateRequest(profileImageUrl: imageUrl)
+        return try await networkService.makeAuthenticatedRequest(endpoint: "/api/v1/users/me/profile-image", method: "PATCH", body: requestBody)
+    }
+
+    /// Deletes the user's profile image.
+    func deleteProfileImage() async throws -> User {
+        return try await networkService.makeAuthenticatedRequest(endpoint: "/api/v1/users/me/profile-image", method: "DELETE", body: (nil as String?))
+    }
+
     /// Submits the user's onboarding answers.
     func submitOnboarding(answers: OnboardingAnswers) async throws {
         let _: OnboardingAnswer = try await networkService.makeAuthenticatedRequest(endpoint: "/api/v1/onboarding/", method: "POST", body: answers)
@@ -127,6 +149,14 @@ struct HealthResponse: Codable {
 
 struct UsernameUpdateRequest: Codable {
     let username: String
+}
+
+struct ProfileImageUpdateRequest: Codable {
+    let profileImageUrl: String
+
+    enum CodingKeys: String, CodingKey {
+        case profileImageUrl = "profile_image_url"
+    }
 }
 
 struct HabitCreateRequest: Codable {

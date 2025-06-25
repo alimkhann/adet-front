@@ -6,6 +6,7 @@ struct User: Codable, Identifiable {
     let clerkId: String
     let email: String
     let username: String?
+    let profileImageUrl: String?
     let isActive: Bool
     let createdAt: Date
     let updatedAt: Date?
@@ -15,6 +16,7 @@ struct User: Codable, Identifiable {
         case clerkId = "clerk_id"
         case email
         case username
+        case profileImageUrl = "profile_image_url"
         case isActive = "is_active"
         case createdAt = "created_at"
         case updatedAt = "updated_at"

@@ -8,16 +8,55 @@ struct SettingsView: View {
     @State private var newUsername = ""
     @State private var showDeleteAlert = false
     @State private var showSignOutAlert = false
+    @State private var showingImagePicker = false
+    @State private var selectedImage: UIImage?
+    @State private var showingDeleteImageAlert = false
+    @State private var showingCamera = false
+    @State private var showingPhotoLibrary = false
 
     var body: some View {
         NavigationStack {
             List {
                 if let user = authViewModel.user {
                     Section {
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text(user.email)
-                                .font(.headline)
-                                .foregroundStyle(.primary)
+                        VStack(alignment: .leading, spacing: 16) {
+                            // Profile Image Section
+                            HStack {
+                                ProfileImageView(
+                                    user: user,
+                                    size: 80,
+                                    isEditable: true,
+                                    onImageTap: {
+                                        showingImagePicker = true
+                                    },
+                                    onDeleteTap: user.profileImageUrl != nil ? {
+                                        showingDeleteImageAlert = true
+                                    } : nil,
+                                    jwtToken: authViewModel.jwtToken
+                                )
+
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(user.email)
+                                        .font(.headline)
+                                        .foregroundStyle(.primary)
+
+                                    Text("Tap to change profile image")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+
+                                    if authViewModel.isUploadingProfileImage || authViewModel.isDeletingProfileImage {
+                                        HStack {
+                                            ProgressView()
+                                                .progressViewStyle(CircularProgressViewStyle(tint: .primary))
+                                                .scaleEffect(0.7)
+                                            Text(authViewModel.isUploadingProfileImage ? "Uploading..." : "Deleting...")
+                                                .font(.caption)
+                                                .foregroundStyle(.secondary)
+                                        }
+                                    }
+                                }
+                                Spacer()
+                            }
 
                             if isEditingUsername {
                                 VStack(spacing: 12) {
@@ -182,6 +221,42 @@ struct SettingsView: View {
                     await authViewModel.fetchUser()
                 }
             }
+            .onChange(of: selectedImage) { _, newValue in
+                if let image = newValue {
+                    Task {
+                        await uploadSelectedImage(image)
+                    }
+                }
+            }
+            .confirmationDialog("Select Profile Image", isPresented: $showingImagePicker) {
+                Button("Take Photo") {
+                    if UIImagePickerController.isSourceTypeAvailable(.camera) {
+                        showingCamera = true
+                    }
+                }
+                Button("Choose from Library") {
+                    showingPhotoLibrary = true
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("Choose how you'd like to add your profile image")
+            }
+            .sheet(isPresented: $showingCamera) {
+                ImagePicker(sourceType: .camera, selectedImage: $selectedImage)
+            }
+            .sheet(isPresented: $showingPhotoLibrary) {
+                ImagePicker(sourceType: .photoLibrary, selectedImage: $selectedImage)
+            }
+            .alert("Delete Profile Image", isPresented: $showingDeleteImageAlert) {
+                Button("Delete", role: .destructive) {
+                    Task {
+                        await authViewModel.deleteProfileImage()
+                    }
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("Are you sure you want to delete your profile image?")
+            }
             .alert("Sign Out", isPresented: $showSignOutAlert) {
                 Button("Sign Out", role: .destructive) {
                     Task { await authViewModel.signOut() }
@@ -199,5 +274,18 @@ struct SettingsView: View {
                 Text("Are you sure you want to delete your account? This action cannot be undone.")
             }
         }
+    }
+
+    private func uploadSelectedImage(_ image: UIImage) async {
+        guard let imageData = image.jpegData(compressionQuality: 0.8) else {
+            authViewModel.clerkError = "Failed to process selected image"
+            return
+        }
+
+        let fileName = "profile_image_\(UUID().uuidString).jpg"
+        await authViewModel.uploadProfileImage(imageData, fileName: fileName, mimeType: "image/jpeg")
+
+        // Clear the selected image
+        selectedImage = nil
     }
 }

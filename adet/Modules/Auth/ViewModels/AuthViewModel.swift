@@ -22,10 +22,16 @@ class AuthViewModel: ObservableObject {
     private var lastUsernameUpdateTime: Date = Date.distantPast
     private let usernameUpdateDebounceInterval: TimeInterval = 1.0 // 1 second
 
+    // Profile image states
+    @Published var isUploadingProfileImage = false
+    @Published var isDeletingProfileImage = false
+    @Published var jwtToken: String? = nil
+
     func fetchUser() async {
         do {
             self.user = try await apiService.getCurrentUser()
             print("Fetched user: \(String(describing: user?.username))")
+            await fetchJWT()
         } catch {
             print("Failed to fetch user: \(error.localizedDescription)")
             self.user = nil
@@ -50,6 +56,7 @@ class AuthViewModel: ObservableObject {
         self.isClerkVerifying = authService.isVerifying
         self.clerkError = authService.error
         print("Sign up initiated, isVerifying: \(isClerkVerifying)")
+        await fetchJWT()
     }
 
     func verifyClerk(_ code: String) async {
@@ -76,6 +83,7 @@ class AuthViewModel: ObservableObject {
                     clerkId: clerkUser.id,
                     email: clerkUser.emailAddresses.first?.emailAddress ?? "",
                     username: clerkUser.username,
+                    profileImageUrl: nil, // Will be set from backend
                     isActive: true,
                     createdAt: Date(),
                     updatedAt: nil
@@ -101,6 +109,7 @@ class AuthViewModel: ObservableObject {
         // If it fails, we'll still consider the user authenticated via Clerk
         await syncUserFromClerk()
         print("Sign in complete, user synced: \(String(describing: user?.username))")
+        await fetchJWT()
 
         // If sync failed, create a minimal user object from Clerk data
         if self.user == nil {
@@ -110,6 +119,7 @@ class AuthViewModel: ObservableObject {
                     clerkId: clerkUser.id,
                     email: clerkUser.emailAddresses.first?.emailAddress ?? "",
                     username: clerkUser.username,
+                    profileImageUrl: nil, // Will be set from backend
                     isActive: true,
                     createdAt: Date(),
                     updatedAt: nil
@@ -175,6 +185,7 @@ class AuthViewModel: ObservableObject {
                 clerkId: currentUser.clerkId,
                 email: currentUser.email,
                 username: username,
+                profileImageUrl: currentUser.profileImageUrl,
                 isActive: currentUser.isActive,
                 createdAt: currentUser.createdAt,
                 updatedAt: currentUser.updatedAt
@@ -240,6 +251,65 @@ class AuthViewModel: ObservableObject {
         } catch {
             self.networkStatus = false
             print("Network connectivity test failed: \(error.localizedDescription)")
+        }
+    }
+
+    func uploadProfileImage(_ imageData: Data, fileName: String, mimeType: String) async {
+        isUploadingProfileImage = true
+        defer { isUploadingProfileImage = false }
+
+        do {
+            let updatedUser = try await apiService.uploadProfileImage(imageData, fileName: fileName, mimeType: mimeType)
+            self.user = updatedUser
+            self.clerkError = nil
+            print("Profile image uploaded successfully")
+        } catch {
+            print("Failed to upload profile image: \(error.localizedDescription)")
+            self.clerkError = "Failed to upload profile image: \(error.localizedDescription)"
+        }
+    }
+
+    func updateProfileImageUrl(_ imageUrl: String) async {
+        isUploadingProfileImage = true
+        defer { isUploadingProfileImage = false }
+
+        do {
+            let updatedUser = try await apiService.updateProfileImageUrl(imageUrl)
+            self.user = updatedUser
+            self.clerkError = nil
+            print("Profile image URL updated successfully")
+        } catch {
+            print("Failed to update profile image URL: \(error.localizedDescription)")
+            self.clerkError = "Failed to update profile image: \(error.localizedDescription)"
+        }
+    }
+
+    func deleteProfileImage() async {
+        isDeletingProfileImage = true
+        defer { isDeletingProfileImage = false }
+
+        do {
+            let updatedUser = try await apiService.deleteProfileImage()
+            self.user = updatedUser
+            self.clerkError = nil
+            print("Profile image deleted successfully")
+        } catch {
+            print("Failed to delete profile image: \(error.localizedDescription)")
+            self.clerkError = "Failed to delete profile image: \(error.localizedDescription)"
+        }
+    }
+
+    func fetchJWT() async {
+        do {
+            if let token = try? await Clerk.shared.session?.getToken(.init(template: "adet-back"))?.jwt {
+                DispatchQueue.main.async {
+                    self.jwtToken = token
+                }
+            } else {
+                DispatchQueue.main.async {
+                    self.jwtToken = nil
+                }
+            }
         }
     }
 }

@@ -32,6 +32,7 @@ actor NetworkService {
             logger.warning("User is not authenticated or token is unavailable.")
             throw NetworkError.unauthorized
         }
+        print("Clerk JWT: \(token)") // DEBUG: Log the JWT for Swagger UI
 
         var request = URLRequest(url: url)
         request.httpMethod = method
@@ -122,6 +123,87 @@ actor NetworkService {
         headers: [String: String]? = nil
     ) async throws {
         let _: EmptyResponse = try await makeAuthenticatedRequest(endpoint: endpoint, method: method, body: (nil as String?), headers: headers)
+    }
+
+    // MARK: - File Upload Method
+    func uploadFile<T: Decodable>(
+        endpoint: String,
+        fileData: Data,
+        fileName: String,
+        mimeType: String,
+        fieldName: String
+    ) async throws -> T {
+        guard let url = URL(string: endpoint, relativeTo: baseURL) else {
+            logger.error("Invalid URL for endpoint: \(endpoint)")
+            throw NetworkError.invalidURL
+        }
+
+        guard let token = try? await Clerk.shared.session?.getToken(.init(template: "adet-back"))?.jwt else {
+            logger.warning("User is not authenticated or token is unavailable.")
+            throw NetworkError.unauthorized
+        }
+
+        // Create multipart form data
+        let boundary = UUID().uuidString
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.timeoutInterval = timeout
+        request.addValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+        request.addValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+
+        // Build multipart body
+        var body = Data()
+        body.append("--\(boundary)\r\n".data(using: .utf8)!)
+        body.append("Content-Disposition: form-data; name=\"\(fieldName)\"; filename=\"\(fileName)\"\r\n".data(using: .utf8)!)
+        body.append("Content-Type: \(mimeType)\r\n\r\n".data(using: .utf8)!)
+        body.append(fileData)
+        body.append("\r\n--\(boundary)--\r\n".data(using: .utf8)!)
+
+        request.httpBody = body
+
+        logger.info("Making file upload request to: \(url.absoluteString)")
+
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+
+            guard let httpResponse = response as? HTTPURLResponse else {
+                logger.error("Invalid HTTP response received.")
+                throw NetworkError.unknown(URLError(.badServerResponse))
+            }
+
+            logger.info("Received response with status code: \(httpResponse.statusCode)")
+
+            guard (200...299).contains(httpResponse.statusCode) else {
+                let errorBody = String(data: data, encoding: .utf8) ?? "No response body"
+                logger.error("File upload failed with status code \(httpResponse.statusCode). Body: \(errorBody)")
+                throw NetworkError.requestFailed(statusCode: httpResponse.statusCode, body: errorBody)
+            }
+
+            // Log the raw JSON string for debugging
+            if let jsonString = String(data: data, encoding: .utf8) {
+                logger.debug("Received raw JSON response: \(jsonString)")
+            }
+
+            let decoder = JSONDecoder()
+            let formatter = DateFormatter()
+            formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSSSSS'Z'"
+            formatter.calendar = Calendar(identifier: .iso8601)
+            formatter.timeZone = TimeZone(secondsFromGMT: 0)
+            formatter.locale = Locale(identifier: "en_US_POSIX")
+            decoder.dateDecodingStrategy = .formatted(formatter)
+
+            do {
+                return try decoder.decode(T.self, from: data)
+            } catch {
+                logger.error("Failed to decode response: \(error.localizedDescription)")
+                throw NetworkError.decodeError(error)
+            }
+
+        } catch let error as NetworkError {
+            throw error
+        } catch {
+            throw NetworkError.unknown(error)
+        }
     }
 }
 
