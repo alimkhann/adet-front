@@ -13,92 +13,111 @@ struct SettingsView: View {
     @State private var showingDeleteImageAlert = false
     @State private var showingCamera = false
     @State private var showingPhotoLibrary = false
+    @State private var pushNotifications = true
+    @State private var motivationalMessages = true
+    @State private var reminderTime = Date()
+    @AppStorage("appTheme") private var themeRawValue: String = Theme.system.rawValue
+    private var theme: Theme {
+        get { Theme(rawValue: themeRawValue) ?? .system }
+        set { themeRawValue = newValue.rawValue }
+    }
+    @State private var haptics = true
+    @State private var language = "English"
 
     var body: some View {
         NavigationStack {
             List {
-                if let user = authViewModel.user {
-                    Section(header: Text("Account")) {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Email")
+                // Account Section
+                Section(header: Text("Account")) {
+                    HStack(spacing: 16) {
+                        ProfileImageView(
+                            user: authViewModel.user,
+                            size: 48,
+                            isEditable: false,
+                            onImageTap: nil,
+                            onDeleteTap: nil,
+                            jwtToken: authViewModel.jwtToken
+                        )
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(authViewModel.user?.name ?? "Name")
+                                .font(.headline)
+                            Text("@" + (authViewModel.user?.username ?? "username"))
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                            Text(authViewModel.user?.email ?? "email")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
-                            Text(user.email)
-                                .font(.body)
-                                .foregroundColor(.primary)
-                            Text("Username")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                            Text(user.username ?? "-")
-                                .font(.body)
-                                .foregroundColor(.primary)
                         }
-                        .padding(.vertical, 8)
                     }
-                }
-
-                Section {
-                    Button {
+                    NavigationLink(destination: EditProfileView().environmentObject(authViewModel)) {
+                        Text("Edit Profile")
+                    }
+                    Button(role: .destructive) {
                         showSignOutAlert = true
                     } label: {
-                        HStack {
-                            Image(systemName: "rectangle.portrait.and.arrow.right")
-                                .foregroundColor(.orange)
-                            Text("Sign Out")
-                                .foregroundColor(.orange)
-                            Spacer()
-                        }
+                        Text("Sign Out")
                     }
-                    .disabled(authViewModel.isSigningOut)
-                    .accessibilityIdentifier("SignOut")
-
-                    Button {
-                        showDeleteAlert = true
-                    } label: {
-                        HStack {
-                            if authViewModel.isDeletingAccount {
-                                ProgressView()
-                                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                                    .scaleEffect(0.8)
-                            } else {
-                                Image(systemName: "trash")
-                                    .foregroundColor(.red)
-                            }
-                            Text("Delete Account")
-                                .foregroundColor(.red)
-                            Spacer()
-                        }
-                        .frame(maxWidth: .infinity)
-                    }
-                    .disabled(authViewModel.isDeletingAccount)
-                    .accessibilityIdentifier("DeleteAccount")
-                } header: {
-                    Text("Actions")
                 }
 
-                Section {
-                    Button {
-                        Task {
-                            await authViewModel.testNetworkConnectivity()
-                        }
-                    } label: {
-                        HStack {
-                            Image(systemName: "network")
-                                .foregroundColor(.primary)
-                            Text("Test Network Connection")
-                                .foregroundColor(.primary)
-                            Spacer()
-                            if authViewModel.isTestingNetwork {
-                                ProgressView()
-                                    .progressViewStyle(CircularProgressViewStyle(tint: .blue))
-                                    .scaleEffect(0.8)
-                            }
+                // Notifications Section
+                Section(header: Text("Notifications")) {
+                    Toggle("Push Notifications", isOn: $pushNotifications)
+                    Toggle("Motivational Messages", isOn: $motivationalMessages)
+                }
+
+                // App Section
+                Section(header: Text("App")) {
+                    Picker("Theme", selection: $themeRawValue) {
+                        ForEach(Theme.allCases, id: \.self) { theme in
+                            Text(theme.displayName).tag(theme.rawValue)
                         }
                     }
-                    .disabled(authViewModel.isTestingNetwork)
+                    Toggle("Haptics", isOn: $haptics)
+                    Picker("Language", selection: $language) {
+                        Text("English").tag("English")
+                        Text("Kazakh").tag("Kazakh")
+                        Text("Русский").tag("Русский")
+                        Text("Chinese (Simplified)").tag("Chinese (Simplified)")
+                        Text("Cantonese").tag("Cantonese")
+                    }
+                }
 
-                } header: {
-                    Text("Network Diagnostics")
+                // Support Section
+                Section(header: Text("Support")) {
+                    NavigationLink(destination: FAQView()) {
+                        Text("FAQ / Help Center")
+                    }
+                    NavigationLink(destination: ContactSupportView()) {
+                        Text("Contact Support")
+                    }
+                    NavigationLink(destination: ReportBugView()) {
+                        Text("Report a Bug")
+                    }
+                }
+
+                // About Section
+                Section(header: Text("About")) {
+                    HStack {
+                        Text("App Version")
+                        Spacer()
+                        Text(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0")
+                            .foregroundColor(.secondary)
+                    }
+                    NavigationLink(destination: PrivacyPolicyView()) {
+                        Text("Privacy Policy")
+                    }
+                    NavigationLink(destination: TermsOfServiceView()) {
+                        Text("Terms of Service")
+                    }
+                }
+
+                // Danger Zone
+                Section {
+                    Button(role: .destructive) {
+                        showDeleteAlert = true
+                    } label: {
+                        Text("Delete Account")
+                    }
                 }
             }
             .listStyle(.insetGrouped)
@@ -173,5 +192,24 @@ struct SettingsView: View {
 
         // Clear the selected image
         selectedImage = nil
+    }
+}
+
+enum Theme: String, CaseIterable {
+    case system, light, dark
+    var displayName: String {
+        switch self {
+        case .system: return "System"
+        case .light: return "Light"
+        case .dark: return "Dark"
+        }
+    }
+
+    var colorScheme: ColorScheme? {
+        switch self {
+        case .system: return nil
+        case .light: return .light
+        case .dark: return .dark
+        }
     }
 }
