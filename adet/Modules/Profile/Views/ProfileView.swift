@@ -12,13 +12,28 @@ struct ProfileView: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 16) {
-                // Avatar centered
+            VStack(alignment: .leading, spacing: 0) {
+                // Top bar: Username (left) and Settings (right)
                 HStack {
+                    Text(authViewModel.user?.username ?? "Username")
+                        .font(.title2)
+                        .fontWeight(.bold)
+                        .foregroundColor(.primary)
+                        .padding(.leading, 20)
                     Spacer()
+                    NavigationLink(destination: SettingsView().environmentObject(authViewModel)) {
+                        Image(systemName: "gearshape.fill")
+                            .font(.system(size: 20, weight: .semibold))
+                            .padding(.trailing, 20)
+                    }
+                }
+                .padding(.top, 16)
+
+                // Profile row: pfp, name, stats
+                HStack(alignment: .top, spacing: 16) {
                     ProfileImageView(
                         user: authViewModel.user,
-                        size: isPfpPressed ? 90 : 100,
+                        size: isPfpPressed ? 80 : 88,
                         isEditable: false,
                         onImageTap: nil,
                         onDeleteTap: nil,
@@ -33,41 +48,40 @@ struct ProfileView: View {
                     }, perform: {
                         showPfpActionSheet = true
                     })
-                    Spacer()
-                }
-                .padding(.top, 16)
-                .actionSheet(isPresented: $showPfpActionSheet) {
-                    ActionSheet(title: Text("Profile Picture"), buttons: [
-                        .default(Text("Choose from library")) { showPhotoLibrary = true },
-                        .default(Text("Take photo")) { showCamera = true },
-                        .destructive(Text("Remove current picture")) { Task { await authViewModel.deleteProfileImage() } },
-                        .cancel()
-                    ])
-                }
-                .sheet(isPresented: $showPhotoLibrary) {
-                    ImagePicker(sourceType: .photoLibrary, selectedImage: $selectedImage)
-                }
-                .sheet(isPresented: $showCamera) {
-                    ImagePicker(sourceType: .camera, selectedImage: $selectedImage)
-                }
-                .onChange(of: selectedImage) { _, newValue in
-                    if let image = newValue {
-                        Task {
-                            await uploadSelectedImage(image)
+                    .padding(.leading, 20)
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        // Name
+                        Text((authViewModel.user?.name?.isEmpty == false ? authViewModel.user?.name : authViewModel.user?.username) ?? "Name")
+                            .font(.title3)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.primary)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                            .padding(.leading, 16)
+                        
+                        // Stats
+                        HStack(spacing: 24) {
+                            ProfileStat(title: "Posts", value: "0")
+                            ProfileStat(title: "Friends", value: "0")
+                            ProfileStat(title: "Max Streak", value: "0")
                         }
                     }
+                    .padding(.top, 8)
+                    Spacer()
+                }
+                .padding(.top, 12)
+
+                // Bio below pfp
+                if let bio = authViewModel.user?.bio, !bio.isEmpty {
+                    Text(bio)
+                        .font(.subheadline)
+                        .multilineTextAlignment(.leading)
+                        .padding(.top, 8)
+                        .padding(.horizontal, 20)
                 }
 
-                // Stats centered below avatar
-                HStack(spacing: 32) {
-                    ProfileStat(title: "Posts", value: "0")
-                    ProfileStat(title: "Friends", value: "0")
-                    ProfileStat(title: "Max Streak", value: "0")
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 8)
-
-                // Edit Profile & Share Profile buttons
+                // Buttons below bio
                 HStack(spacing: 8) {
                     NavigationLink(destination: EditProfileView().environmentObject(authViewModel)) {
                         Text("Edit Profile")
@@ -85,19 +99,31 @@ struct ProfileView: View {
                     }
                     .buttonStyle(SecondaryButtonStyle())
                 }
-                .padding(.horizontal)
+                .padding(.horizontal, 20)
+                .padding(.top, 16)
 
                 Spacer()
             }
             .background(Color(.systemBackground))
             .ignoresSafeArea(edges: .bottom)
-            .navigationTitle(authViewModel.user?.username ?? "Username")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    NavigationLink(destination: SettingsView().environmentObject(authViewModel)) {
-                        Image(systemName: "gearshape.fill")
-                            .font(.system(size: 16, weight: .semibold))
+            .actionSheet(isPresented: $showPfpActionSheet) {
+                ActionSheet(title: Text("Profile Picture"), buttons: [
+                    .default(Text("Choose from library")) { showPhotoLibrary = true },
+                    .default(Text("Take photo")) { showCamera = true },
+                    .destructive(Text("Remove current picture")) { Task { await authViewModel.deleteProfileImage() } },
+                    .cancel()
+                ])
+            }
+            .sheet(isPresented: $showPhotoLibrary) {
+                ImagePicker(sourceType: .photoLibrary, selectedImage: $selectedImage)
+            }
+            .sheet(isPresented: $showCamera) {
+                ImagePicker(sourceType: .camera, selectedImage: $selectedImage)
+            }
+            .onChange(of: selectedImage) { _, newValue in
+                if let image = newValue {
+                    Task {
+                        await uploadSelectedImage(image)
                     }
                 }
             }

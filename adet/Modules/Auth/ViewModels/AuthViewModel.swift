@@ -82,7 +82,9 @@ class AuthViewModel: ObservableObject {
                     id: 0, // Will be set by backend when sync works
                     clerkId: clerkUser.id,
                     email: clerkUser.emailAddresses.first?.emailAddress ?? "",
+                    name: clerkUser.firstName ?? "",
                     username: clerkUser.username,
+                    bio: nil,
                     profileImageUrl: nil, // Will be set from backend
                     isActive: true,
                     createdAt: Date(),
@@ -118,7 +120,9 @@ class AuthViewModel: ObservableObject {
                     id: 0, // Will be set by backend when sync works
                     clerkId: clerkUser.id,
                     email: clerkUser.emailAddresses.first?.emailAddress ?? "",
+                    name: clerkUser.firstName ?? "",
                     username: clerkUser.username,
+                    bio: nil,
                     profileImageUrl: nil, // Will be set from backend
                     isActive: true,
                     createdAt: Date(),
@@ -184,7 +188,9 @@ class AuthViewModel: ObservableObject {
                 id: currentUser.id,
                 clerkId: currentUser.clerkId,
                 email: currentUser.email,
+                name: currentUser.name ?? "",
                 username: username,
+                bio: currentUser.bio,
                 profileImageUrl: currentUser.profileImageUrl,
                 isActive: currentUser.isActive,
                 createdAt: currentUser.createdAt,
@@ -310,6 +316,19 @@ class AuthViewModel: ObservableObject {
                     self.jwtToken = nil
                 }
             }
+        }
+    }
+
+    // Update name, username, and bio together
+    func updateProfile(name: String, username: String, bio: String) async {
+        do {
+            let updatedUser = try await NetworkService.shared.updateProfile(name: name, username: username, bio: bio)
+            self.user = updatedUser
+            self.clerkError = nil
+        } catch let NetworkError.requestFailed(statusCode, body) where statusCode == 409 {
+            self.clerkError = "Username already taken. Please choose another."
+        } catch {
+            self.clerkError = "Failed to update profile: \(error.localizedDescription)"
         }
     }
 }

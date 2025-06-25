@@ -4,6 +4,8 @@ struct EditProfileView: View {
     @EnvironmentObject var authViewModel: AuthViewModel
     @Environment(\.dismiss) private var dismiss
     @State private var newUsername: String = ""
+    @State private var newName: String = ""
+    @State private var newBio: String = ""
     @State private var showImagePicker = false
     @State private var showPhotoLibrary = false
     @State private var showCamera = false
@@ -56,14 +58,35 @@ struct EditProfileView: View {
                 }
 
                 // Username field
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Username")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                    TextField("Username", text: $newUsername)
-                        .textFieldStyle(RoundedBorderTextFieldStyle())
-                        .autocapitalization(.none)
-                        .disableAutocorrection(true)
+                VStack(alignment: .leading, spacing: 16) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Name")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                        TextField("Name", text: $newName)
+                            .textFieldStyle(RoundedBorderTextFieldStyle())
+                            .autocapitalization(.words)
+                    }
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Username")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                        TextField("Username", text: $newUsername)
+                            .textFieldStyle(RoundedBorderTextFieldStyle())
+                            .autocapitalization(.none)
+                            .disableAutocorrection(true)
+                    }
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Bio")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                        TextEditor(text: $newBio)
+                            .frame(minHeight: 60, maxHeight: 120)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .stroke(Color(.systemGray4), lineWidth: 1)
+                            )
+                    }
                 }
                 .padding(.horizontal)
 
@@ -102,6 +125,8 @@ struct EditProfileView: View {
             .navigationBarTitleDisplayMode(.inline)
             .onAppear {
                 newUsername = authViewModel.user?.username ?? ""
+                newName = authViewModel.user?.name ?? ""
+                newBio = authViewModel.user?.bio ?? ""
             }
         }
     }
@@ -116,7 +141,7 @@ struct EditProfileView: View {
     private func saveProfile() async {
         guard !newUsername.isEmpty else { return }
         isSaving = true
-        await authViewModel.updateUsername(newUsername)
+        await authViewModel.updateProfile(name: newName, username: newUsername, bio: newBio)
         isSaving = false
         dismiss()
     }

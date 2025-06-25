@@ -205,6 +205,21 @@ actor NetworkService {
             throw NetworkError.unknown(error)
         }
     }
+
+    // MARK: - Profile Update
+    func updateProfile(name: String?, username: String?, bio: String?) async throws -> User {
+        struct ProfileUpdateRequest: Codable {
+            let name: String?
+            let username: String?
+            let bio: String?
+        }
+        let body = ProfileUpdateRequest(name: name, username: username, bio: bio)
+        do {
+            return try await makeAuthenticatedRequest(endpoint: "/api/v1/users/me/profile", method: "PATCH", body: body)
+        } catch let NetworkError.requestFailed(statusCode, body) where statusCode == 409 {
+            throw NetworkError.requestFailed(statusCode: 409, body: body)
+        }
+    }
 }
 
 // MARK: - Network Response Types
