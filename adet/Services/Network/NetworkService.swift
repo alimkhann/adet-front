@@ -32,7 +32,7 @@ actor NetworkService {
             logger.warning("User is not authenticated or token is unavailable.")
             throw NetworkError.unauthorized
         }
-        print("Clerk JWT: \(token)") // DEBUG: Log the JWT for Swagger UI
+        logger.debug("Clerk JWT received for API request")
 
         var request = URLRequest(url: url)
         request.httpMethod = method
@@ -208,11 +208,6 @@ actor NetworkService {
 
     // MARK: - Profile Update
     func updateProfile(name: String?, username: String?, bio: String?) async throws -> User {
-        struct ProfileUpdateRequest: Codable {
-            let name: String?
-            let username: String?
-            let bio: String?
-        }
         let body = ProfileUpdateRequest(name: name, username: username, bio: bio)
         do {
             return try await makeAuthenticatedRequest(endpoint: "/api/v1/users/me/profile", method: "PATCH", body: body)
@@ -221,6 +216,3 @@ actor NetworkService {
         }
     }
 }
-
-// MARK: - Network Response Types
-struct EmptyResponse: Codable {}

@@ -39,9 +39,11 @@
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				adetApp.swift,
+				Models/APIModels.swift,
 				Models/Habit.swift,
 				Models/OnboardingAnswers.swift,
 				Models/OnboardingStep.swift,
+				Models/Theme.swift,
 				Models/User.swift,
 				Modules/Auth/ViewModels/AuthViewModel.swift,
 				Modules/Auth/Views/SignInView.swift,
@@ -59,6 +61,7 @@
 				Modules/Home/Views/HomeView.swift,
 				Modules/Onboarding/Views/OnboardingView.swift,
 				Modules/Onboarding/Views/QuestionPageView.swift,
+				Modules/Profile/ViewModels/ProfileViewModel.swift,
 				Modules/Profile/Views/EditProfileView.swift,
 				Modules/Profile/Views/ProfileView.swift,
 				Modules/Settings/Views/ContactSupportView.swift,
@@ -70,7 +73,6 @@
 				Resources/Assets.xcassets,
 				Services/Auth/AuthManager.swift,
 				Services/Auth/ClerkAuthService.swift,
-				Services/Network/APIError.swift,
 				Services/Network/APIService.swift,
 				Services/Network/NetworkError.swift,
 				Services/Network/NetworkService.swift,

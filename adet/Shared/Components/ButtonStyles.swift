@@ -1,5 +1,6 @@
 import SwiftUI
 
+// MARK: - Primary Button Style
 struct PrimaryButtonStyle: ButtonStyle {
     @Environment(\.colorScheme) var colorScheme
 
@@ -10,30 +11,42 @@ struct PrimaryButtonStyle: ButtonStyle {
             .foregroundColor(colorScheme == .dark ? .black : .white)
             .cornerRadius(12)
             .scaleEffect(configuration.isPressed ? 0.97 : 1)
-            .overlay(
-                RoundedRectangle(cornerRadius: 12)
-                    .stroke(Color.clear, lineWidth: 0)
-            )
-            .contentShape(Rectangle())
             .opacity(configuration.isPressed ? 0.8 : 1.0)
+            .animation(.easeInOut(duration: 0.2), value: configuration.isPressed)
     }
 }
 
+// MARK: - Secondary Button Style
 struct SecondaryButtonStyle: ButtonStyle {
     @Environment(\.colorScheme) var colorScheme
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .frame(maxWidth: .infinity)
-            .background(Color.clear)
-            .foregroundColor(colorScheme == .dark ? .white : .black)
+            .background(colorScheme == .dark ? Color("Zinc900") : Color("Zinc100"))
+            .foregroundColor(.primary)
+            .cornerRadius(12)
             .scaleEffect(configuration.isPressed ? 0.97 : 1)
             .overlay(
                 RoundedRectangle(cornerRadius: 12)
-                    .stroke(colorScheme == .dark ? Color.white : Color.black, lineWidth: 1)
-                    .scaleEffect(configuration.isPressed ? 0.97 : 1)
+                    .stroke(colorScheme == .dark ? Color.white.opacity(0.3) : Color.black.opacity(0.3), lineWidth: 1)
             )
-            .contentShape(Rectangle())
             .opacity(configuration.isPressed ? 0.7 : 1.0)
+            .animation(.easeInOut(duration: 0.2), value: configuration.isPressed)
+    }
+}
+
+// MARK: - Accent Button Style
+struct AccentButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .padding()
+            .frame(maxWidth: .infinity)
+            .background(Color.accentColor)
+            .foregroundColor(.white)
+            .cornerRadius(12)
+            .scaleEffect(configuration.isPressed ? 0.95 : 1.0)
+            .opacity(configuration.isPressed ? 0.8 : 1.0)
+            .animation(.easeInOut(duration: 0.2), value: configuration.isPressed)
     }
 }

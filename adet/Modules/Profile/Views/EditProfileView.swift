@@ -1,22 +1,23 @@
 import SwiftUI
+import OSLog
 
 struct EditProfileView: View {
     @EnvironmentObject var authViewModel: AuthViewModel
     @Environment(\.dismiss) private var dismiss
-    @State private var newUsername: String = ""
-    @State private var newName: String = ""
-    @State private var newBio: String = ""
-    @State private var showImagePicker = false
-    @State private var showPhotoLibrary = false
-    @State private var showCamera = false
-    @State private var showImageActionSheet = false
-    @State private var selectedImage: UIImage?
-    @State private var isSaving = false
+    @StateObject private var viewModel: ProfileViewModel
+
+    private let logger = Logger(subsystem: "com.adet.profile", category: "EditProfileView")
+
+    init() {
+        // Initialize with a temporary AuthViewModel, will be replaced by environment object
+        self._viewModel = StateObject(wrappedValue: ProfileViewModel(authViewModel: AuthViewModel()))
+    }
 
     var body: some View {
         NavigationStack {
             VStack(spacing: 24) {
                 Spacer().frame(height: 16)
+
                 // Profile Image
                 ZStack(alignment: .bottomTrailing) {
                     ProfileImageView(
@@ -27,7 +28,7 @@ struct EditProfileView: View {
                         onDeleteTap: nil,
                         jwtToken: authViewModel.jwtToken
                     )
-                    Button(action: { showImageActionSheet = true }) {
+                    Button(action: { viewModel.showEditImageActionSheet() }) {
                         Image(systemName: "pencil.circle.fill")
                             .font(.system(size: 24))
                             .foregroundColor(.accentColor)
@@ -35,52 +36,56 @@ struct EditProfileView: View {
                             .clipShape(Circle())
                     }
                 }
-                .actionSheet(isPresented: $showImageActionSheet) {
+                .actionSheet(isPresented: $viewModel.showImageActionSheet) {
                     ActionSheet(title: Text("Edit Profile Picture"), buttons: [
-                        .default(Text("Choose from library")) { showPhotoLibrary = true },
-                        .default(Text("Take photo")) { showCamera = true },
-                        .destructive(Text("Remove current picture")) { Task { await authViewModel.deleteProfileImage() } },
+                        .default(Text("Choose from library")) { viewModel.selectPhotoFromLibrary() },
+                        .default(Text("Take photo")) { viewModel.takePhoto() },
+                        .destructive(Text("Remove current picture")) {
+                            Task { await viewModel.removeCurrentPicture() }
+                        },
                         .cancel()
                     ])
                 }
-                .sheet(isPresented: $showPhotoLibrary) {
-                    ImagePicker(sourceType: .photoLibrary, selectedImage: $selectedImage)
+                .sheet(isPresented: $viewModel.showPhotoLibrary) {
+                    ImagePicker(sourceType: .photoLibrary, selectedImage: $viewModel.selectedImage)
                 }
-                .sheet(isPresented: $showCamera) {
-                    ImagePicker(sourceType: .camera, selectedImage: $selectedImage)
+                .sheet(isPresented: $viewModel.showCamera) {
+                    ImagePicker(sourceType: .camera, selectedImage: $viewModel.selectedImage)
                 }
-                .onChange(of: selectedImage) { _, newValue in
+                .onChange(of: viewModel.selectedImage) { _, newValue in
                     if let image = newValue {
                         Task {
-                            await uploadSelectedImage(image)
+                            await viewModel.uploadSelectedImage(image)
                         }
                     }
                 }
 
-                // Username field
+                // Form Fields
                 VStack(alignment: .leading, spacing: 16) {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Name")
                             .font(.subheadline)
                             .foregroundColor(.secondary)
-                        TextField("Name", text: $newName)
+                        TextField("Name", text: $viewModel.editFormName)
                             .textFieldStyle(RoundedBorderTextFieldStyle())
                             .autocapitalization(.words)
                     }
+
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Username")
                             .font(.subheadline)
                             .foregroundColor(.secondary)
-                        TextField("Username", text: $newUsername)
+                        TextField("Username", text: $viewModel.editFormUsername)
                             .textFieldStyle(RoundedBorderTextFieldStyle())
                             .autocapitalization(.none)
                             .disableAutocorrection(true)
                     }
+
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Bio")
                             .font(.subheadline)
                             .foregroundColor(.secondary)
-                        TextEditor(text: $newBio)
+                        TextEditor(text: $viewModel.editFormBio)
                             .frame(minHeight: 60, maxHeight: 120)
                             .overlay(
                                 RoundedRectangle(cornerRadius: 8)
@@ -107,7 +112,7 @@ struct EditProfileView: View {
                             await saveProfile()
                         }
                     }) {
-                        if isSaving {
+                        if viewModel.isSavingProfile {
                             ProgressView()
                         } else {
                             Text("Save")
@@ -116,7 +121,7 @@ struct EditProfileView: View {
                         }
                     }
                     .buttonStyle(PrimaryButtonStyle())
-                    .disabled(isSaving)
+                    .disabled(viewModel.isSavingProfile || !viewModel.hasUnsavedChanges())
                 }
                 .padding(.horizontal)
                 .padding(.bottom, 24)
@@ -124,26 +129,39 @@ struct EditProfileView: View {
             .navigationTitle("Edit Profile")
             .navigationBarTitleDisplayMode(.inline)
             .onAppear {
-                newUsername = authViewModel.user?.username ?? ""
-                newName = authViewModel.user?.name ?? ""
-                newBio = authViewModel.user?.bio ?? ""
-                authViewModel.clearErrors()
+                // Update the ViewModel with the current AuthViewModel
+                viewModel.updateAuthViewModel(authViewModel)
+                viewModel.loadEditFormData()
+                logger.info("EditProfileView appeared")
+            }
+            .overlay(
+                // Loading overlay
+                Group {
+                    if viewModel.isLoading {
+                        Color.black.opacity(0.3)
+                            .ignoresSafeArea()
+                        ProgressView()
+                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                            .scaleEffect(1.5)
+                    }
+                }
+            )
+            .alert("Error", isPresented: .constant(viewModel.errorMessage != nil)) {
+                Button("OK") {
+                    viewModel.clearError()
+                }
+            } message: {
+                Text(viewModel.errorMessage ?? "")
             }
         }
     }
 
-    private func uploadSelectedImage(_ image: UIImage) async {
-        guard let imageData = image.jpegData(compressionQuality: 0.8) else { return }
-        let fileName = "profile_image_\(UUID().uuidString).jpg"
-        await authViewModel.uploadProfileImage(imageData, fileName: fileName, mimeType: "image/jpeg")
-        selectedImage = nil
-    }
-
     private func saveProfile() async {
-        guard !newUsername.isEmpty else { return }
-        isSaving = true
-        await authViewModel.updateProfile(name: newName, username: newUsername, bio: newBio)
-        isSaving = false
-        dismiss()
+        guard viewModel.validateEditForm() else { return }
+
+        let success = await viewModel.saveProfile()
+        if success {
+            dismiss()
+        }
     }
 }
