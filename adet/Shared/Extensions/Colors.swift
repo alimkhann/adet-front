@@ -9,6 +9,10 @@ enum Colors {
         Color("Zinc400")
     }
     
+    static var zinc700: Color {
+        Color("Zinc700")
+    }
+    
     static var zinc900: Color {
         Color("Zinc900")
     }

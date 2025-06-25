@@ -2,6 +2,8 @@ import Foundation
 import Clerk
 import OSLog
 
+// MARK: - Motivation & Ability Tracking (move these to file scope)
+
 actor APIService {
     static let shared = APIService()
     private let networkService = NetworkService.shared
@@ -139,51 +141,95 @@ actor APIService {
             body: (nil as String?)
         )
     }
-}
 
-// MARK: - API Response Types
-struct HealthResponse: Codable {
-    let status: String
-    let database: String
-}
-
-struct UsernameUpdateRequest: Codable {
-    let username: String
-}
-
-struct ProfileImageUpdateRequest: Codable {
-    let profileImageUrl: String
-
-    enum CodingKeys: String, CodingKey {
-        case profileImageUrl = "profile_image_url"
+    // MARK: - API Response Types
+    struct HealthResponse: Codable {
+        let status: String
+        let database: String
     }
-}
 
-struct HabitCreateRequest: Codable {
-    let name: String
-    let description: String
-    let frequency: String
-    let validationTime: String
-    let difficulty: String
-    let proofStyle: String
-
-    enum CodingKeys: String, CodingKey {
-        case name
-        case description
-        case frequency
-        case validationTime = "validation_time"
-        case difficulty
-        case proofStyle = "proof_style"
+    struct UsernameUpdateRequest: Codable {
+        let username: String
     }
+
+    struct ProfileImageUpdateRequest: Codable {
+        let profileImageUrl: String
+
+        enum CodingKeys: String, CodingKey {
+            case profileImageUrl = "profile_image_url"
+        }
+    }
+
+    struct HabitCreateRequest: Codable {
+        let name: String
+        let description: String
+        let frequency: String
+        let validationTime: String
+        let difficulty: String
+        let proofStyle: String
+
+        enum CodingKeys: String, CodingKey {
+            case name
+            case description
+            case frequency
+            case validationTime = "validation_time"
+            case difficulty
+            case proofStyle = "proof_style"
+        }
+    }
+
+    struct OnboardingAnswer: Codable {
+        let id: Int
+        let user_id: Int
+        let habit_name: String
+        let habit_description: String
+        let frequency: String
+        let validation_time: String
+        let difficulty: String
+        let proof_style: String
+    }
+
+
 }
 
-struct OnboardingAnswer: Codable {
-    let id: Int
-    let user_id: Int
-    let habit_name: String
-    let habit_description: String
-    let frequency: String
-    let validation_time: String
-    let difficulty: String
-    let proof_style: String
+// OUTSIDE the actor
+extension APIService {
+    func submitMotivationEntry(habitId: Int, date: String, level: String) async throws -> MotivationEntryResponse {
+        let req = MotivationEntryRequest(habit_id: habitId, date: date, level: level)
+        return try await networkService.makeAuthenticatedRequest(
+            endpoint: "/api/v1/habits/\(habitId)/motivation",
+            method: "POST",
+            body: req
+        )
+    }
+    func getTodayMotivationEntry(habitId: Int) async throws -> MotivationEntryResponse {
+        return try await networkService.makeAuthenticatedRequest(
+            endpoint: "/api/v1/habits/\(habitId)/motivation/today",
+            method: "GET",
+            body: (nil as String?)
+        )
+    }
+    func submitAbilityEntry(habitId: Int, date: String, level: String) async throws -> AbilityEntryResponse {
+        let req = AbilityEntryRequest(habit_id: habitId, date: date, level: level)
+        return try await networkService.makeAuthenticatedRequest(
+            endpoint: "/api/v1/habits/\(habitId)/ability",
+            method: "POST",
+            body: req
+        )
+    }
+    func getTodayAbilityEntry(habitId: Int) async throws -> AbilityEntryResponse {
+        return try await networkService.makeAuthenticatedRequest(
+            endpoint: "/api/v1/habits/\(habitId)/ability/today",
+            method: "GET",
+            body: (nil as String?)
+        )
+    }
+    func updateMotivationEntry(habitId: Int, date: String, level: String) async throws -> MotivationEntryResponse {
+        let req = MotivationEntryRequest(habit_id: habitId, date: date, level: level)
+        return try await networkService.makeAuthenticatedRequest(
+            endpoint: "/api/v1/habits/\(habitId)/motivation/today",
+            method: "PATCH",
+            body: req
+        )
+    }
 }

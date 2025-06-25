@@ -33,9 +33,3 @@ struct VerificationView: View {
         }
     }
 }
-
-struct VerificationView_Previews: PreviewProvider {
-    static var previews: some View {
-        VerificationView()
-    }
-}

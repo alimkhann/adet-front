@@ -331,7 +331,7 @@ class AuthViewModel: ObservableObject {
             let updatedUser = try await NetworkService.shared.updateProfile(name: name, username: username, bio: bio)
             self.user = updatedUser
             toastManager.dismiss()
-        } catch let NetworkError.requestFailed(statusCode, body) where statusCode == 409 {
+        } catch let NetworkError.requestFailed(statusCode, _) where statusCode == 409 {
             toastManager.showError("Username already taken. Please choose another.")
         } catch {
             toastManager.showError("Failed to update profile: \(error.localizedDescription)")

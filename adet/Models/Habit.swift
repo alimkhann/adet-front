@@ -36,3 +36,32 @@ struct Habit: Codable, Identifiable {
         self.streak = streak
     }
 }
+
+struct MotivationEntryResponse: Codable {
+    let id: Int
+    let user_id: String
+    let habit_id: Int
+    let date: String
+    let level: String
+}
+
+struct AbilityEntryResponse: Codable {
+    let id: Int
+    let user_id: String
+    let habit_id: Int
+    let date: String
+    let level: String
+}
+
+struct MotivationEntryRequest: Codable {
+    let habit_id: Int
+    let date: String // ISO date string (yyyy-MM-dd)
+    let level: String // "low", "medium", "high"
+}
+
+struct AbilityEntryRequest: Codable {
+    let habit_id: Int
+    let date: String // ISO date string (yyyy-MM-dd)
+    let level: String // "hard", "medium", "easy"
+}
+

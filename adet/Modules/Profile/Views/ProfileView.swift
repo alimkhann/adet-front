@@ -59,7 +59,7 @@ struct ProfileView: View {
                             .lineLimit(1)
                             .truncationMode(.tail)
                             .padding(.leading, 16)
-                        
+
                         // Stats
                         HStack(spacing: 24) {
                             ProfileStat(title: "Posts", value: "0")
@@ -153,4 +153,3 @@ struct ProfileStat: View {
         .frame(minWidth: 64)
     }
 }
-

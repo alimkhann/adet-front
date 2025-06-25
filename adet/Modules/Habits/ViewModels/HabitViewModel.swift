@@ -6,6 +6,8 @@ class HabitViewModel: ObservableObject {
     @Published var selectedHabit: Habit?
     @Published var isLoading = false
     @Published var errorMessage: String?
+    @Published var todayMotivation: MotivationEntryResponse? = nil
+    @Published var todayAbility: AbilityEntryResponse? = nil
 
     private let apiService = APIService.shared
     private var hasAttemptedFallback = false
@@ -134,5 +136,70 @@ class HabitViewModel: ObservableObject {
             print(errorMessage ?? "Unknown error")
             return nil
         }
+    }
+
+    // MARK: - Motivation & Ability Tracking
+    func getTodayMotivationEntry(for habitId: Int) async -> MotivationEntryResponse? {
+        do {
+            let entry = try await apiService.getTodayMotivationEntry(habitId: habitId)
+            todayMotivation = entry
+            return entry
+        } catch {
+            todayMotivation = nil
+            return nil
+        }
+    }
+
+    func submitMotivationEntry(for habitId: Int, level: String) async -> Bool {
+        let today = ISO8601DateFormatter().string(from: Date()).prefix(10) // yyyy-MM-dd
+        do {
+            _ = try await apiService.submitMotivationEntry(habitId: habitId, date: String(today), level: level)
+            return true
+        } catch let error as NSError {
+            if error.localizedDescription.contains("already exists") {
+                // Already exists, treat as success
+                return true
+            }
+            ToastManager.shared.showError(error.localizedDescription)
+            return false
+        }
+    }
+
+    func updateMotivationEntry(for habitId: Int, level: String) async -> Bool {
+        let today = ISO8601DateFormatter().string(from: Date()).prefix(10) // yyyy-MM-dd
+        do {
+            _ = try await apiService.updateMotivationEntry(habitId: habitId, date: String(today), level: level)
+            return true
+        } catch {
+            ToastManager.shared.showError(error.localizedDescription)
+            return false
+        }
+    }
+
+    func getTodayAbilityEntry(for habitId: Int) async -> AbilityEntryResponse? {
+        do {
+            return try await apiService.getTodayAbilityEntry(habitId: habitId)
+        } catch {
+            return nil
+        }
+    }
+
+    func submitAbilityEntry(for habitId: Int, level: String) async -> Bool {
+        let today = ISO8601DateFormatter().string(from: Date()).prefix(10) // yyyy-MM-dd
+        do {
+            _ = try await apiService.submitAbilityEntry(habitId: habitId, date: String(today), level: level)
+            return true
+        } catch {
+            return false
+        }
+    }
+
+    // MARK: - Interval Day Logic
+    func isTodayIntervalDay(for habit: Habit) -> Bool {
+        // Assumes habit.frequency is a comma-separated string of weekday abbreviations, e.g. "Mon, Wed, Fri"
+        let todayIndex = Calendar.current.component(.weekday, from: Date()) - 1 // Sunday = 0
+        let formatter = DateFormatter()
+        let todayAbbr = formatter.shortWeekdaySymbols[todayIndex] // e.g. "Mon"
+        return habit.frequency.contains(todayAbbr)
     }
 }
