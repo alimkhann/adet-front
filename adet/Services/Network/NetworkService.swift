@@ -9,7 +9,7 @@ actor NetworkService {
     private let logger = Logger(subsystem: "com.adet.network", category: "NetworkService")
 
     // Configuration for retry logic
-    private let maxRetries = 3
+    private let maxRetries = 1
     private let retryDelay: TimeInterval = 1.0
     private let timeout: TimeInterval = 15.0
 
