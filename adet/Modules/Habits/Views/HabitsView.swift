@@ -239,21 +239,50 @@ struct HabitsView: View {
         // Use the existing generateTaskForHabit method
         aiTaskViewModel.generateTaskForHabit(habit)
 
-        // Wait for the task to be generated
+        // Wait for the task to be generated or timeout
         var attempts = 0
-        while aiTaskViewModel.isGeneratingTask && attempts < 50 { // 5 second timeout
+        let maxAttempts = 100 // 10 second timeout
+
+        while attempts < maxAttempts {
+            // Check if we have a task (success case)
+            if let task = aiTaskViewModel.currentTask {
+                // Clear placeholder and show real task
+                generatedTaskText[habit.id] = ""
+                await animateText(task.taskDescription, for: habit)
+                taskDifficulty[habit.id] = "original"
+
+                // Add a small delay before showing the proof section
+                try? await Task.sleep(nanoseconds: 300_000_000) // 0.3 seconds
+
+                await MainActor.run {
+                    withAnimation(.easeInOut(duration: 0.4)) {
+                        showTaskAnimation[habit.id] = false // Reset animation state
+                    }
+                }
+                isGeneratingTask[habit.id] = false
+                return
+            }
+
+            // Check if generation is complete but failed
+            if !aiTaskViewModel.isGeneratingTask {
+                break
+            }
+
             try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
             attempts += 1
         }
 
-        if let task = aiTaskViewModel.currentTask {
-            // Clear placeholder and show real task
-            generatedTaskText[habit.id] = ""
-            await animateText(task.taskDescription, for: habit)
+        // If we get here, either timed out or generation failed
+        generatedTaskText[habit.id] = ""
+        if aiTaskViewModel.currentTask != nil {
+            // Task exists but we somehow missed it in the loop
+            await animateText(aiTaskViewModel.currentTask!.taskDescription, for: habit)
             taskDifficulty[habit.id] = "original"
+            showTaskAnimation[habit.id] = false
         } else {
-            generatedTaskText[habit.id] = ""
+            // No task found
             await animateText("Failed to generate task. Please try again.", for: habit)
+            showTaskAnimation[habit.id] = false
         }
 
         isGeneratingTask[habit.id] = false
@@ -281,6 +310,7 @@ struct HabitsView: View {
             taskDifficulty[habit.id] = "easier"
         }
 
+        showTaskAnimation[habit.id] = false // Reset animation state
         isGeneratingTask[habit.id] = false
     }
 
@@ -306,6 +336,7 @@ struct HabitsView: View {
             taskDifficulty[habit.id] = "harder"
         }
 
+        showTaskAnimation[habit.id] = false // Reset animation state
         isGeneratingTask[habit.id] = false
     }
 
@@ -330,27 +361,23 @@ struct HabitsView: View {
     // MARK: - UI Sections
 
     private func bottomSection(for habit: Habit) -> some View {
-        if aiTaskViewModel.currentTask != nil {
-            // When task exists, use all available space
-            return AnyView(
-                VStack(spacing: 12) {
-                    // Task Generation Section
-                    taskGenerationSection(for: habit)
+        VStack(spacing: 12) {
+            // Task Generation Section - Always present
+            taskGenerationSection(for: habit)
 
-                    // Upload Proof Section - Fill remaining space
-                    uploadProofSection(for: habit)
-                        .frame(maxHeight: .infinity)
-                }
-            )
-        } else {
-            // When no task, just show task generation
-            return AnyView(
-                VStack(spacing: 12) {
-                    taskGenerationSection(for: habit)
-                    Spacer()
-                }
-            )
+            // Upload Proof Section - Animated appearance when task exists
+            if aiTaskViewModel.currentTask != nil {
+                uploadProofSection(for: habit)
+                    .transition(.asymmetric(
+                        insertion: .move(edge: .bottom).combined(with: .opacity),
+                        removal: .move(edge: .bottom).combined(with: .opacity)
+                    ))
+                    .animation(.easeInOut(duration: 0.5), value: aiTaskViewModel.currentTask != nil)
+            }
+
+            Spacer()
         }
+        .frame(maxWidth: .infinity)
     }
 
     private func taskGenerationSection(for habit: Habit) -> some View {
@@ -437,9 +464,18 @@ struct HabitsView: View {
                     RoundedRectangle(cornerRadius: 12)
                         .stroke(colorScheme == .dark ? Color.white.opacity(0.2) : Color.black.opacity(0.1), lineWidth: 1)
                 )
+                .transition(.asymmetric(
+                    insertion: .scale(scale: 0.95).combined(with: .opacity),
+                    removal: .scale(scale: 0.95).combined(with: .opacity)
+                ))
             } else if let currentTask = aiTaskViewModel.currentTask {
                 // Generated Task Display
                 taskDisplayView(for: habit, currentTask: currentTask)
+                    .transition(.asymmetric(
+                        insertion: .scale(scale: 0.95).combined(with: .opacity),
+                        removal: .scale(scale: 0.95).combined(with: .opacity)
+                    ))
+                    .animation(.easeInOut(duration: 0.4), value: showTaskAnimation[habit.id])
             }
 
             // Action Buttons
@@ -481,6 +517,10 @@ struct HabitsView: View {
                                         .frame(maxWidth: .infinity, minHeight: 36)
                                     }
                                     .buttonStyle(SecondaryButtonStyle())
+                                    .transition(.asymmetric(
+                                        insertion: .scale(scale: 0.9).combined(with: .opacity),
+                                        removal: .scale(scale: 0.9).combined(with: .opacity)
+                                    ))
                                 }
 
                                 if aiTaskViewModel.currentTask?.harderAlternative != nil && !(aiTaskViewModel.currentTask?.harderAlternative?.isEmpty ?? true) {
@@ -497,6 +537,10 @@ struct HabitsView: View {
                                         .frame(maxWidth: .infinity, minHeight: 36)
                                     }
                                     .buttonStyle(SecondaryButtonStyle())
+                                    .transition(.asymmetric(
+                                        insertion: .scale(scale: 0.9).combined(with: .opacity),
+                                        removal: .scale(scale: 0.9).combined(with: .opacity)
+                                    ))
                                 }
                             } else {
                                 // Show single "Original" button when at easier or harder difficulty
@@ -517,8 +561,13 @@ struct HabitsView: View {
                                     .frame(maxWidth: .infinity, minHeight: 36)
                                 }
                                 .buttonStyle(SecondaryButtonStyle())
+                                .transition(.asymmetric(
+                                    insertion: .scale(scale: 0.9).combined(with: .opacity),
+                                    removal: .scale(scale: 0.9).combined(with: .opacity)
+                                ))
                             }
                         }
+                        .animation(.easeInOut(duration: 0.3), value: currentDifficulty)
                     }
                 } else {
                     // Need Motivation & Ability - show different states based on completion
@@ -571,6 +620,7 @@ struct HabitsView: View {
                 .buttonStyle(PrimaryButtonStyle())
             }
         }
+        .frame(maxWidth: .infinity)
         .padding()
         .background(colorScheme == .dark ? .zinc900 : .zinc100)
         .cornerRadius(10)
@@ -663,6 +713,7 @@ struct HabitsView: View {
                     Text(currentTask.proofRequirements)
                         .font(.body)
                         .foregroundColor(.primary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                         .padding()
                         .background(colorScheme == .dark ? Color.black : Color.white)
                         .cornerRadius(12)
@@ -671,6 +722,11 @@ struct HabitsView: View {
                                 .stroke(colorScheme == .dark ? Color.white.opacity(0.2) : Color.black.opacity(0.1), lineWidth: 1)
                         )
                 }
+                .transition(.asymmetric(
+                    insertion: .scale(scale: 0.95).combined(with: .opacity),
+                    removal: .scale(scale: 0.95).combined(with: .opacity)
+                ))
+                .animation(.easeInOut(duration: 0.3).delay(0.1), value: aiTaskViewModel.currentTask != nil)
 
                 // Action Buttons - only show when task exists
                 Button(action: {
@@ -684,8 +740,13 @@ struct HabitsView: View {
                     .frame(maxWidth: .infinity, minHeight: 48)
                 }
                 .buttonStyle(PrimaryButtonStyle())
+                .transition(.asymmetric(
+                    insertion: .scale(scale: 0.95).combined(with: .opacity),
+                    removal: .scale(scale: 0.95).combined(with: .opacity)
+                ))
             }
         }
+        .frame(maxWidth: .infinity)
         .padding()
         .background(colorScheme == .dark ? .zinc900 : .zinc100)
         .cornerRadius(10)
@@ -774,6 +835,7 @@ struct HabitsView: View {
             Text(displayText)
                 .font(.body)
                 .foregroundColor(.primary)
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .padding()
                 .background(colorScheme == .dark ? Color.black : Color.white)
                 .cornerRadius(12)
@@ -782,5 +844,6 @@ struct HabitsView: View {
                         .stroke(colorScheme == .dark ? Color.white.opacity(0.2) : Color.black.opacity(0.1), lineWidth: 1)
                 )
         }
+        .frame(maxWidth: .infinity)
     }
 }

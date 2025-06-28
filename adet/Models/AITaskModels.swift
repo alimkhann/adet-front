@@ -234,12 +234,10 @@ struct TaskGenerationResponse: Codable {
 struct TaskCreationResponse: Codable {
     let success: Bool
     let task: TaskEntry
-    let aiMetadata: [String: String]?
 
     enum CodingKeys: String, CodingKey {
         case success
         case task
-        case aiMetadata = "ai_metadata"
     }
 }
 
