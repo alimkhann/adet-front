@@ -6,6 +6,7 @@ struct MotivationAbilityModal: View {
     @Binding var isLoading: Bool
     let habitName: String
     let todayMotivation: MotivationEntryResponse?
+    let todayAbility: AbilityEntryResponse?
     let onSubmitMotivation: (String) async -> Bool
     let onSubmitAbility: (String) async -> Bool
 
@@ -19,6 +20,20 @@ struct MotivationAbilityModal: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            // Close button
+            HStack {
+                Spacer()
+                Button(action: {
+                    isPresented = false
+                }) {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.title2)
+                        .foregroundColor(.secondary)
+                }
+                .padding(.trailing, 20)
+                .padding(.top, 16)
+            }
+
             VStack(spacing: 24) {
                 // Step indicator
                 VStack(spacing: 8) {
@@ -26,7 +41,7 @@ struct MotivationAbilityModal: View {
                         .font(.subheadline)
                         .foregroundColor(.primary.opacity(0.7))
                     HStack(spacing: 8) {
-                        ForEach(0..<2, id: \ .self) { idx in
+                        ForEach(0..<2, id: \.self) { idx in
                             Circle()
                                 .fill(step == idx ? Color.primary : Color.primary.opacity(0.2))
                                 .frame(width: 8, height: 8)
@@ -35,7 +50,6 @@ struct MotivationAbilityModal: View {
                         }
                     }
                 }
-                .padding(.top, 20)
 
                 // Habit name (moved above question)
                 Text(habitName)
@@ -54,7 +68,7 @@ struct MotivationAbilityModal: View {
 
                 // Options (Onboarding style)
                 VStack(spacing: 16) {
-                    ForEach((step == 0 ? motivationOptions : abilityChoices), id: \ .self) { option in
+                    ForEach((step == 0 ? motivationOptions : abilityChoices), id: \.self) { option in
                         Button {
                             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                             if step == 0 { motivation = option } else { ability = option }
@@ -76,7 +90,7 @@ struct MotivationAbilityModal: View {
             }
             .padding(.horizontal, 24)
             .padding(.top, 8)
-            .padding(.bottom, 0)
+            .padding(.bottom, 16)
 
             Spacer(minLength: 0)
 
@@ -108,9 +122,7 @@ struct MotivationAbilityModal: View {
                             isLoading = false
                             if success {
                                 isPresented = false
-                                step = 0
-                                motivation = nil
-                                ability = nil
+                                // Don't reset state on successful completion
                             } else {
                                 ToastManager.shared.showError("Something went wrong. Try again.")
                             }
@@ -133,20 +145,19 @@ struct MotivationAbilityModal: View {
             .padding(.bottom, 24)
         }
         .presentationDetents([.fraction(0.65)])
-        .interactiveDismissDisabled()
         .background(Color(.systemBackground))
         .onAppear {
-            // Pre-select motivation if it exists
+            // Resume from where user left off
             if let entry = todayMotivation {
                 motivation = entry.level.capitalized
+                // If motivation exists but ability doesn't, start from ability step
+                if todayAbility == nil {
+                    step = 1
+                }
             }
-        }
-        .onDisappear {
-            // Reset state when modal is dismissed
-            step = 0
-            motivation = nil
-            ability = nil
-            isLoading = false
+            if let entry = todayAbility {
+                ability = entry.level.replacingOccurrences(of: "_", with: " ").capitalized
+            }
         }
     }
 
@@ -154,6 +165,7 @@ struct MotivationAbilityModal: View {
         if step == 0 { return motivation == option }
         else { return ability == option }
     }
+
     private var canProceed: Bool {
         if step == 0 { return motivation != nil && !isLoading }
         else { return ability != nil && !isLoading }

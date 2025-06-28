@@ -133,9 +133,15 @@ struct HabitDetailsView: View {
                     Button {
                         showingDeleteAlert = true
                     } label: {
-                        Image(systemName: "trash")
-                            .foregroundColor(.red)
+                        if habitViewModel.isLoading {
+                            ProgressView()
+                                .scaleEffect(0.8)
+                        } else {
+                            Image(systemName: "trash")
+                                .foregroundColor(.red)
+                        }
                     }
+                    .disabled(habitViewModel.isLoading)
                 }
             }
         }
@@ -161,6 +167,14 @@ struct HabitDetailsView: View {
 
     private func deleteHabit() async {
         await habitViewModel.deleteHabit(habit)
+
+        // Show appropriate feedback based on the result
+        if let errorMessage = habitViewModel.errorMessage {
+            ToastManager.shared.showError(errorMessage)
+        } else {
+            ToastManager.shared.showSuccess("Habit deleted successfully")
+        }
+
         dismiss()
     }
 }

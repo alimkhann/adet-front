@@ -7,57 +7,68 @@ struct HabitsView: View {
     @State private var showingHabitDetails = false
     @State private var showingAddHabitSheet = false
     @State private var showMotivationAbilityModal = false
-    @State private var showAITaskGeneration = false
-    @State private var showAITaskDisplay = false
     @State private var motivationAnswer: String? = nil
     @State private var abilityAnswer: String? = nil
     @State private var isLoadingMotivation = false
     @State private var isLoadingAbility = false
     @State private var showToast: Bool = false
+    @State private var isGeneratingTask: [Int: Bool] = [:]
+    @State private var generatedTaskText: [Int: String] = [:]
+    @State private var showTaskAnimation: [Int: Bool] = [:]
+    @State private var taskDifficulty: [Int: String] = [:]
+    @State private var currentTaskRequest: [Int: String] = [:]
 
     var body: some View {
         NavigationStack {
-            VStack(alignment: .leading, spacing: 20) {
-                // Carousel for Habits
-                ScrollView(.horizontal, showsIndicators: false) {
-                    let habitCards = viewModel.habits.map { habit in
-                        HabitCardView(
-                            habit: habit,
-                            isSelected: viewModel.selectedHabit?.id == habit.id,
-                            onTap: {
-                                viewModel.selectHabit(habit)
-                                Task {
-                                    await checkAndHandleHabitSelection(habit)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    // Carousel for Habits
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        let habitCards = viewModel.habits.map { habit in
+                            HabitCardView(
+                                habit: habit,
+                                isSelected: viewModel.selectedHabit?.id == habit.id,
+                                onTap: {
+                                    viewModel.selectHabit(habit)
+                                    Task {
+                                        await checkAndHandleHabitSelection(habit)
+                                    }
+                                },
+                                onLongPress: {
+                                    print("Long press detected for habit: \(habit.name)")
+                                    viewModel.selectHabit(habit)
+                                    showingHabitDetails = true
                                 }
-                            },
-                            onLongPress: {
-                                print("Long press detected for habit: \(habit.name)")
-                                showingHabitDetails = true
-                            }
-                        )
-                    }
-                    HStack(spacing: 15) {
-                        ForEach(Array(habitCards.enumerated()), id: \.element.habit.id) { _, card in
-                            card
+                            )
                         }
-                        AddHabitCardView(onTap: {
-                            showingAddHabitSheet = true
-                        })
+                        HStack(spacing: 15) {
+                            ForEach(Array(habitCards.enumerated()), id: \.element.habit.id) { _, card in
+                                card
+                            }
+                            AddHabitCardView(onTap: {
+                                showingAddHabitSheet = true
+                            })
+                        }
                     }
-                    .padding(.horizontal)
-                }
-                .frame(height: 100)
-                .padding(.top)
+                    .frame(height: 100)
+                    .clipped()
+                    .scrollBounceBehavior(.basedOnSize, axes: .horizontal)
+                    .padding(.top)
 
-                // Dynamic Bottom Section based on selected habit and task state
-                if let selectedHabit = viewModel.selectedHabit {
-                    bottomSection(for: selectedHabit)
-                } else {
-                    placeholderSection
-                }
+                    // Dynamic Bottom Section based on selected habit and task state
+                    if let selectedHabit = viewModel.selectedHabit {
+                        bottomSection(for: selectedHabit)
+                    } else {
+                        placeholderSection
+                    }
 
-                Spacer()
+                    Spacer()
+                }
             }
+            .refreshable {
+                await refreshData()
+            }
+            .padding(.horizontal)
             .navigationBarHidden(true)
             .onAppear {
                 Task {
@@ -86,6 +97,7 @@ struct HabitsView: View {
                         isLoading: $isLoadingMotivation,
                         habitName: habit.name,
                         todayMotivation: viewModel.todayMotivation,
+                        todayAbility: viewModel.todayAbility,
                         onSubmitMotivation: { answer in
                             if let existing = viewModel.todayMotivation, existing.level.capitalized != answer {
                                 return await viewModel.updateMotivationEntry(for: habit.id, level: answer.lowercased())
@@ -95,36 +107,15 @@ struct HabitsView: View {
                             return true
                         },
                         onSubmitAbility: { answer in
-                            await viewModel.submitAbilityEntry(for: habit.id, level: answer.replacingOccurrences(of: " ", with: "_").lowercased())
+                            let success = await viewModel.submitAbilityEntry(for: habit.id, level: answer.replacingOccurrences(of: " ", with: "_").lowercased())
+                            if success {
+                                // Refresh the entries after successful submission
+                                await refreshMotivationAbilityEntries(for: habit)
+                            }
+                            return success
                         }
                     )
-                    .presentationDetents([.fraction(0.65)])
-                }
-            }
-            .sheet(isPresented: $showAITaskGeneration) {
-                if let habit = viewModel.selectedHabit {
-                    AITaskGenerationView(habit: habit)
-                        .onDisappear {
-                            // Check for today's task after generation
-                            if let habit = viewModel.selectedHabit {
-                                Task {
-                                    await checkTodayTask(for: habit)
-                                }
-                            }
-                        }
-                }
-            }
-            .sheet(isPresented: $showAITaskDisplay) {
-                if let task = aiTaskViewModel.currentTask {
-                    AITaskDisplayView(task: task)
-                        .onDisappear {
-                            // Refresh task state after display
-                            if let habit = viewModel.selectedHabit {
-                                Task {
-                                    await checkTodayTask(for: habit)
-                                }
-                            }
-                        }
+                    .presentationDetents([.fraction(0.7)])
                 }
             }
         }
@@ -133,22 +124,71 @@ struct HabitsView: View {
     // MARK: - Helper Methods
 
     private func checkAndHandleHabitSelection(_ habit: Habit) async {
-        // Check if today is an interval day for this habit
-        if viewModel.isTodayIntervalDay(for: habit) {
+        // Don't automatically show motivation/ability modal anymore
+        // Just check for existing entries and tasks
+        if viewModel.isTodayIntervalDay(for: habit) && isValidationTimeReached(for: habit) {
             let motivation = await viewModel.getTodayMotivationEntry(for: habit.id)
             let ability = await viewModel.getTodayAbilityEntry(for: habit.id)
 
-            if motivation == nil || ability == nil {
-                showMotivationAbilityModal = true
-            } else {
-                showMotivationAbilityModal = false
-                // Check for today's task
-                await checkTodayTask(for: habit)
-            }
+            // Store the entries for display without showing modal
+            viewModel.todayMotivation = motivation
+            viewModel.todayAbility = ability
+        }
+
+        // Always check for today's task
+        await checkTodayTask(for: habit)
+    }
+
+    private func isValidationTimeReached(for habit: Habit) -> Bool {
+        let formatter = DateFormatter()
+        formatter.timeStyle = .short
+
+        guard let validationTime = formatter.date(from: habit.validationTime) else {
+            return true // If we can't parse, assume it's time
+        }
+
+        let now = Date()
+        let calendar = Calendar.current
+
+        // Create today's validation time
+        let todayValidation = calendar.date(bySettingHour: calendar.component(.hour, from: validationTime),
+                                          minute: calendar.component(.minute, from: validationTime),
+                                          second: 0,
+                                          of: now) ?? now
+
+        return now >= todayValidation
+    }
+
+    private func timeUntilValidation(for habit: Habit) -> String {
+        let formatter = DateFormatter()
+        formatter.timeStyle = .short
+
+        guard let validationTime = formatter.date(from: habit.validationTime) else {
+            return "Soon"
+        }
+
+        let now = Date()
+        let calendar = Calendar.current
+
+        // Create today's validation time
+        let todayValidation = calendar.date(bySettingHour: calendar.component(.hour, from: validationTime),
+                                          minute: calendar.component(.minute, from: validationTime),
+                                          second: 0,
+                                          of: now) ?? now
+
+        let timeInterval = todayValidation.timeIntervalSince(now)
+
+        if timeInterval <= 0 {
+            return "Now"
+        }
+
+        let hours = Int(timeInterval) / 3600
+        let minutes = Int(timeInterval.truncatingRemainder(dividingBy: 3600)) / 60
+
+        if hours > 0 {
+            return "\(hours)h \(minutes)m"
         } else {
-            showMotivationAbilityModal = false
-            // Check for today's task even if not interval day
-            await checkTodayTask(for: habit)
+            return "\(minutes)m"
         }
     }
 
@@ -162,228 +202,541 @@ struct HabitsView: View {
         }
     }
 
+    private func refreshMotivationAbilityEntries(for habit: Habit) async {
+        let motivation = await viewModel.getTodayMotivationEntry(for: habit.id)
+        let ability = await viewModel.getTodayAbilityEntry(for: habit.id)
+
+        viewModel.todayMotivation = motivation
+        viewModel.todayAbility = ability
+    }
+
+    private func refreshData() async {
+        await viewModel.fetchHabits()
+        if let habit = viewModel.selectedHabit {
+            await checkAndHandleHabitSelection(habit)
+        }
+    }
+
+    private func generateTask(for habit: Habit) async {
+        guard let motivation = viewModel.todayMotivation?.level,
+              let ability = viewModel.todayAbility?.level else {
+            return
+        }
+
+        isGeneratingTask[habit.id] = true
+        currentTaskRequest[habit.id] = taskDifficulty[habit.id] ?? "original"
+        showTaskAnimation[habit.id] = true
+        generatedTaskText[habit.id] = ""
+
+        // Simulate typing animation
+        let placeholderText = "Generating your personalized task..."
+        await animateText(placeholderText, for: habit)
+
+        // Set the motivation and ability levels in the viewModel
+        aiTaskViewModel.selectedMotivationLevel = motivation
+        aiTaskViewModel.selectedAbilityLevel = ability
+
+        // Use the existing generateTaskForHabit method
+        aiTaskViewModel.generateTaskForHabit(habit)
+
+        // Wait for the task to be generated
+        var attempts = 0
+        while aiTaskViewModel.isGeneratingTask && attempts < 50 { // 5 second timeout
+            try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
+            attempts += 1
+        }
+
+        if let task = aiTaskViewModel.currentTask {
+            // Clear placeholder and show real task
+            generatedTaskText[habit.id] = ""
+            await animateText(task.taskDescription, for: habit)
+            taskDifficulty[habit.id] = "original"
+        } else {
+            generatedTaskText[habit.id] = ""
+            await animateText("Failed to generate task. Please try again.", for: habit)
+        }
+
+        isGeneratingTask[habit.id] = false
+    }
+
+    private func generateEasierTask(for habit: Habit) async {
+        guard let currentTask = aiTaskViewModel.currentTask,
+              let easierAlternative = currentTask.easierAlternative,
+              !easierAlternative.isEmpty else { return }
+
+        isGeneratingTask[habit.id] = true
+        showTaskAnimation[habit.id] = true
+        generatedTaskText[habit.id] = ""
+
+        // Check current difficulty to determine what to show
+        let currentDifficulty = taskDifficulty[habit.id] ?? "original"
+
+        if currentDifficulty == "harder" {
+            // If currently showing harder, go back to original
+            await animateText(currentTask.taskDescription, for: habit)
+            taskDifficulty[habit.id] = "original"
+        } else {
+            // If currently showing original, go to easier
+            await animateText(easierAlternative, for: habit)
+            taskDifficulty[habit.id] = "easier"
+        }
+
+        isGeneratingTask[habit.id] = false
+    }
+
+    private func generateHarderTask(for habit: Habit) async {
+        guard let currentTask = aiTaskViewModel.currentTask,
+              let harderAlternative = currentTask.harderAlternative,
+              !harderAlternative.isEmpty else { return }
+
+        isGeneratingTask[habit.id] = true
+        showTaskAnimation[habit.id] = true
+        generatedTaskText[habit.id] = ""
+
+        // Check current difficulty to determine what to show
+        let currentDifficulty = taskDifficulty[habit.id] ?? "original"
+
+        if currentDifficulty == "easier" {
+            // If currently showing easier, go back to original
+            await animateText(currentTask.taskDescription, for: habit)
+            taskDifficulty[habit.id] = "original"
+        } else {
+            // If currently showing original, go to harder
+            await animateText(harderAlternative, for: habit)
+            taskDifficulty[habit.id] = "harder"
+        }
+
+        isGeneratingTask[habit.id] = false
+    }
+
+    private func animateText(_ text: String, for habit: Habit) async {
+        let words = text.components(separatedBy: " ")
+
+        for (index, word) in words.enumerated() {
+            await MainActor.run {
+                if index == 0 {
+                    generatedTaskText[habit.id] = word
+                } else {
+                    generatedTaskText[habit.id] = (generatedTaskText[habit.id] ?? "") + " " + word
+                }
+            }
+
+            // Vary the delay for more natural typing
+            let delay = Double.random(in: 0.05...0.15)
+            try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+        }
+    }
+
     // MARK: - UI Sections
 
     private func bottomSection(for habit: Habit) -> some View {
-        VStack(spacing: 16) {
-            if aiTaskViewModel.isLoading {
-                loadingSection
-            } else if let currentTask = aiTaskViewModel.currentTask {
-                taskSection(for: currentTask)
-            } else if viewModel.isTodayIntervalDay(for: habit) {
-                noTaskSection(for: habit)
-            } else {
-                notIntervalDaySection(for: habit)
-            }
+        if aiTaskViewModel.currentTask != nil {
+            // When task exists, use all available space
+            return AnyView(
+                VStack(spacing: 12) {
+                    // Task Generation Section
+                    taskGenerationSection(for: habit)
+
+                    // Upload Proof Section - Fill remaining space
+                    uploadProofSection(for: habit)
+                        .frame(maxHeight: .infinity)
+                }
+            )
+        } else {
+            // When no task, just show task generation
+            return AnyView(
+                VStack(spacing: 12) {
+                    taskGenerationSection(for: habit)
+                    Spacer()
+                }
+            )
         }
     }
 
-    private var loadingSection: some View {
-        VStack(spacing: 12) {
-            ProgressView()
-                .scaleEffect(1.2)
-            Text("Loading today's task...")
-                .font(.body)
-                .foregroundColor(.secondary)
-        }
-        .frame(maxWidth: .infinity)
-        .padding()
-        .background(colorScheme == .dark ? .zinc900 : .zinc100)
-        .cornerRadius(10)
-        .padding(.horizontal)
-    }
-
-    private func taskSection(for task: TaskEntry) -> some View {
+    private func taskGenerationSection(for habit: Habit) -> some View {
         VStack(alignment: .leading, spacing: 16) {
-            // Task Header
+            // Header with motivation and ability levels - moved higher
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Today's Task")
                         .font(.title2)
                         .fontWeight(.bold)
 
-                    HStack {
-                        Circle()
-                            .fill(aiTaskViewModel.getStatusColor(task.status))
-                            .frame(width: 8, height: 8)
-                        Text(TaskStatus(rawValue: task.status)?.displayName ?? task.status.capitalized)
-                            .font(.caption)
-                            .foregroundColor(.secondary)
+                    // Only show status text when no task exists
+                    if aiTaskViewModel.currentTask == nil {
+                        if viewModel.isTodayIntervalDay(for: habit) {
+                            if isValidationTimeReached(for: habit) {
+                                Text("Ready to generate your task")
+                                    .font(.body)
+                                    .foregroundColor(.secondary)
+                            } else {
+                                Text("Available in \(timeUntilValidation(for: habit))")
+                                    .font(.body)
+                                    .foregroundColor(.secondary)
+                            }
+                        } else {
+                            Text("This habit is scheduled for \(habit.frequency)")
+                                .font(.body)
+                                .foregroundColor(.secondary)
+                        }
                     }
                 }
 
                 Spacer()
 
-                Button(action: {
-                    showAITaskDisplay = true
-                }) {
-                    Image(systemName: "arrow.up.right.square")
-                        .font(.title2)
-                        .foregroundColor(.blue)
+                // Motivation & Ability Display - Always show when it's the habit day
+                if viewModel.isTodayIntervalDay(for: habit) {
+                    HStack(spacing: 20) {
+                        // Motivation
+                        VStack(spacing: 4) {
+                            HStack(spacing: 4) {
+                                Text(motivationEmoji(viewModel.todayMotivation?.level))
+                                    .font(.caption)
+                                Text("Motivation")
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                            }
+                            Text(viewModel.todayMotivation?.level.capitalized ?? "Not Set")
+                                .font(.caption)
+                                .fontWeight(.medium)
+                                .foregroundColor(viewModel.todayMotivation != nil ? .primary : .secondary)
+                        }
+
+                        // Ability
+                        VStack(spacing: 4) {
+                            HStack(spacing: 4) {
+                                Text(abilityEmoji(viewModel.todayAbility?.level))
+                                    .font(.caption)
+                                Text("Ability")
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                            }
+                            Text(viewModel.todayAbility?.level.capitalized ?? "Not Set")
+                                .font(.caption)
+                                .fontWeight(.medium)
+                                .foregroundColor(viewModel.todayAbility != nil ? .primary : .secondary)
+                        }
+                    }
                 }
             }
 
-            // Task Description
-            Text(task.taskDescription)
-                .font(.body)
-                .lineLimit(3)
+            // Task Display or Generation
+            if showTaskAnimation[habit.id] == true {
+                // AI Chat Animation
+                VStack(alignment: .leading, spacing: 12) {
+                    Text(generatedTaskText[habit.id] ?? "")
+                        .font(.body)
+                        .foregroundColor(.primary)
+                        .animation(.easeInOut, value: generatedTaskText[habit.id])
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .padding()
-                .background(Color.blue.opacity(0.1))
-                .cornerRadius(8)
-
-            // Task Metadata
-            HStack(spacing: 20) {
-                VStack {
-                    Image(systemName: "chart.bar.fill")
-                        .foregroundColor(.orange)
-                    Text(aiTaskViewModel.formatDifficulty(task.difficultyLevel))
-                        .font(.caption)
-                        .fontWeight(.medium)
-                    Text("Difficulty")
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
-                }
-
-                VStack {
-                    Image(systemName: "clock.fill")
-                        .foregroundColor(.green)
-                    Text(aiTaskViewModel.formatDuration(task.estimatedDuration))
-                        .font(.caption)
-                        .fontWeight(.medium)
-                    Text("Duration")
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
-                }
-
-                Spacer()
+                .background(colorScheme == .dark ? Color.black : Color.white)
+                .cornerRadius(12)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(colorScheme == .dark ? Color.white.opacity(0.2) : Color.black.opacity(0.1), lineWidth: 1)
+                )
+            } else if let currentTask = aiTaskViewModel.currentTask {
+                // Generated Task Display
+                taskDisplayView(for: habit, currentTask: currentTask)
             }
 
             // Action Buttons
-            if task.status == "pending" {
-                HStack(spacing: 12) {
+            if viewModel.isTodayIntervalDay(for: habit) && isValidationTimeReached(for: habit) {
+                if viewModel.todayMotivation != nil && viewModel.todayAbility != nil {
+                    if aiTaskViewModel.currentTask == nil && !(isGeneratingTask[habit.id] ?? false) {
+                        // Generate Task Button
+                        Button(action: {
+                            Task {
+                                await generateTask(for: habit)
+                            }
+                        }) {
+                            HStack {
+                                Image(systemName: "wand.and.stars")
+                                Text("Generate AI Task")
+                                    .fontWeight(.semibold)
+                            }
+                            .frame(maxWidth: .infinity, minHeight: 48)
+                        }
+                        .buttonStyle(PrimaryButtonStyle())
+                    } else if aiTaskViewModel.currentTask != nil && !(isGeneratingTask[habit.id] ?? false) {
+                        // Easier/Harder Buttons - Show both at original, single "Original" button otherwise
+                        let currentDifficulty = taskDifficulty[habit.id] ?? "original"
+
+                        HStack(spacing: 12) {
+                            if currentDifficulty == "original" {
+                                // Show both buttons when at original difficulty
+                                if aiTaskViewModel.currentTask?.easierAlternative != nil && !(aiTaskViewModel.currentTask?.easierAlternative?.isEmpty ?? true) {
+                                    Button(action: {
+                                        Task {
+                                            await generateEasierTask(for: habit)
+                                        }
+                                    }) {
+                                        HStack {
+                                            Image(systemName: "arrow.down.circle")
+                                            Text("Easier")
+                                                .fontWeight(.semibold)
+                                        }
+                                        .frame(maxWidth: .infinity, minHeight: 36)
+                                    }
+                                    .buttonStyle(SecondaryButtonStyle())
+                                }
+
+                                if aiTaskViewModel.currentTask?.harderAlternative != nil && !(aiTaskViewModel.currentTask?.harderAlternative?.isEmpty ?? true) {
+                                    Button(action: {
+                                        Task {
+                                            await generateHarderTask(for: habit)
+                                        }
+                                    }) {
+                                        HStack {
+                                            Image(systemName: "arrow.up.circle")
+                                            Text("Harder")
+                                                .fontWeight(.semibold)
+                                        }
+                                        .frame(maxWidth: .infinity, minHeight: 36)
+                                    }
+                                    .buttonStyle(SecondaryButtonStyle())
+                                }
+                            } else {
+                                // Show single "Original" button when at easier or harder difficulty
+                                Button(action: {
+                                    Task {
+                                        if currentDifficulty == "easier" {
+                                            await generateHarderTask(for: habit) // This will go back to original
+                                        } else if currentDifficulty == "harder" {
+                                            await generateEasierTask(for: habit) // This will go back to original
+                                        }
+                                    }
+                                }) {
+                                    HStack {
+                                        Image(systemName: "arrow.counterclockwise.circle")
+                                        Text("Original")
+                                            .fontWeight(.semibold)
+                                    }
+                                    .frame(maxWidth: .infinity, minHeight: 36)
+                                }
+                                .buttonStyle(SecondaryButtonStyle())
+                            }
+                        }
+                    }
+                } else {
+                    // Need Motivation & Ability - show different states based on completion
+                    let hasMotivation = viewModel.todayMotivation != nil
+                    let hasAbility = viewModel.todayAbility != nil
+
                     Button(action: {
-                        showAITaskDisplay = true
+                        showMotivationAbilityModal = true
                     }) {
                         HStack {
-                            Image(systemName: "checkmark.circle.fill")
-                            Text("Submit Proof")
-                                .fontWeight(.semibold)
+                            Image(systemName: "heart.circle")
+                            if !hasMotivation && !hasAbility {
+                                Text("Set Motivation & Ability")
+                                    .fontWeight(.semibold)
+                            } else if hasMotivation && !hasAbility {
+                                Text("Complete Ability Assessment")
+                                    .fontWeight(.semibold)
+                            } else if !hasMotivation && hasAbility {
+                                Text("Complete Motivation Assessment")
+                                    .fontWeight(.semibold)
+                            }
                         }
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(Color.green)
-                        .foregroundColor(.white)
-                        .cornerRadius(12)
+                        .frame(maxWidth: .infinity, minHeight: 48)
                     }
-
-                    Button(action: {
-                        aiTaskViewModel.updateTaskStatus(.failed)
-                    }) {
-                        HStack {
-                            Image(systemName: "xmark.circle.fill")
-                            Text("Failed")
-                                .fontWeight(.semibold)
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(Color.red)
-                        .foregroundColor(.white)
-                        .cornerRadius(12)
-                    }
+                    .buttonStyle(PrimaryButtonStyle())
                 }
-            } else if task.status == "completed" {
-                VStack(spacing: 8) {
-                    Image(systemName: "party.popper.fill")
-                        .font(.title2)
-                        .foregroundColor(.yellow)
-
-                    Text(task.celebrationMessage)
-                        .font(.body)
-                        .multilineTextAlignment(.center)
-                        .padding()
-                        .background(Color.yellow.opacity(0.1))
-                        .cornerRadius(8)
-                }
-            }
-        }
-        .padding()
-        .background(colorScheme == .dark ? .zinc900 : .zinc100)
-        .cornerRadius(10)
-        .padding(.horizontal)
-    }
-
-    private func noTaskSection(for habit: Habit) -> some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Ready for Today's Task?")
-                        .font(.title2)
-                        .fontWeight(.bold)
-
-                    Text("Let AI create a personalized task for you")
-                        .font(.body)
-                        .foregroundColor(.secondary)
-                }
-
-                Spacer()
-
-                Image(systemName: "brain.head.profile")
-                    .font(.title)
-                    .foregroundColor(.blue)
-            }
-
-            Button(action: {
-                showAITaskGeneration = true
-            }) {
+            } else if !viewModel.isTodayIntervalDay(for: habit) {
+                // Not Today - styled like primary button
                 HStack {
-                    Image(systemName: "wand.and.stars")
-                    Text("Generate AI Task")
+                    Image(systemName: "calendar.badge.clock")
+                    Text("Come back soon!")
                         .fontWeight(.semibold)
                 }
-                .frame(maxWidth: .infinity)
-                .padding()
-                .background(Color.blue)
-                .foregroundColor(.white)
+                .frame(maxWidth: .infinity, minHeight: 48)
+                .background(colorScheme == .dark ? Color.white : Color.black)
+                .foregroundColor(colorScheme == .dark ? .black : .white)
                 .cornerRadius(12)
+            } else {
+                // Waiting for validation time - Just the button
+                Button(action: {
+                    showMotivationAbilityModal = true
+                }) {
+                    HStack {
+                        Image(systemName: "heart.circle")
+                        Text("Set Motivation & Ability")
+                            .fontWeight(.semibold)
+                    }
+                    .frame(maxWidth: .infinity, minHeight: 48)
+                }
+                .buttonStyle(PrimaryButtonStyle())
             }
         }
         .padding()
         .background(colorScheme == .dark ? .zinc900 : .zinc100)
         .cornerRadius(10)
-        .padding(.horizontal)
+        .padding(.horizontal, 0)
     }
 
-    private func notIntervalDaySection(for habit: Habit) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Not Today")
-                        .font(.title2)
-                        .fontWeight(.bold)
+    // Helper functions for emojis
+    private func motivationEmoji(_ level: String?) -> String {
+        switch level?.lowercased() {
+        case "high": return "🟢"
+        case "medium": return "🟡"
+        case "low": return "🔴"
+        default: return "⚪"
+        }
+    }
 
-                    Text("This habit is scheduled for \(habit.frequency) intervals")
+    private func abilityEmoji(_ level: String?) -> String {
+        switch level?.lowercased() {
+        case "easy": return "🟢"
+        case "medium": return "🟡"
+        case "hard": return "🔴"
+        default: return "⚪"
+        }
+    }
+
+    private func timeRemainingForTask(assignedDate: Date) -> String {
+        let now = Date()
+        let fourHoursLater = assignedDate.addingTimeInterval(4 * 60 * 60) // 4 hours in seconds
+        let timeRemaining = fourHoursLater.timeIntervalSince(now)
+
+        if timeRemaining <= 0 {
+            return "Expired"
+        }
+
+        let hours = Int(timeRemaining) / 3600
+        let minutes = Int(timeRemaining.truncatingRemainder(dividingBy: 3600)) / 60
+
+        if hours > 0 {
+            return "\(hours)h \(minutes)m"
+        } else {
+            return "\(minutes)m"
+        }
+    }
+
+    private func uploadProofSection(for habit: Habit) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            // Header with timer
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Upload Proof")
+                    .font(.title2)
+                    .fontWeight(.bold)
+
+                if let currentTask = aiTaskViewModel.currentTask {
+                    // 4-hour countdown timer
+                    if !currentTask.assignedDate.isEmpty {
+                        let parsedDate = parseTaskDate(from: currentTask.assignedDate)
+
+                        if let date = parsedDate {
+                            let timeRemaining = timeRemainingForTask(assignedDate: date)
+                            HStack {
+                                Image(systemName: "clock")
+                                    .foregroundColor(.secondary)
+                                Text("Time remaining: \(timeRemaining)")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                Spacer()
+                            }
+                        } else {
+                            // Show debug info if date parsing fails
+                            HStack {
+                                Image(systemName: "clock")
+                                    .foregroundColor(.red)
+                                Text("Timer: Unable to parse date (\(currentTask.assignedDate))")
+                                    .font(.caption)
+                                    .foregroundColor(.red)
+                                Spacer()
+                            }
+                        }
+                    }
+                } else {
+                    Text("Proof submission will be available after task generation")
                         .font(.body)
                         .foregroundColor(.secondary)
                 }
-
-                Spacer()
-
-                Image(systemName: "calendar.badge.clock")
-                    .font(.title)
-                    .foregroundColor(.gray)
             }
 
-            Text("Come back on your scheduled day to get your AI-generated task!")
-                .font(.body)
-                .foregroundColor(.secondary)
-                .padding()
-                .background(Color.gray.opacity(0.1))
-                .cornerRadius(8)
+            // Proof Requirements - only show when task exists
+            if let currentTask = aiTaskViewModel.currentTask {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(currentTask.proofRequirements)
+                        .font(.body)
+                        .foregroundColor(.primary)
+                        .padding()
+                        .background(colorScheme == .dark ? Color.black : Color.white)
+                        .cornerRadius(12)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12)
+                                .stroke(colorScheme == .dark ? Color.white.opacity(0.2) : Color.black.opacity(0.1), lineWidth: 1)
+                        )
+                }
+
+                // Action Buttons - only show when task exists
+                Button(action: {
+                    // Handle proof submission
+                }) {
+                    HStack {
+                        Image(systemName: "checkmark.circle.fill")
+                        Text("Submit Proof")
+                            .fontWeight(.semibold)
+                    }
+                    .frame(maxWidth: .infinity, minHeight: 48)
+                }
+                .buttonStyle(PrimaryButtonStyle())
+            }
         }
         .padding()
         .background(colorScheme == .dark ? .zinc900 : .zinc100)
         .cornerRadius(10)
-        .padding(.horizontal)
+        .padding(.horizontal, 0)
+    }
+
+    private func parseTaskDate(from dateString: String) -> Date? {
+        // Try parsing as current date first (common case for new tasks)
+        let now = Date()
+        let calendar = Calendar.current
+
+        // If the string looks like today's date, use current time
+        let todayString = ISO8601DateFormatter().string(from: now).prefix(10) // "2024-12-19"
+        if dateString.hasPrefix(todayString) || dateString == "today" {
+            return now
+        }
+
+        // Try ISO8601 first
+        let iso8601Formatter = ISO8601DateFormatter()
+        iso8601Formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let date = iso8601Formatter.date(from: dateString) {
+            return date
+        }
+
+        // Try without fractional seconds
+        iso8601Formatter.formatOptions = [.withInternetDateTime]
+        if let date = iso8601Formatter.date(from: dateString) {
+            return date
+        }
+
+        // Try common formats
+        let dateFormatter = DateFormatter()
+        let formats = [
+            "yyyy-MM-dd'T'HH:mm:ss.SSSSSS'Z'",
+            "yyyy-MM-dd'T'HH:mm:ss'Z'",
+            "yyyy-MM-dd'T'HH:mm:ss.SSSSSS",
+            "yyyy-MM-dd'T'HH:mm:ss",
+            "yyyy-MM-dd HH:mm:ss",
+            "yyyy-MM-dd"
+        ]
+
+        for format in formats {
+            dateFormatter.dateFormat = format
+            if let date = dateFormatter.date(from: dateString) {
+                return date
+            }
+        }
+
+        // If all else fails, return current time for debugging
+        print("Could not parse date: \(dateString), using current time")
+        return now
     }
 
     private var placeholderSection: some View {
@@ -400,6 +753,34 @@ struct HabitsView: View {
         .frame(maxWidth: .infinity)
         .background(colorScheme == .dark ? .zinc900 : .zinc100)
         .cornerRadius(10)
-        .padding(.horizontal)
+        .padding(.horizontal, 0)
+    }
+
+    private func taskDisplayView(for habit: Habit, currentTask: TaskEntry) -> some View {
+        // Calculate values outside the VStack
+        let currentDifficulty = taskDifficulty[habit.id] ?? "original"
+        let displayText: String
+
+        switch currentDifficulty {
+        case "easier":
+            displayText = currentTask.easierAlternative ?? currentTask.taskDescription
+        case "harder":
+            displayText = currentTask.harderAlternative ?? currentTask.taskDescription
+        default:
+            displayText = currentTask.taskDescription
+        }
+
+        return VStack(alignment: .leading, spacing: 12) {
+            Text(displayText)
+                .font(.body)
+                .foregroundColor(.primary)
+                .padding()
+                .background(colorScheme == .dark ? Color.black : Color.white)
+                .cornerRadius(12)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(colorScheme == .dark ? Color.white.opacity(0.2) : Color.black.opacity(0.1), lineWidth: 1)
+                )
+        }
     }
 }

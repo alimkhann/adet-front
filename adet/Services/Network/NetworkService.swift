@@ -28,7 +28,29 @@ actor NetworkService {
             throw NetworkError.invalidURL
         }
 
-        guard let token = try? await Clerk.shared.session?.getToken(.init(template: "adet-back"))?.jwt else {
+        // Try to get the token with retry logic for network issues
+        var token: String?
+        let maxTokenRetries = 2
+
+        for tokenRetry in 0...maxTokenRetries {
+            do {
+                token = try await Clerk.shared.session?.getToken(.init(template: "adet-back"))?.jwt
+                if token != nil {
+                    break
+                }
+            } catch {
+                logger.warning("Failed to get token on attempt \(tokenRetry + 1): \(error.localizedDescription)")
+                if tokenRetry < maxTokenRetries {
+                    try await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
+                    continue
+                } else {
+                    logger.error("Failed to get token after \(maxTokenRetries + 1) attempts")
+                    throw NetworkError.unauthorized
+                }
+            }
+        }
+
+        guard let validToken = token else {
             logger.warning("User is not authenticated or token is unavailable.")
             throw NetworkError.unauthorized
         }
@@ -38,7 +60,7 @@ actor NetworkService {
         request.httpMethod = method
         request.timeoutInterval = timeout
         request.addValue("application/json", forHTTPHeaderField: "Accept")
-        request.addValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.addValue("Bearer \(validToken)", forHTTPHeaderField: "Authorization")
 
         if let headers = headers {
             for (key, value) in headers {
@@ -106,6 +128,20 @@ actor NetworkService {
             // Don't retry on network errors (like unauthorized, invalid URL, etc.)
             throw error
         } catch {
+            // Handle specific network errors
+            if let urlError = error as? URLError {
+                switch urlError.code {
+                case .networkConnectionLost:
+                    throw NetworkError.connectionLost
+                case .notConnectedToInternet:
+                    throw NetworkError.noInternet
+                case .timedOut:
+                    throw NetworkError.timeout
+                default:
+                    break
+                }
+            }
+
             // Retry on network errors (timeout, connection lost, etc.)
             if retryCount < maxRetries {
                 logger.info("Retrying request due to network error: \(error.localizedDescription). Attempt \(retryCount + 1) of \(self.maxRetries)")
