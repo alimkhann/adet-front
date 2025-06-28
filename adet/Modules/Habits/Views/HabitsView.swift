@@ -17,6 +17,8 @@ struct HabitsView: View {
     @State private var showTaskAnimation: [Int: Bool] = [:]
     @State private var taskDifficulty: [Int: String] = [:]
     @State private var currentTaskRequest: [Int: String] = [:]
+    @State private var showUploadProofSection: [Int: Bool] = [:]
+    @State private var generateButtonPulse: Bool = false
 
     var body: some View {
         NavigationStack {
@@ -226,6 +228,7 @@ struct HabitsView: View {
         isGeneratingTask[habit.id] = true
         currentTaskRequest[habit.id] = taskDifficulty[habit.id] ?? "original"
         showTaskAnimation[habit.id] = true
+        showUploadProofSection[habit.id] = false // Reset upload proof section
         generatedTaskText[habit.id] = ""
 
         // Simulate typing animation
@@ -259,6 +262,16 @@ struct HabitsView: View {
                         showTaskAnimation[habit.id] = false // Reset animation state
                     }
                 }
+
+                // Additional delay before showing upload proof section
+                try? await Task.sleep(nanoseconds: 400_000_000) // 0.4 seconds
+
+                await MainActor.run {
+                    withAnimation(.easeInOut(duration: 0.6)) {
+                        showUploadProofSection[habit.id] = true
+                    }
+                }
+
                 isGeneratingTask[habit.id] = false
                 return
             }
@@ -366,18 +379,18 @@ struct HabitsView: View {
             taskGenerationSection(for: habit)
 
             // Upload Proof Section - Animated appearance when task exists
-            if aiTaskViewModel.currentTask != nil {
+            if aiTaskViewModel.currentTask != nil && showUploadProofSection[habit.id] == true {
                 uploadProofSection(for: habit)
                     .transition(.asymmetric(
-                        insertion: .move(edge: .bottom).combined(with: .opacity),
+                        insertion: .move(edge: .bottom).combined(with: .opacity).combined(with: .scale(scale: 0.95)),
                         removal: .move(edge: .bottom).combined(with: .opacity)
                     ))
-                    .animation(.easeInOut(duration: 0.5), value: aiTaskViewModel.currentTask != nil)
             }
 
             Spacer()
         }
         .frame(maxWidth: .infinity)
+        .animation(.easeInOut(duration: 0.6), value: showUploadProofSection[habit.id])
     }
 
     private func taskGenerationSection(for habit: Habit) -> some View {
@@ -449,20 +462,66 @@ struct HabitsView: View {
 
             // Task Display or Generation
             if showTaskAnimation[habit.id] == true {
-                // AI Chat Animation
+                // AI Chat Animation with breathing effect
                 VStack(alignment: .leading, spacing: 12) {
-                    Text(generatedTaskText[habit.id] ?? "")
-                        .font(.body)
-                        .foregroundColor(.primary)
-                        .animation(.easeInOut, value: generatedTaskText[habit.id])
+                    HStack {
+                        // Loading indicator when generating
+                        if isGeneratingTask[habit.id] == true && generatedTaskText[habit.id]?.isEmpty == true {
+                            HStack(spacing: 8) {
+                                ProgressView()
+                                    .scaleEffect(0.8)
+                                Text("AI is crafting your perfect task...")
+                                    .font(.body)
+                                    .foregroundColor(.secondary)
+                                    .italic()
+                            }
+                        } else {
+                            Text(generatedTaskText[habit.id] ?? "")
+                                .font(.body)
+                                .foregroundColor(.primary)
+                                .animation(.easeInOut, value: generatedTaskText[habit.id])
+                        }
+                        Spacer()
+                    }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding()
-                .background(colorScheme == .dark ? Color.black : Color.white)
-                .cornerRadius(12)
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(colorScheme == .dark ? Color.black : Color.white)
+                        .overlay(
+                            // Subtle shimmer effect when generating
+                            isGeneratingTask[habit.id] == true ?
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(
+                                    LinearGradient(
+                                        colors: [
+                                            Color.clear,
+                                            (colorScheme == .dark ? Color.white : Color.black).opacity(0.05),
+                                            Color.clear
+                                        ],
+                                        startPoint: .leading,
+                                        endPoint: .trailing
+                                    )
+                                )
+                                .animation(
+                                    .easeInOut(duration: 2.0)
+                                    .repeatForever(autoreverses: false),
+                                    value: isGeneratingTask[habit.id]
+                                )
+                            : nil
+                        )
+                )
                 .overlay(
                     RoundedRectangle(cornerRadius: 12)
                         .stroke(colorScheme == .dark ? Color.white.opacity(0.2) : Color.black.opacity(0.1), lineWidth: 1)
+                )
+                .scaleEffect(isGeneratingTask[habit.id] == true ? 1.02 : 1.0)
+                .opacity(isGeneratingTask[habit.id] == true ? 0.9 : 1.0)
+                .animation(
+                    .easeInOut(duration: 1.5)
+                    .repeatForever(autoreverses: true),
+                    value: isGeneratingTask[habit.id]
                 )
                 .transition(.asymmetric(
                     insertion: .scale(scale: 0.95).combined(with: .opacity),
@@ -496,6 +555,15 @@ struct HabitsView: View {
                             .frame(maxWidth: .infinity, minHeight: 48)
                         }
                         .buttonStyle(PrimaryButtonStyle())
+                        .scaleEffect(generateButtonPulse ? 1.05 : 1.0)
+                        .animation(
+                            .easeInOut(duration: 2.0)
+                            .repeatForever(autoreverses: true),
+                            value: generateButtonPulse
+                        )
+                        .onAppear {
+                            generateButtonPulse = true
+                        }
                     } else if aiTaskViewModel.currentTask != nil && !(isGeneratingTask[habit.id] ?? false) {
                         // Easier/Harder Buttons - Show both at original, single "Original" button otherwise
                         let currentDifficulty = taskDifficulty[habit.id] ?? "original"
