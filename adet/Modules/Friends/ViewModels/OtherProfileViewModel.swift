@@ -109,7 +109,7 @@ class OtherProfileViewModel: ObservableObject {
             user = profile
             friendshipStatus = FriendshipStatus(rawValue: statusResponse.friendshipStatus) ?? .none
 
-            logger.info("Loaded profile for user \(userId) with friendship status: \(friendshipStatus.rawValue)")
+            logger.info("Loaded profile for user \(userId) with friendship status: \(self.friendshipStatus.rawValue)")
         } catch {
             logger.error("Failed to load user profile: \(error.localizedDescription)")
             handleError(error, message: "Failed to load user profile")
@@ -122,7 +122,7 @@ class OtherProfileViewModel: ObservableObject {
         do {
             let response = try await friendsAPI.getFriendshipStatus(userId: user.id)
             friendshipStatus = FriendshipStatus(rawValue: response.friendshipStatus) ?? .none
-            logger.info("Refreshed friendship status: \(friendshipStatus.rawValue)")
+            logger.info("Refreshed friendship status: \(self.friendshipStatus.rawValue)")
         } catch {
             logger.error("Failed to refresh friendship status: \(error.localizedDescription)")
         }
@@ -154,7 +154,7 @@ class OtherProfileViewModel: ObservableObject {
 
     private func sendFriendRequest(to user: UserBasic) async {
         do {
-            let response = try await friendsAPI.sendFriendRequest(to: user.id)
+            let response = try await friendsAPI.sendFriendRequest(to: user.id, message: nil)
             if response.success {
                 toastManager.showSuccess("Friend request sent to \(user.displayName)")
                 friendshipStatus = .requestSent

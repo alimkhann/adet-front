@@ -76,11 +76,14 @@ class FriendsViewModel: ObservableObject {
     // MARK: - Search Setup
 
     private func setupSearchDebouncing() {
-        // Debounce search to avoid too many API calls
-        Timer.publish(every: 0.5, on: .main, in: .common)
-            .autoconnect()
-            .sink { [weak self] _ in
-                self?.performSearchIfNeeded()
+        // Debounce search to avoid too many API calls - only trigger when query changes
+        $searchQuery
+            .debounce(for: .milliseconds(500), scheduler: RunLoop.main)
+            .removeDuplicates()
+            .sink { [weak self] query in
+                Task {
+                    await self?.performSearch()
+                }
             }
             .store(in: &cancellables)
     }
@@ -141,12 +144,6 @@ class FriendsViewModel: ObservableObject {
         searchQuery = ""
         searchResults = []
         isSearchActive = false
-    }
-
-    private func performSearchIfNeeded() {
-        Task {
-            await performSearch()
-        }
     }
 
     func performSearch() async {

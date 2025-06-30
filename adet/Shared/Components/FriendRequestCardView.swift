@@ -74,7 +74,7 @@ struct FriendRequestCardView: View {
                 // Time ago
                 Text(timeAgoString)
                     .font(.caption2)
-                    .foregroundColor(.tertiary)
+                                            .foregroundColor(Color(.tertiaryLabel))
             }
 
             Spacer()

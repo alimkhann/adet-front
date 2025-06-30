@@ -83,7 +83,7 @@ struct OtherUserProfileView: View {
 
     private func profileContentView(for user: UserBasic) -> some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Top bar: Username (left) and close button (right)
+            // Top bar: Username
             HStack {
                 Text(user.displayUsername)
                     .font(.title2)
@@ -91,11 +91,6 @@ struct OtherUserProfileView: View {
                     .foregroundColor(.primary)
                     .padding(.leading, 20)
                 Spacer()
-                Button("Done") {
-                    dismiss()
-                }
-                .foregroundColor(.accentColor)
-                .padding(.trailing, 20)
             }
             .padding(.top, 16)
 
@@ -241,25 +236,25 @@ struct OtherUserProfileView: View {
     }
 }
 
-// MARK: - Profile Stat View
-
-private struct ProfileStatView: View {
-    let title: String
-    let value: String
-
-    var body: some View {
-        VStack(spacing: 2) {
-            Text(value)
-                .font(.subheadline)
-                .fontWeight(.semibold)
-                .foregroundColor(.primary)
-
-            Text(title)
-                .font(.caption)
-                .foregroundColor(.secondary)
-        }
-    }
-}
+//// MARK: - Profile Stat View
+//
+//private struct ProfileStatView: View {
+//    let title: String
+//    let value: String
+//
+//    var body: some View {
+//        VStack(spacing: 2) {
+//            Text(value)
+//                .font(.subheadline)
+//                .fontWeight(.semibold)
+//                .foregroundColor(.primary)
+//
+//            Text(title)
+//                .font(.caption)
+//                .foregroundColor(.secondary)
+//        }
+//    }
+//}
 
 #Preview {
     NavigationStack {

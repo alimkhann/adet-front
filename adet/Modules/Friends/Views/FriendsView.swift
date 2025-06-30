@@ -27,8 +27,6 @@ struct FriendsView: View {
                         .background(Color(.systemGroupedBackground))
                 }
             }
-            .navigationTitle("Friends")
-            .navigationBarTitleDisplayMode(.large)
             .background(Color(.systemGroupedBackground))
             .onAppear {
                 logger.info("FriendsView appeared")
@@ -154,7 +152,7 @@ struct FriendsView: View {
                                 insertion: .move(edge: .trailing).combined(with: .opacity),
                                 removal: .move(edge: .leading).combined(with: .opacity)
                             ))
-                            .animation(.easeInOut(duration: 0.3).delay(Double(index) * 0.05), value: viewModel.friends)
+                            .animation(.easeInOut(duration: 0.3).delay(Double(index) * 0.05), value: viewModel.friends.count)
                         }
                     }
                     .padding(.horizontal)
@@ -274,7 +272,7 @@ struct FriendsView: View {
                                 insertion: .move(edge: .top).combined(with: .opacity),
                                 removal: .scale.combined(with: .opacity)
                             ))
-                            .animation(.easeInOut(duration: 0.3).delay(Double(index) * 0.05), value: viewModel.searchResults)
+                            .animation(.easeInOut(duration: 0.3).delay(Double(index) * 0.05), value: viewModel.searchResults.count)
                         }
                     }
                     .padding(.horizontal)

@@ -35,16 +35,17 @@ struct UploadProofSection: View {
                 let isExpired = timeRemaining <= 0 && currentTask.status == "pending"
                 let isPermanentlyDismissed = permanentlyDismissedTaskId == currentTask.id
 
-                // Debug prints to verify logic
-                print("🔍 UploadProofSection Debug for task \(currentTask.id):")
-                print("   - isExpired: \(isExpired)")
-                print("   - hasShownExpiredDismissal: \(hasShownExpiredDismissal)")
-                print("   - isPermanentlyDismissed: \(isPermanentlyDismissed)")
-                print("   - nextTaskTimeString: '\(nextTaskTimeString)'")
-
                 if isExpired && !hasShownExpiredDismissal && !isPermanentlyDismissed {
                     // ONLY show expired notification - nothing else (only once)
                     expiredTaskView(currentTask)
+                        .onAppear {
+                            // Debug prints moved to onAppear to avoid View conformance issues
+                            print("🔍 UploadProofSection Debug for task \(currentTask.id):")
+                            print("   - isExpired: \(isExpired)")
+                            print("   - hasShownExpiredDismissal: \(hasShownExpiredDismissal)")
+                            print("   - isPermanentlyDismissed: \(isPermanentlyDismissed)")
+                            print("   - nextTaskTimeString: '\(nextTaskTimeString)'")
+                        }
                 } else if hasShownExpiredDismissal || isPermanentlyDismissed {
                     // Once dismissed, always show comeback message (never show task again)
                     if nextTaskTimeString.isEmpty {

@@ -197,10 +197,3 @@ class ProfileViewModel: ObservableObject {
                editFormBio != (currentUser?.bio ?? "")
     }
 }
-
-// MARK: - Profile Stat Model
-struct ProfileStat {
-    let title: String
-    let value: String
-}
-
