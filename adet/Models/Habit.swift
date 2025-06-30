@@ -36,6 +36,3 @@ struct Habit: Codable, Identifiable {
         self.streak = streak
     }
 }
-
-
-

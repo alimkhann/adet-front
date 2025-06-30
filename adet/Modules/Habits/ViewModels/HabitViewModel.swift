@@ -186,6 +186,17 @@ class HabitViewModel: ObservableObject {
         }
     }
 
+    func updateAbilityEntry(for habitId: Int, level: String) async -> Bool {
+        let today = ISO8601DateFormatter().string(from: Date()).prefix(10) // yyyy-MM-dd
+        do {
+            _ = try await apiService.updateAbilityEntry(habitId: habitId, date: String(today), level: level)
+            return true
+        } catch {
+            ToastManager.shared.showError(error.localizedDescription)
+            return false
+        }
+    }
+
     // MARK: - Interval Day Logic
     func isTodayIntervalDay(for habit: Habit) -> Bool {
         let frequency = habit.frequency.lowercased()

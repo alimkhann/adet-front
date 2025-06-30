@@ -2,24 +2,6 @@ import Foundation
 
 // MARK: - AI Task Generation Models
 
-struct AITaskRequest: Codable {
-    let baseDifficulty: String // "easy", "medium", "hard"
-    let motivationLevel: String // "low", "medium", "high"
-    let abilityLevel: String // "hard", "medium", "easy"
-    let proofStyle: String // "photo", "video", "audio", "text"
-    let userLanguage: String?
-    let userTimezone: String?
-
-    enum CodingKeys: String, CodingKey {
-        case baseDifficulty = "base_difficulty"
-        case motivationLevel = "motivation_level"
-        case abilityLevel = "ability_level"
-        case proofStyle = "proof_style"
-        case userLanguage = "user_language"
-        case userTimezone = "user_timezone"
-    }
-}
-
 struct GeneratedTaskResponse: Codable {
     let taskDescription: String
     let difficultyLevel: Double
@@ -121,6 +103,7 @@ enum TaskStatus: String, CaseIterable, Codable {
     case completed = "completed"
     case failed = "failed"
     case missed = "missed"
+    case pendingReview = "pending_review"
 
     var displayName: String {
         switch self {
@@ -128,6 +111,7 @@ enum TaskStatus: String, CaseIterable, Codable {
         case .completed: return "Completed"
         case .failed: return "Failed"
         case .missed: return "Missed"
+        case .pendingReview: return "Under Review"
         }
     }
 
@@ -137,6 +121,7 @@ enum TaskStatus: String, CaseIterable, Codable {
         case .completed: return "green"
         case .failed: return "red"
         case .missed: return "gray"
+        case .pendingReview: return "blue"
         }
     }
 }
@@ -166,24 +151,6 @@ enum ProofType: String, CaseIterable, Codable {
         case .text: return "text.bubble"
         }
     }
-}
-
-// MARK: - Task Proof Submission
-
-struct TaskProofSubmit: Codable {
-    let proofType: ProofType
-    let proofContent: String
-
-    enum CodingKeys: String, CodingKey {
-        case proofType = "proof_type"
-        case proofContent = "proof_content"
-    }
-}
-
-// MARK: - Task Status Update
-
-struct TaskStatusUpdate: Codable {
-    let status: TaskStatus
 }
 
 // MARK: - Performance Analysis
@@ -229,20 +196,4 @@ struct TaskGenerationResponse: Codable {
     let success: Bool
     let task: GeneratedTaskResponse
     let metadata: [String: String]?
-}
-
-struct TaskCreationResponse: Codable {
-    let success: Bool
-    let task: TaskEntry
-
-    enum CodingKeys: String, CodingKey {
-        case success
-        case task
-    }
-}
-
-struct TaskSubmissionResponse: Codable {
-    let success: Bool
-    let task: TaskEntry
-    let message: String
 }

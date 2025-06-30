@@ -99,7 +99,7 @@ class AITaskViewModel: ObservableObject {
         isSubmittingProof = true
         errorMessage = nil
 
-        let proof = TaskProofSubmit(proofType: selectedProofType, proofContent: proofContent)
+        let proof = TaskProofSubmissionData(proof_type: selectedProofType.rawValue, proof_content: proofContent)
 
         Task {
             do {
@@ -290,6 +290,8 @@ class AITaskViewModel: ObservableObject {
             return .red
         case .missed:
             return .gray
+        case .pendingReview:
+            return .blue
         }
     }
 }

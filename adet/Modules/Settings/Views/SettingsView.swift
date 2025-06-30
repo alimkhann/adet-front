@@ -194,5 +194,3 @@ struct SettingsView: View {
         selectedImage = nil
     }
 }
-
-

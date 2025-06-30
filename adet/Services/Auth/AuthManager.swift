@@ -57,4 +57,11 @@ class AuthManager: ObservableObject {
         lastAuthCheck = .distantPast // Reset the cooldown
         await checkAuthentication()
     }
+
+    func handleSignOut() async {
+        isAuthenticated = false
+        isLoading = false
+        errorMessage = nil
+        logger.info("User signed out - authentication state updated")
+    }
 }

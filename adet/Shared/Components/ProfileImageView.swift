@@ -139,3 +139,5 @@ struct ProfileImageView: View {
         return String(user.email.prefix(1)).uppercased()
     }
 }
+
+

@@ -82,6 +82,8 @@ actor APIService {
         }
     }
 
+    // MARK: - Habit API Operations
+
     func fetchHabits() async throws -> [Habit] {
         return try await networkService.makeAuthenticatedRequest(endpoint: "/api/v1/habits/", method: "GET", body: (nil as String?))
     }
@@ -142,13 +144,8 @@ actor APIService {
         )
     }
 
+    // MARK: - Motivation & Ability API Operations
 
-
-
-}
-
-// OUTSIDE the actor
-extension APIService {
     func submitMotivationEntry(habitId: Int, date: String, level: String) async throws -> MotivationEntryResponse {
         let req = MotivationEntryRequest(habit_id: habitId, date: date, level: level)
         return try await networkService.makeAuthenticatedRequest(
@@ -157,6 +154,7 @@ extension APIService {
             body: req
         )
     }
+
     func getTodayMotivationEntry(habitId: Int) async throws -> MotivationEntryResponse {
         return try await networkService.makeAuthenticatedRequest(
             endpoint: "/api/v1/habits/\(habitId)/motivation/today",
@@ -164,6 +162,7 @@ extension APIService {
             body: (nil as String?)
         )
     }
+
     func submitAbilityEntry(habitId: Int, date: String, level: String) async throws -> AbilityEntryResponse {
         let req = AbilityEntryRequest(habit_id: habitId, date: date, level: level)
         return try await networkService.makeAuthenticatedRequest(
@@ -172,6 +171,7 @@ extension APIService {
             body: req
         )
     }
+
     func getTodayAbilityEntry(habitId: Int) async throws -> AbilityEntryResponse {
         return try await networkService.makeAuthenticatedRequest(
             endpoint: "/api/v1/habits/\(habitId)/ability/today",
@@ -179,12 +179,104 @@ extension APIService {
             body: (nil as String?)
         )
     }
+
     func updateMotivationEntry(habitId: Int, date: String, level: String) async throws -> MotivationEntryResponse {
         let req = MotivationEntryRequest(habit_id: habitId, date: date, level: level)
         return try await networkService.makeAuthenticatedRequest(
             endpoint: "/api/v1/habits/\(habitId)/motivation/today",
             method: "PATCH",
             body: req
+        )
+    }
+
+    func updateAbilityEntry(habitId: Int, date: String, level: String) async throws -> AbilityEntryResponse {
+        let req = AbilityEntryRequest(habit_id: habitId, date: date, level: level)
+        return try await networkService.makeAuthenticatedRequest(
+            endpoint: "/api/v1/habits/\(habitId)/ability/today",
+            method: "PATCH",
+            body: req
+        )
+    }
+
+    // MARK: - Task Management API Operations
+
+    func generateAndCreateTask(habitId: Int, request: AITaskGenerationRequest) async throws -> TaskCreationResponse {
+        return try await networkService.makeAuthenticatedRequest(
+            endpoint: "/api/v1/habits/\(habitId)/generate-and-create-task",
+            method: "POST",
+            body: request
+        )
+    }
+
+    func getTodayTask(habitId: Int) async throws -> TaskEntry {
+        return try await networkService.makeAuthenticatedRequest(
+            endpoint: "/api/v1/habits/\(habitId)/today-task",
+            method: "GET",
+            body: (nil as String?)
+        )
+    }
+
+    func getPendingTasks(limit: Int = 10) async throws -> [TaskEntry] {
+        return try await networkService.makeAuthenticatedRequest(
+            endpoint: "/api/v1/habits/pending-tasks?limit=\(limit)",
+            method: "GET",
+            body: (nil as String?)
+        )
+    }
+
+    func submitTaskProof(taskId: Int, proofData: TaskProofSubmissionData) async throws -> TaskSubmissionResponse {
+        return try await networkService.makeAuthenticatedRequest(
+            endpoint: "/api/v1/habits/tasks/\(taskId)/submit-proof",
+            method: "POST",
+            body: proofData
+        )
+    }
+
+    func submitTaskProofWithFile(
+        taskId: Int,
+        proofType: String,
+        proofContent: String,
+        fileData: Data? = nil,
+        fileName: String? = nil,
+        mimeType: String? = nil
+    ) async throws -> TaskSubmissionResponse {
+        let textFields = [
+            "proof_type": proofType,
+            "proof_content": proofContent
+        ]
+
+        return try await networkService.submitMultipartForm(
+            endpoint: "/api/v1/habits/tasks/\(taskId)/submit-proof",
+            textFields: textFields,
+            fileData: fileData,
+            fileName: fileName,
+            mimeType: mimeType,
+            fileFieldName: "file"
+        )
+    }
+
+    func updateTaskStatus(taskId: Int, status: String) async throws -> TaskStatusResponse {
+        let request = TaskStatusUpdateRequest(status: status)
+        return try await networkService.makeAuthenticatedRequest(
+            endpoint: "/api/v1/habits/tasks/\(taskId)/status",
+            method: "PUT",
+            body: request
+        )
+    }
+
+    func markTaskMissed(taskId: Int) async throws -> TaskStatusResponse {
+        return try await networkService.makeAuthenticatedRequest(
+            endpoint: "/api/v1/habits/tasks/\(taskId)/mark-missed",
+            method: "PUT",
+            body: (nil as String?)
+        )
+    }
+
+    func checkAndMarkExpiredTasks() async throws -> ExpiredTasksResponse {
+        return try await networkService.makeAuthenticatedRequest(
+            endpoint: "/api/v1/habits/tasks/check-expired",
+            method: "POST",
+            body: (nil as String?)
         )
     }
 }

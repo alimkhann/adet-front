@@ -38,12 +38,12 @@ struct TabBarView: View {
         }
         .tint(.primary)
         .onChange(of: selectedTab) { _, newValue in
-            Task {
+            Task { @MainActor in
                 await authViewModel.fetchUser()
             }
         }
         .onAppear {
-            Task {
+            Task { @MainActor in
                 await authViewModel.fetchUser()
             }
         }

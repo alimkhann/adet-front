@@ -171,3 +171,5 @@ struct MotivationAbilityModal: View {
         else { return ability != nil && !isLoading }
     }
 }
+
+

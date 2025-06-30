@@ -28,14 +28,13 @@ struct RootView: View {
             }
         }
         .onChange(of: clerk.user) { _, newUser in
-            Task {
+            Task { @MainActor in
                 if newUser != nil {
                     // User signed in, refresh authentication state
                     await authManager.forceRefreshAuthentication()
                 } else {
                     // User signed out, update state immediately
-                    authManager.isAuthenticated = false
-                    authManager.isLoading = false
+                    await authManager.handleSignOut()
                 }
             }
         }

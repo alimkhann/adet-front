@@ -236,3 +236,5 @@ struct AITaskGenerationView: View {
         streak: 5
     ))
 }
+
+

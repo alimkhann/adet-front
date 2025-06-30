@@ -15,42 +15,6 @@ struct ContactSupportView: View {
                 Text("Contact Support")
                     .font(.title2)
                     .fontWeight(.semibold)
-
-                Text("Need help? We're here for you!")
-                    .font(.body)
-                    .foregroundColor(.secondary)
-                    .multilineTextAlignment(.center)
-
-                VStack(spacing: 16) {
-                    Button(action: {
-                        logger.info("User tapped email support")
-                        // TODO: Open email client
-                    }) {
-                        HStack {
-                            Image(systemName: "envelope")
-                            Text("Email Support")
-                        }
-                    }
-                    .buttonStyle(SecondaryButtonStyle())
-
-                    Button(action: {
-                        logger.info("User tapped chat support")
-                        // TODO: Open in-app chat
-                    }) {
-                        HStack {
-                            Image(systemName: "message")
-                            Text("Live Chat")
-                        }
-                    }
-                    .buttonStyle(SecondaryButtonStyle())
-                }
-                .padding(.horizontal, 40)
-
-                Spacer()
-            }
-            .navigationTitle("Support")
-            .onAppear {
-                logger.info("ContactSupportView appeared")
             }
         }
     }

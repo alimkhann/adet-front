@@ -12,7 +12,7 @@ class AITaskService: ObservableObject {
 
     func generateTask(
         for habitId: Int,
-        request: AITaskRequest
+        request: AITaskGenerationRequest
     ) async throws -> TaskGenerationResponse {
         let endpoint = "/api/v1/habits/\(habitId)/generate-task"
         return try await networkService.makeAuthenticatedRequest(endpoint: endpoint, method: "POST", body: request)
@@ -20,7 +20,7 @@ class AITaskService: ObservableObject {
 
     func generateAndCreateTask(
         for habitId: Int,
-        request: AITaskRequest
+        request: AITaskGenerationRequest
     ) async throws -> TaskCreationResponse {
         let endpoint = "/api/v1/habits/\(habitId)/generate-and-create-task"
         return try await networkService.makeAuthenticatedRequest(endpoint: endpoint, method: "POST", body: request)
@@ -40,7 +40,7 @@ class AITaskService: ObservableObject {
 
     func submitTaskProof(
         taskId: Int,
-        proof: TaskProofSubmit
+        proof: TaskProofSubmissionData
     ) async throws -> TaskSubmissionResponse {
         let endpoint = "/api/v1/tasks/\(taskId)/submit-proof"
         return try await networkService.makeAuthenticatedRequest(endpoint: endpoint, method: "POST", body: proof)
@@ -51,7 +51,7 @@ class AITaskService: ObservableObject {
         status: TaskStatus
     ) async throws -> TaskSubmissionResponse {
         let endpoint = "/api/v1/tasks/\(taskId)/status"
-        let statusUpdate = TaskStatusUpdate(status: status)
+        let statusUpdate = TaskStatusUpdateRequest(status: status.rawValue)
         return try await networkService.makeAuthenticatedRequest(endpoint: endpoint, method: "PUT", body: statusUpdate)
     }
 
@@ -93,13 +93,13 @@ extension AITaskService {
         motivationLevel: String,
         abilityLevel: String
     ) async throws -> TaskCreationResponse {
-        let request = AITaskRequest(
-            baseDifficulty: habit.difficulty.lowercased(),
-            motivationLevel: motivationLevel,
-            abilityLevel: abilityLevel,
-            proofStyle: habit.proofStyle.lowercased(),
-            userLanguage: "en", // TODO: Get from user preferences
-            userTimezone: TimeZone.current.identifier
+        let request = AITaskGenerationRequest(
+            base_difficulty: habit.difficulty.lowercased(),
+            motivation_level: motivationLevel,
+            ability_level: abilityLevel,
+            proof_style: habit.proofStyle.lowercased(),
+            user_language: "en", // TODO: Get from user preferences
+            user_timezone: TimeZone.current.identifier
         )
 
         return try await generateAndCreateTask(for: habit.id, request: request)
