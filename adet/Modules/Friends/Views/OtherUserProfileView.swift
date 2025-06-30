@@ -177,48 +177,69 @@ struct OtherUserProfileView: View {
     // MARK: - Action Buttons
 
     private func actionButtonsView(for user: UserBasic) -> some View {
-        HStack(spacing: 8) {
-            // Main action button
-            Button(action: {
-                if viewModel.friendshipStatus == .friends {
-                    showActionAlert = true
-                } else {
-                    Task {
-                        await viewModel.performFriendAction()
-                    }
-                }
-            }) {
-                HStack(spacing: 8) {
-                    if viewModel.isPerformingAction {
-                        ProgressView()
-                            .scaleEffect(0.8)
-                            .foregroundColor(.white)
-                    } else {
-                        Image(systemName: viewModel.actionButtonIcon)
+        VStack(spacing: 8) {
+            // Message button (only for friends)
+            if viewModel.friendshipStatus == .friends {
+                NavigationLink(destination: MessageConversationView(friendUser: user).environmentObject(authViewModel)) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "message")
                             .font(.subheadline)
 
-                        Text(viewModel.actionButtonTitle)
+                        Text("Message")
                             .font(.subheadline)
                             .fontWeight(.medium)
                     }
+                    .foregroundColor(.white)
+                    .frame(minHeight: 36)
+                    .frame(maxWidth: .infinity)
+                    .background(Color.accentColor)
+                    .cornerRadius(8)
                 }
-                .foregroundColor(.white)
-                .frame(minHeight: 36)
-                .frame(maxWidth: .infinity)
-                .background(viewModel.actionButtonColor)
-                .cornerRadius(8)
             }
-            .disabled(viewModel.isPerformingAction)
 
-            // Secondary action for requests received
-            if viewModel.friendshipStatus == .requestReceived {
-                NavigationLink(destination: FriendsView().environmentObject(authViewModel)) {
-                    Text("Respond")
-                        .font(.subheadline)
-                        .fontWeight(.medium)
-                        .frame(minHeight: 36)
+            HStack(spacing: 8) {
+                // Main action button
+                Button(action: {
+                    if viewModel.friendshipStatus == .friends {
+                        showActionAlert = true
+                    } else {
+                        Task {
+                            await viewModel.performFriendAction()
+                        }
+                    }
+                }) {
+                    HStack(spacing: 8) {
+                        if viewModel.isPerformingAction {
+                            ProgressView()
+                                .scaleEffect(0.8)
+                                .foregroundColor(.white)
+                        } else {
+                            Image(systemName: viewModel.actionButtonIcon)
+                                .font(.subheadline)
+
+                            Text(viewModel.actionButtonTitle)
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                        }
+                    }
+                    .foregroundColor(.white)
+                    .frame(minHeight: 36)
+                    .frame(maxWidth: .infinity)
+                    .background(viewModel.actionButtonColor)
+                    .cornerRadius(8)
                 }
-                .buttonStyle(SecondaryButtonStyle())
+                .disabled(viewModel.isPerformingAction)
+
+                // Secondary action for requests received
+                if viewModel.friendshipStatus == .requestReceived {
+                    NavigationLink(destination: FriendsView().environmentObject(authViewModel)) {
+                        Text("Respond")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                            .frame(minHeight: 36)
+                    }
+                    .buttonStyle(SecondaryButtonStyle())
+                }
             }
         }
         .padding(.horizontal, 20)

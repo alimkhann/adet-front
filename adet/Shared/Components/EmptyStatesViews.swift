@@ -96,6 +96,33 @@ struct EmptySearchView: View {
     }
 }
 
+// MARK: - Empty Chats View
+
+struct EmptyChatsView: View {
+    var body: some View {
+        VStack(spacing: 20) {
+            Image(systemName: "bubble.left.and.bubble.right")
+                .font(.system(size: 60))
+                .foregroundColor(.secondary)
+                .padding(.top, 40)
+
+            Text("No Conversations Yet")
+                .font(.title2)
+                .fontWeight(.semibold)
+                .foregroundColor(.primary)
+
+            Text("Start chatting with your friends! Go to your friends list and tap on someone to begin a conversation.")
+                .font(.body)
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 40)
+
+            Spacer()
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
 // MARK: - Previews
 
 #Preview("Empty Friends") {
@@ -112,4 +139,8 @@ struct EmptySearchView: View {
 
 #Preview("Empty Search - With Query") {
     EmptySearchView(query: "johndoe")
+}
+
+#Preview("Empty Chats") {
+    EmptyChatsView()
 }
