@@ -85,6 +85,36 @@ actor FriendsAPIService {
         )
     }
 
+    // MARK: - Close Friends Management
+
+    /// Get close friends list
+    func getCloseFriends() async throws -> CloseFriendsResponse {
+        logger.info("Fetching close friends list")
+        return try await networkService.makeAuthenticatedRequest(
+            endpoint: "/api/v1/friends/close-friends",
+            method: "GET",
+            body: (nil as String?)
+        )
+    }
+
+    /// Add or remove someone from close friends
+    func updateCloseFriend(friendId: Int, isCloseFriend: Bool) async throws -> FriendActionResponse {
+        logger.info("Updating close friend status for user \(friendId): \(isCloseFriend)")
+        let requestBody = CloseFriendRequest(friendId: friendId, isCloseFriend: isCloseFriend)
+        return try await networkService.makeAuthenticatedRequest(
+            endpoint: "/api/v1/friends/close-friends",
+            method: "POST",
+            body: requestBody
+        )
+    }
+
+    /// Check if a friend is in close friends list
+    func isCloseFriend(friendId: Int) async throws -> Bool {
+        logger.info("Checking close friend status for user \(friendId)")
+        let response: CloseFriendsResponse = try await getCloseFriends()
+        return response.closeFriends.contains { $0.id == friendId }
+    }
+
     // MARK: - User Search
 
     /// Search users by username

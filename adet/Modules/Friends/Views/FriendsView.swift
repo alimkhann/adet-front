@@ -28,6 +28,17 @@ struct FriendsView: View {
                 }
             }
             .background(Color(.systemGroupedBackground))
+            .navigationTitle("Friends")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    NavigationLink(destination: CloseFriendsManagementView().environmentObject(authViewModel)) {
+                        Image(systemName: "heart.circle")
+                            .font(.system(size: 20))
+                            .foregroundColor(.red)
+                    }
+                }
+            }
             .onAppear {
                 logger.info("FriendsView appeared")
                 Task {

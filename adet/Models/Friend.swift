@@ -1,50 +1,84 @@
 import Foundation
 
+// MARK: - Post Privacy Levels
+enum PostPrivacy: String, CaseIterable, Identifiable {
+    case `private` = "private"
+    case friends = "friends"
+    case closeFriends = "close_friends"
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .private:
+            return "Only me"
+        case .friends:
+            return "Friends"
+        case .closeFriends:
+            return "Close friends"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .private:
+            return "lock.fill"
+        case .friends:
+            return "person.2.fill"
+        case .closeFriends:
+            return "heart.fill"
+        }
+    }
+
+    var description: String {
+        switch self {
+        case .private:
+            return "Only visible to you"
+        case .friends:
+            return "Visible to all friends"
+        case .closeFriends:
+            return "Visible to close friends only"
+        }
+    }
+}
+
 // MARK: - Friend Models
 
-struct Friend: Codable, Identifiable {
+struct Friend: Identifiable, Codable {
     let id: Int
     let userId: Int
     let friendId: Int
-    let friend: UserBasic
-    let status: String
     let createdAt: Date
-    let updatedAt: Date?
+    let user: UserBasic
+    var isCloseFriend: Bool = false // New field for close friends
 
     enum CodingKeys: String, CodingKey {
         case id
         case userId = "user_id"
         case friendId = "friend_id"
-        case friend
-        case status
         case createdAt = "created_at"
-        case updatedAt = "updated_at"
+        case user
+        case isCloseFriend = "is_close_friend"
     }
 }
 
-struct FriendRequest: Codable, Identifiable {
+struct FriendRequest: Identifiable, Codable {
     let id: Int
-    let senderId: Int
-    let receiverId: Int
-    let sender: UserBasic
-    let receiver: UserBasic
-    let status: String
-    let message: String?
+    let requesterId: Int
+    let requestedId: Int
+    let status: FriendRequestStatus
     let createdAt: Date
-    let updatedAt: Date?
     let expiresAt: Date?
+    let user: UserBasic
 
     enum CodingKeys: String, CodingKey {
         case id
-        case senderId = "sender_id"
-        case receiverId = "receiver_id"
-        case sender
-        case receiver
+        case requesterId = "requester_id"
+        case requestedId = "requested_id"
         case status
-        case message
         case createdAt = "created_at"
-        case updatedAt = "updated_at"
         case expiresAt = "expires_at"
+        case user
     }
 }
 
@@ -87,20 +121,59 @@ struct UserBasic: Codable, Identifiable, Hashable {
 
 // MARK: - Friend Request Status Enum
 
-enum FriendRequestStatus: String, CaseIterable {
+enum FriendRequestStatus: String, Codable, CaseIterable {
     case pending = "pending"
     case accepted = "accepted"
     case declined = "declined"
     case cancelled = "cancelled"
+
+    var displayName: String {
+        switch self {
+        case .pending:
+            return "Pending"
+        case .accepted:
+            return "Accepted"
+        case .declined:
+            return "Declined"
+        case .cancelled:
+            return "Cancelled"
+        }
+    }
 }
 
 // MARK: - Friendship Status Enum
 
-enum FriendshipStatus: String, CaseIterable {
+enum FriendshipStatus: String, Codable {
     case none = "none"
     case friends = "friends"
     case requestSent = "request_sent"
     case requestReceived = "request_received"
+
+    var displayName: String {
+        switch self {
+        case .none:
+            return "Add Friend"
+        case .friends:
+            return "Remove Friend"
+        case .requestSent:
+            return "Cancel Request"
+        case .requestReceived:
+            return "Respond to Request"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .none:
+            return "person.badge.plus"
+        case .friends:
+            return "person.badge.minus"
+        case .requestSent:
+            return "clock"
+        case .requestReceived:
+            return "person.badge.clock"
+        }
+    }
 }
 
 // MARK: - Profile Statistics
@@ -108,4 +181,25 @@ enum FriendshipStatus: String, CaseIterable {
 struct ProfileStat {
     let title: String
     let value: String
+}
+
+// MARK: - Close Friends API Models
+struct CloseFriendsResponse: Codable {
+    let closeFriends: [UserBasic]
+    let count: Int
+
+    enum CodingKeys: String, CodingKey {
+        case closeFriends = "close_friends"
+        case count
+    }
+}
+
+struct CloseFriendRequest: Codable {
+    let friendId: Int
+    let isCloseFriend: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case friendId = "friend_id"
+        case isCloseFriend = "is_close_friend"
+    }
 }
