@@ -146,3 +146,61 @@ struct ExpiredTasksResponse: Codable {
         case count
     }
 }
+
+// MARK: - Friends API Models
+struct FriendRequestCreateRequest: Codable {
+    let receiverId: Int
+    let message: String?
+
+    enum CodingKeys: String, CodingKey {
+        case receiverId = "receiver_id"
+        case message
+    }
+}
+
+struct FriendsListResponse: Codable {
+    let friends: [Friend]
+    let count: Int
+}
+
+struct FriendRequestsResponse: Codable {
+    let incomingRequests: [FriendRequest]
+    let outgoingRequests: [FriendRequest]
+    let incomingCount: Int
+    let outgoingCount: Int
+
+    enum CodingKeys: String, CodingKey {
+        case incomingRequests = "incoming_requests"
+        case outgoingRequests = "outgoing_requests"
+        case incomingCount = "incoming_count"
+        case outgoingCount = "outgoing_count"
+    }
+}
+
+struct UserSearchResponse: Codable {
+    let users: [UserBasic]
+    let count: Int
+    let query: String
+}
+
+struct FriendActionResponse: Codable {
+    let success: Bool
+    let message: String
+    let friendship: Friend?
+}
+
+struct FriendRequestActionResponse: Codable {
+    let success: Bool
+    let message: String
+    let request: FriendRequest?
+}
+
+struct FriendshipStatusResponse: Codable {
+    let userId: Int
+    let friendshipStatus: String
+
+    enum CodingKeys: String, CodingKey {
+        case userId = "user_id"
+        case friendshipStatus = "friendship_status"
+    }
+}
