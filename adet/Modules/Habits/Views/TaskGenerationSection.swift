@@ -9,8 +9,15 @@ struct TaskGenerationSection: View {
     let onShowMotivationAbility: () -> Void
     @Environment(\.colorScheme) private var colorScheme
 
+    // Animation states for loading dots
+    @State private var generationDots = "."
+    @State private var generationTimer: Timer?
+
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
+            // Debug logging
+            let _ = print("📋 TaskGenerationSection for \(habit.name): currentTask=\(aiTaskViewModel.currentTask?.id ?? -1), hasValidTaskForHabit=\(hasValidTaskForHabit)")
+
             // Header with motivation and ability levels - moved higher
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
@@ -93,6 +100,42 @@ struct TaskGenerationSection: View {
         .background(colorScheme == .dark ? .zinc900 : .zinc100)
         .cornerRadius(10)
         .padding(.horizontal, 0)
+        .onAppear {
+            if state.isGeneratingTask[habit.id] == true {
+                startGenerationAnimation()
+            }
+        }
+        .onDisappear {
+            stopGenerationAnimation()
+        }
+        .onChange(of: state.isGeneratingTask[habit.id]) { _, isGenerating in
+            if isGenerating == true {
+                startGenerationAnimation()
+            } else {
+                stopGenerationAnimation()
+            }
+        }
+    }
+
+    private func startGenerationAnimation() {
+        generationTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { _ in
+            switch generationDots {
+            case ".":
+                generationDots = ".."
+            case "..":
+                generationDots = "..."
+            case "...":
+                generationDots = "."
+            default:
+                generationDots = "."
+            }
+        }
+    }
+
+    private func stopGenerationAnimation() {
+        generationTimer?.invalidate()
+        generationTimer = nil
+        generationDots = "."
     }
 
     // MARK: - Subviews
@@ -105,7 +148,7 @@ struct TaskGenerationSection: View {
                     HStack(spacing: 8) {
                         ProgressView()
                             .scaleEffect(0.8)
-                        Text("AI is crafting your perfect task...")
+                        Text("AI is crafting your perfect task\(generationDots)")
                             .font(.body)
                             .foregroundColor(.secondary)
                             .italic()
@@ -256,7 +299,8 @@ struct TaskGenerationSection: View {
         guard let currentTask = aiTaskViewModel.currentTask, currentTask.habitId == habit.id else {
             return false
         }
-        return currentTask.status == "pending"
+        // Task is valid if it's any active status (not expired or completely done)
+        return ["pending", "completed", "failed", "pending_review"].contains(currentTask.status)
     }
 
     private var difficultyButtonsView: some View {
@@ -276,9 +320,9 @@ struct TaskGenerationSection: View {
                             Text("Easier")
                                 .fontWeight(.semibold)
                         }
-                        .frame(maxWidth: .infinity, minHeight: 36)
+                        .frame(maxWidth: .infinity, minHeight: 40)
                     }
-                    .buttonStyle(SecondaryButtonStyle())
+                    .buttonStyle(PrimaryButtonStyle())
                     .transition(.asymmetric(
                         insertion: .scale(scale: 0.9).combined(with: .opacity),
                         removal: .scale(scale: 0.9).combined(with: .opacity)
@@ -296,9 +340,9 @@ struct TaskGenerationSection: View {
                             Text("Harder")
                                 .fontWeight(.semibold)
                         }
-                        .frame(maxWidth: .infinity, minHeight: 36)
+                        .frame(maxWidth: .infinity, minHeight: 40)
                     }
-                    .buttonStyle(SecondaryButtonStyle())
+                    .buttonStyle(PrimaryButtonStyle())
                     .transition(.asymmetric(
                         insertion: .scale(scale: 0.9).combined(with: .opacity),
                         removal: .scale(scale: 0.9).combined(with: .opacity)
@@ -317,12 +361,15 @@ struct TaskGenerationSection: View {
                 }) {
                     HStack {
                         Image(systemName: "arrow.counterclockwise.circle")
+                            .resizable()
+                            .frame(width: 20, height: 20)
+
                         Text("Original")
                             .fontWeight(.semibold)
                     }
-                    .frame(maxWidth: .infinity, minHeight: 36)
+                    .frame(maxWidth: .infinity, minHeight: 48)
                 }
-                .buttonStyle(SecondaryButtonStyle())
+                .buttonStyle(PrimaryButtonStyle())
                 .transition(.asymmetric(
                     insertion: .scale(scale: 0.9).combined(with: .opacity),
                     removal: .scale(scale: 0.9).combined(with: .opacity)

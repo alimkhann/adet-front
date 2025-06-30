@@ -12,16 +12,34 @@ struct HabitsView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
-                    // Carousel for Habits
-                    habitCarouselSection
+                    if viewModel.habits.isEmpty {
+                        VStack(spacing: 16) {
+                            Text("No habits yet")
+                                .font(.title2)
+                                .fontWeight(.semibold)
 
-                    // Dynamic Bottom Section based on selected habit and calculated state
-                    if let selectedHabit = viewModel.selectedHabit {
-                        bottomSection(for: selectedHabit)
+                            Text("Add your first habit to get started!")
+                                .font(.body)
+                                .foregroundColor(.secondary)
+
+                            Button(action: {
+                                state.showingAddHabitSheet = true
+                            }) {
+                                Text("Add Habit")
+                                    .font(.headline)
+                                    .frame(minHeight: 48)
+                            }
+                            .buttonStyle(PrimaryButtonStyle())
+                        }
                     } else {
-                        placeholderSection
-                    }
+                        habitCarouselSection
 
+                        if let selectedHabit = viewModel.selectedHabit {
+                            bottomSection(for: selectedHabit)
+                        } else {
+                            placeholderSection
+                        }
+                    }
                     Spacer()
                 }
             }
@@ -144,21 +162,26 @@ struct HabitsView: View {
                 )
                 .id("task-generation-\(habit.id)")
             } else if habitState == .taskActive || habitState == .taskCompleted {
-                VStack(spacing: 12) {
-                    // Show task generation section
-                    TaskGenerationSection(
-                        habit: habit,
-                        viewModel: viewModel,
-                        aiTaskViewModel: aiTaskViewModel,
-                        state: state,
-                        logic: logic,
-                        onShowMotivationAbility: {
-                            state.showMotivationAbilityModal = true
-                        }
-                    )
-                    .id("task-generation-\(habit.id)")
+                // Check if upload proof section should handle display exclusively
+                let shouldUploadProofHandleDisplay = shouldUploadProofSectionTakeControl(for: habit)
 
-                    // Show upload proof section
+                VStack(spacing: 12) {
+                    // Only show task generation section if upload proof isn't taking control
+                    if !shouldUploadProofHandleDisplay {
+                        TaskGenerationSection(
+                            habit: habit,
+                            viewModel: viewModel,
+                            aiTaskViewModel: aiTaskViewModel,
+                            state: state,
+                            logic: logic,
+                            onShowMotivationAbility: {
+                                state.showMotivationAbilityModal = true
+                            }
+                        )
+                        .id("task-generation-\(habit.id)")
+                    }
+
+                    // Always show upload proof section (it will handle its own display logic)
                     UploadProofSection(
                         habit: habit,
                         aiTaskViewModel: aiTaskViewModel
@@ -403,5 +426,33 @@ struct HabitsView: View {
         }
 
         return nil
+    }
+
+    private func shouldUploadProofSectionTakeControl(for habit: Habit) -> Bool {
+        guard let currentTask = aiTaskViewModel.currentTask, currentTask.habitId == habit.id else {
+            return false
+        }
+
+        // Calculate if task is expired
+        let timeRemaining = timeRemainingForTask(task: currentTask)
+        let isExpired = timeRemaining <= 0 && currentTask.status == "pending"
+
+        // Upload proof section takes control when:
+        // 1. Task is expired (to show expired notification)
+        // 2. Any comeback message scenario
+        return isExpired
+    }
+
+    private func timeRemainingForTask(task: TaskEntry) -> TimeInterval {
+        var dueDateString = task.dueDate
+        if !dueDateString.contains("Z") && !dueDateString.contains("+") {
+            dueDateString += "Z"
+        }
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        guard let dueDate = formatter.date(from: dueDateString) else {
+            return 0
+        }
+        return dueDate.timeIntervalSince(Date())
     }
 }

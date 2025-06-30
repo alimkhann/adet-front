@@ -36,7 +36,7 @@ struct AddHabitView: View {
                             Text("Describe your habit and what your goal is...")
                                 .foregroundColor(Color(UIColor.placeholderText))
                                 .padding(.top, 8)
-                                .padding(.leading, 5)
+                                .padding(.leading, 0)
                                 .onTapGesture {
                                     isDescriptionEditorFocused = true
                                 }

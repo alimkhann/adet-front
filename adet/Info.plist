@@ -13,13 +13,5 @@
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
-	<key>NSCameraUsageDescription</key>
-	<string>This app needs camera access to capture photos and videos for habit proof submission.</string>
-	<key>NSMicrophoneUsageDescription</key>
-	<string>This app needs microphone access to record audio for habit proof submission.</string>
-	<key>NSPhotoLibraryUsageDescription</key>
-	<string>This app needs photo library access to upload images and videos for habit proof submission.</string>
-	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>This app needs photo library access to save captured photos and videos.</string>
 </dict>
 </plist>
