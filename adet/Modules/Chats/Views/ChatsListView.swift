@@ -5,8 +5,29 @@ struct ChatsListView: View {
     @StateObject private var viewModel = ChatsListViewModel()
     @EnvironmentObject var authViewModel: AuthViewModel
     @State private var selectedConversation: Conversation?
+    @State private var searchText = ""
 
     private let logger = Logger(subsystem: "com.adet.chats", category: "ChatsListView")
+
+    // Computed property to avoid async autoclosure issues
+    private var showingError: Binding<Bool> {
+        Binding(
+            get: { viewModel.errorMessage != nil },
+            set: { if !$0 { viewModel.errorMessage = nil } }
+        )
+    }
+
+    // Filtered conversations based on search
+    private var filteredConversations: [Conversation] {
+        if searchText.isEmpty {
+            return viewModel.conversations
+        } else {
+            return viewModel.conversations.filter { conversation in
+                conversation.otherParticipant.displayName.localizedCaseInsensitiveContains(searchText) ||
+                (conversation.otherParticipant.username?.localizedCaseInsensitiveContains(searchText) ?? false)
+            }
+        }
+    }
 
     var body: some View {
         NavigationStack {
@@ -33,11 +54,7 @@ struct ChatsListView: View {
             }
             .navigationTitle("Messages")
             .navigationBarTitleDisplayMode(.large)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    connectionStatusIndicator
-                }
-            }
+            .searchable(text: $searchText, prompt: "Search conversations")
             .refreshable {
                 await viewModel.refreshConversations()
             }
@@ -50,7 +67,7 @@ struct ChatsListView: View {
                 #endif
                 await viewModel.loadConversations()
             }
-            .alert("Error", isPresented: .constant(viewModel.errorMessage != nil)) {
+            .alert("Error", isPresented: showingError) {
                 Button("OK") {
                     viewModel.errorMessage = nil
                 }
@@ -71,7 +88,7 @@ struct ChatsListView: View {
     private var conversationsList: some View {
         ScrollView {
             LazyVStack(spacing: 8) {
-                ForEach(viewModel.conversations) { conversation in
+                ForEach(filteredConversations) { conversation in
                     ConversationCardView(
                         conversation: conversation,
                         onTap: {
@@ -104,29 +121,6 @@ struct ChatsListView: View {
             }
             .padding(.horizontal, 16)
             .padding(.top, 8)
-        }
-    }
-
-    // MARK: - Connection Status Indicator
-
-    @ViewBuilder
-    private var connectionStatusIndicator: some View {
-        switch viewModel.connectionState {
-        case .connected:
-            Image(systemName: "circle.fill")
-                .foregroundColor(.green)
-                .font(.caption)
-        case .connecting, .reconnecting:
-            ProgressView()
-                .scaleEffect(0.7)
-        case .disconnected:
-            Image(systemName: "circle.fill")
-                .foregroundColor(.gray)
-                .font(.caption)
-        case .failed:
-            Image(systemName: "exclamationmark.circle.fill")
-                .foregroundColor(.red)
-                .font(.caption)
         }
     }
 }

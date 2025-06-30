@@ -1,6 +1,7 @@
 import Foundation
 import Combine
 import OSLog
+import UIKit
 
 // For now, we'll create a protocol that can be implemented with Starscream later
 protocol WebSocketProtocol {
@@ -75,7 +76,10 @@ class WebSocketManager: ObservableObject {
 
     deinit {
         NotificationCenter.default.removeObserver(self)
-        disconnect()
+        // Don't capture self in a Task that outlives deinit
+        // Instead, perform cleanup synchronously or let the system handle it
+        reconnectTimer?.invalidate()
+        reconnectTimer = nil
     }
 
     // MARK: - Public Interface
@@ -95,7 +99,7 @@ class WebSocketManager: ObservableObject {
         lastError = nil
 
         // Create WebSocket URL with auth token
-        let wsURL = "\(baseURL)/api/v1/chats/ws/\(conversationId)?token=\(token)"
+        let _ = "\(baseURL)/api/v1/chats/ws/\(conversationId)?token=\(token)"
 
         // TODO: Implement with Starscream when added
         // For now, simulate connection for development
@@ -156,6 +160,16 @@ class WebSocketManager: ObservableObject {
         )
 
         sendWebSocketMessage(message)
+    }
+
+    // MARK: - Development Simulation Methods
+
+    func simulateMessage(_ message: Message) {
+        messageSubject.send(message)
+    }
+
+    func simulateTyping(_ typingEvent: TypingEvent) {
+        typingSubject.send(typingEvent)
     }
 
     // MARK: - Private Methods
@@ -237,7 +251,7 @@ class WebSocketManager: ObservableObject {
                 logger.info("Message sent confirmation received")
 
             default:
-                logger.debug("Unhandled event type: \(eventType)")
+                logger.debug("Unhandled event type: \(eventType.rawValue)")
             }
 
         } catch {
@@ -257,8 +271,10 @@ class WebSocketManager: ObservableObject {
         connectionState = .reconnecting
         reconnectAttempts += 1
 
-        let delay = baseReconnectDelay * pow(2.0, Double(reconnectAttempts - 1))
-        logger.info("Scheduling reconnect attempt \(reconnectAttempts) in \(delay) seconds")
+        // Calculate exponential backoff: delay = baseDelay * 2^(attempts-1)
+        let exponentialMultiplier = 1 << (self.reconnectAttempts - 1) // 2^(attempts-1) using bit shifting
+        let delay: TimeInterval = baseReconnectDelay * Double(exponentialMultiplier)
+        logger.info("Scheduling reconnect attempt \(self.reconnectAttempts) in \(delay) seconds")
 
         reconnectTimer = Timer.scheduledTimer(withTimeInterval: delay, repeats: false) { [weak self] _ in
             Task { @MainActor in
@@ -320,38 +336,46 @@ class WebSocketManager: ObservableObject {
 // MARK: - WebSocketDelegate Implementation
 
 extension WebSocketManager: WebSocketDelegate {
-    func webSocketDidConnect() {
-        logger.info("WebSocket connected successfully")
-        connectionState = .connected
-        reconnectAttempts = 0
-        lastError = nil
-    }
-
-    func webSocketDidDisconnect(error: Error?) {
-        logger.info("WebSocket disconnected")
-
-        if let error = error {
-            logger.error("WebSocket disconnection error: \(error)")
-            lastError = .networkError(error)
-
-            // Attempt to reconnect on unexpected disconnection
-            if connectionState == .connected {
-                scheduleReconnect()
-            }
-        } else {
-            connectionState = .disconnected
+    nonisolated func webSocketDidConnect() {
+        Task { @MainActor in
+            logger.info("WebSocket connected successfully")
+            connectionState = .connected
+            reconnectAttempts = 0
+            lastError = nil
         }
     }
 
-    func webSocketDidReceiveMessage(text: String) {
-        handleIncomingMessage(text)
+    nonisolated func webSocketDidDisconnect(error: Error?) {
+        Task { @MainActor in
+            logger.info("WebSocket disconnected")
+
+            if let error = error {
+                logger.error("WebSocket disconnection error: \(error)")
+                lastError = .networkError(error)
+
+                // Attempt to reconnect on unexpected disconnection
+                if connectionState == .connected {
+                    scheduleReconnect()
+                }
+            } else {
+                connectionState = .disconnected
+            }
+        }
     }
 
-    func webSocketDidReceiveData(data: Data) {
-        if let text = String(data: data, encoding: .utf8) {
+    nonisolated func webSocketDidReceiveMessage(text: String) {
+        Task { @MainActor in
             handleIncomingMessage(text)
-        } else {
-            logger.error("Received binary data that could not be converted to text")
+        }
+    }
+
+    nonisolated func webSocketDidReceiveData(data: Data) {
+        Task { @MainActor in
+            if let text = String(data: data, encoding: .utf8) {
+                handleIncomingMessage(text)
+            } else {
+                logger.error("Received binary data that could not be converted to text")
+            }
         }
     }
 }

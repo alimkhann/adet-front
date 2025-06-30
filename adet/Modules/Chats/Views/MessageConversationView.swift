@@ -3,7 +3,6 @@ import OSLog
 
 struct MessageConversationView: View {
     let friendUser: UserBasic
-    private let chatAPIService = ChatAPIService.shared
     @EnvironmentObject var authViewModel: AuthViewModel
     @Environment(\.dismiss) private var dismiss
     @State private var conversation: Conversation?
@@ -85,9 +84,12 @@ struct MessageConversationView: View {
         isLoading = true
         errorMessage = nil
 
-                do {
+        do {
+            // Use the shared ChatAPIService instance
+            let chatService = ChatAPIService.shared
+
             // First, try to get existing conversations and find one with this friend
-            let existingConversations = try await chatAPIService.getConversations()
+            let existingConversations = try await chatService.getConversations()
 
             if let existingConversation = existingConversations.first(where: {
                 $0.otherParticipant.id == friendUser.id
@@ -98,7 +100,7 @@ struct MessageConversationView: View {
             } else {
                 // Create new conversation
                 logger.info("Creating new conversation with user \(friendUser.id)")
-                let newConversation = try await chatAPIService.createConversation(with: friendUser.id)
+                let newConversation = try await chatService.createConversation(with: friendUser.id)
                 conversation = newConversation
             }
 
@@ -118,6 +120,7 @@ struct MessageConversationView: View {
                 id: 2,
                 username: "sarah_wellness",
                 name: "Sarah Johnson",
+                bio: nil,
                 profileImageUrl: nil
             )
         )

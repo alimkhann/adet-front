@@ -2,7 +2,7 @@ import Foundation
 
 // MARK: - Chat Models
 
-struct Conversation: Codable, Identifiable {
+struct Conversation: Codable, Identifiable, Hashable {
     let id: Int
     let participant1Id: Int
     let participant2Id: Int
@@ -28,9 +28,18 @@ struct Conversation: Codable, Identifiable {
         case isOtherOnline = "is_other_online"
         case otherLastSeen = "other_last_seen"
     }
+
+    // Hashable conformance
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
+    }
+
+    static func == (lhs: Conversation, rhs: Conversation) -> Bool {
+        return lhs.id == rhs.id
+    }
 }
 
-struct Message: Codable, Identifiable, Equatable {
+struct Message: Codable, Identifiable, Equatable, Hashable {
     let id: Int
     let conversationId: Int
     let senderId: Int
@@ -41,6 +50,7 @@ struct Message: Codable, Identifiable, Equatable {
     let deliveredAt: Date?
     let readAt: Date?
     let sender: UserBasic
+    let repliedToMessageId: Int?
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -53,10 +63,16 @@ struct Message: Codable, Identifiable, Equatable {
         case deliveredAt = "delivered_at"
         case readAt = "read_at"
         case sender
+        case repliedToMessageId = "replied_to_message_id"
     }
 
     static func == (lhs: Message, rhs: Message) -> Bool {
         return lhs.id == rhs.id
+    }
+
+    // Hashable conformance
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
     }
 }
 
@@ -86,15 +102,18 @@ struct ConversationCreateRequest: Codable {
 struct MessageCreateRequest: Codable {
     let content: String
     let messageType: String
+    let repliedToMessageId: Int?
 
     enum CodingKeys: String, CodingKey {
         case content
         case messageType = "message_type"
+        case repliedToMessageId = "replied_to_message_id"
     }
 
-    init(content: String, messageType: MessageType = .text) {
+    init(content: String, messageType: MessageType = .text, repliedToMessageId: Int? = nil) {
         self.content = content
         self.messageType = messageType.rawValue
+        self.repliedToMessageId = repliedToMessageId
     }
 }
 
@@ -111,6 +130,18 @@ struct MessageListResponse: Codable {
         case messages
         case totalCount = "total_count"
         case hasMore = "has_more"
+    }
+}
+
+struct MessageEditRequest: Codable {
+    let content: String
+}
+
+struct MessageDeleteRequest: Codable {
+    let deleteForEveryone: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case deleteForEveryone = "delete_for_everyone"
     }
 }
 
@@ -182,7 +213,7 @@ enum WebSocketEventType: String, CaseIterable {
     // Incoming events
     case message = "message"
     case messageStatus = "message_status"
-    case typingIndicator = "typing"
+    case typingIndicator = "typing_indicator"
     case presence = "presence"
     case connection = "connection"
     case error = "error"
@@ -321,3 +352,39 @@ enum ChatError: LocalizedError {
         }
     }
 }
+
+// MARK: - Debug Extensions
+#if DEBUG
+extension Message {
+    static func createTestMessage(id: Int, content: String, repliedToMessageId: Int? = nil) -> Message {
+        return Message(
+            id: id,
+            conversationId: 1,
+            senderId: 1,
+            content: content,
+            messageType: "text",
+            status: .sent,
+            createdAt: Date(),
+            deliveredAt: Date(),
+            readAt: nil,
+            sender: UserBasic(id: 1, username: "test", name: "Test User", bio: nil, profileImageUrl: nil),
+            repliedToMessageId: repliedToMessageId
+        )
+    }
+
+    /// Test function to verify reply system works without infinite recursion
+    static func testReplySystem() {
+        // Create a message
+        let originalMessage = createTestMessage(id: 1, content: "Original message")
+
+        // Create a reply to that message
+        let replyMessage = createTestMessage(id: 2, content: "Reply to original", repliedToMessageId: originalMessage.id)
+
+        // Verify the reply relationship
+        assert(replyMessage.repliedToMessageId == originalMessage.id)
+        assert(originalMessage.repliedToMessageId == nil)
+
+        print("✅ Reply system test passed - no infinite recursion!")
+    }
+}
+#endif

@@ -48,7 +48,7 @@ struct FriendRequest: Codable, Identifiable {
     }
 }
 
-struct UserBasic: Codable, Identifiable {
+struct UserBasic: Codable, Identifiable, Hashable {
     let id: Int
     let username: String?
     let name: String?
@@ -73,6 +73,15 @@ struct UserBasic: Codable, Identifiable {
 
     var displayUsername: String {
         return username ?? "no_username"
+    }
+
+    // Hashable conformance
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
+    }
+
+    static func == (lhs: UserBasic, rhs: UserBasic) -> Bool {
+        return lhs.id == rhs.id
     }
 }
 

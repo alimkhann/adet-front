@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct VerificationView: View {
-    @StateObject private var viewModel = VerificationViewModel()
+    @StateObject private var viewModel = AuthViewModel()
     @State private var verificationCode = ""
 
     var body: some View {

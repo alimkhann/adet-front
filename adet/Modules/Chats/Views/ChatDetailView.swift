@@ -32,6 +32,17 @@ struct ChatDetailView: View {
                     typingIndicatorView
                 }
 
+                // Reply indicator
+                if let replyingTo = viewModel.replyingToMessage {
+                    ReplyIndicatorView(
+                        replyToMessage: replyingTo,
+                        onCancel: {
+                            viewModel.cancelReply()
+                        }
+                    )
+                    .transition(.move(edge: .bottom))
+                }
+
                 // Message input
                 MessageInputView(
                     messageText: $viewModel.messageText,
@@ -50,16 +61,26 @@ struct ChatDetailView: View {
                 )
             }
         }
-        .navigationTitle(conversation.otherParticipant.displayName)
+        .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.hidden, for: .tabBar)
         .toolbar {
-            ToolbarItem(placement: .navigationBarTrailing) {
-                VStack(alignment: .trailing, spacing: 2) {
-                    connectionStatusIndicator
-                    Text(viewModel.onlineStatusText)
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
+            ToolbarItem(placement: .principal) {
+                NavigationLink(destination: OtherUserProfileView(userId: conversation.otherParticipant.id).environmentObject(authViewModel)) {
+                    VStack(spacing: 2) {
+                        Text(conversation.otherParticipant.displayName)
+                            .font(.headline)
+                            .foregroundColor(.primary)
+
+                        HStack(spacing: 4) {
+                            connectionStatusIndicator
+                            Text(viewModel.onlineStatusText)
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        }
+                    }
                 }
+                .buttonStyle(PlainButtonStyle())
             }
         }
         .task {
@@ -95,7 +116,7 @@ struct ChatDetailView: View {
     private var messagesScrollView: some View {
         ScrollViewReader { proxy in
             ScrollView {
-                LazyVStack(spacing: 8) {
+                LazyVStack(spacing: 4) {
                     // Load more messages button
                     if viewModel.messages.count > 20 {
                         Button("Load Earlier Messages") {
@@ -117,21 +138,11 @@ struct ChatDetailView: View {
 
                     // Messages
                     ForEach(Array(viewModel.messages.enumerated()), id: \.element.id) { index, message in
-                        MessageBubbleView(
+                        MessageRowView(
                             message: message,
-                            isFromCurrentUser: viewModel.isMyMessage(message),
-                            showSenderName: viewModel.shouldShowSenderName(for: message, at: index),
-                            showTimestamp: viewModel.shouldShowTimestamp(for: message, at: index)
+                            index: index,
+                            viewModel: viewModel
                         )
-                        .id(message.id)
-                        .onAppear {
-                            // Mark messages as read when they appear
-                            if !viewModel.isMyMessage(message) && index == viewModel.messages.count - 1 {
-                                Task {
-                                    await viewModel.markMessagesAsRead(upTo: message.id)
-                                }
-                            }
-                        }
                     }
                 }
                 .padding(.bottom, 16)
@@ -196,18 +207,18 @@ struct ChatDetailView: View {
         case .connected:
             Image(systemName: "circle.fill")
                 .foregroundColor(.green)
-                .font(.caption)
+                .font(.system(size: 8))
         case .connecting, .reconnecting:
             ProgressView()
-                .scaleEffect(0.6)
+                .scaleEffect(0.5)
         case .disconnected:
             Image(systemName: "circle.fill")
                 .foregroundColor(.gray)
-                .font(.caption)
+                .font(.system(size: 8))
         case .failed:
             Image(systemName: "exclamationmark.circle.fill")
                 .foregroundColor(.red)
-                .font(.caption)
+                .font(.system(size: 8))
         }
     }
 }
@@ -226,6 +237,7 @@ struct ChatDetailView: View {
                     id: 2,
                     username: "sarah_wellness",
                     name: "Sarah Johnson",
+                    bio: "Wellness Enthusiast",
                     profileImageUrl: nil
                 ),
                 lastMessage: nil,

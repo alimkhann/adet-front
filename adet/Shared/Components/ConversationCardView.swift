@@ -88,7 +88,7 @@ struct ConversationCardView: View {
                     if !conversation.isOtherOnline {
                         Text(onlineStatusText)
                             .font(.caption2)
-                            .foregroundColor(.tertiary)
+                            .foregroundColor(Color(.tertiaryLabel))
                     }
                 }
 
@@ -151,6 +151,7 @@ struct ConversationCardView: View {
                     id: 2,
                     username: "sarah_wellness",
                     name: "Sarah Johnson",
+                    bio: nil,
                     profileImageUrl: nil
                 ),
                 lastMessage: Message(
@@ -163,7 +164,8 @@ struct ConversationCardView: View {
                     createdAt: Date().addingTimeInterval(-3600),
                     deliveredAt: Date().addingTimeInterval(-3590),
                     readAt: nil,
-                    sender: UserBasic(id: 2, username: "sarah_wellness", name: "Sarah Johnson", profileImageUrl: nil)
+                    sender: UserBasic(id: 2, username: "sarah_wellness", name: "Sarah Johnson", bio: nil, profileImageUrl: nil),
+                    repliedToMessageId: nil
                 ),
                 unreadCount: 2,
                 isOtherOnline: true,
@@ -185,6 +187,7 @@ struct ConversationCardView: View {
                     id: 3,
                     username: "mike_fitness",
                     name: "Mike Chen",
+                    bio: nil,
                     profileImageUrl: nil
                 ),
                 lastMessage: Message(
@@ -197,7 +200,8 @@ struct ConversationCardView: View {
                     createdAt: Date().addingTimeInterval(-7200),
                     deliveredAt: Date().addingTimeInterval(-7190),
                     readAt: Date().addingTimeInterval(-7180),
-                    sender: UserBasic(id: 1, username: "me", name: "Me", profileImageUrl: nil)
+                    sender: UserBasic(id: 1, username: "me", name: "Me", bio: nil, profileImageUrl: nil),
+                    repliedToMessageId: nil
                 ),
                 unreadCount: 0,
                 isOtherOnline: false,

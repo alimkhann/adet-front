@@ -5,13 +5,12 @@ import OSLog
 @MainActor
 class ChatDetailViewModel: ObservableObject {
     private let logger = Logger(subsystem: "com.adet.chats", category: "ChatDetailViewModel")
-    private let chatAPIService = ChatAPIService.shared
     private var cancellables = Set<AnyCancellable>()
 
     // Published properties for UI
     @Published var conversation: Conversation?
     @Published var messages: [Message] = []
-    @Published var messageText = ""
+    @Published var messageText: String = ""
     @Published var isLoading = false
     @Published var isLoadingMessages = false
     @Published var isSendingMessage = false
@@ -23,6 +22,9 @@ class ChatDetailViewModel: ObservableObject {
     @Published var otherUserTyping = false
     @Published var isOtherUserOnline = false
     @Published var otherUserLastSeen: Date?
+
+    // Reply state
+    @Published var replyingToMessage: Message?
 
     // Typing timer
     private var typingTimer: Timer?
@@ -52,6 +54,11 @@ class ChatDetailViewModel: ObservableObject {
             self.otherUserLastSeen = conversation.otherLastSeen
         }
 
+        // Ensure current user ID is loaded first
+        if currentUserId == nil {
+            await getCurrentUserIdAsync()
+        }
+
         // Load messages and connect to real-time chat
         await loadInitialData()
     }
@@ -63,9 +70,12 @@ class ChatDetailViewModel: ObservableObject {
         await setLoading(true)
 
         do {
+            // Get the shared ChatAPIService instance
+            let chatService = ChatAPIService.shared
+
             // Load conversation details and messages in parallel
-            async let conversationTask = chatAPIService.initializeConversation(id: conversationId)
-            async let messagesTask = chatAPIService.getMessages(conversationId: conversationId, limit: messagesPerPage)
+            async let conversationTask = chatService.initializeConversation(id: conversationId)
+            async let messagesTask = chatService.getMessages(conversationId: conversationId, limit: messagesPerPage)
 
             let (updatedConversation, messageResponse) = try await (conversationTask, messagesTask)
 
@@ -97,8 +107,9 @@ class ChatDetailViewModel: ObservableObject {
         await setLoadingMessages(true)
 
         do {
+            let chatService = ChatAPIService.shared
             let beforeMessageId = messages.first?.id
-            let messageResponse = try await chatAPIService.getMessages(
+            let messageResponse = try await chatService.getMessages(
                 conversationId: conversationId,
                 limit: messagesPerPage,
                 offset: 0,
@@ -129,18 +140,23 @@ class ChatDetailViewModel: ObservableObject {
 
         // Clear input immediately for better UX
         let messageToSend = content
+        let replyToMessageId = replyingToMessage?.id
         await MainActor.run {
             self.messageText = ""
             self.isSendingMessage = true
+            // Clear reply state when sending
+            self.replyingToMessage = nil
         }
 
         do {
             logger.info("Sending message to conversation \(conversationId)")
 
+            let chatService = ChatAPIService.shared
             // Use hybrid approach: WebSocket if connected, REST as fallback
-            let sentMessage = try await chatAPIService.sendMessageHybrid(
+            let sentMessage = try await chatService.sendMessageHybrid(
                 conversationId: conversationId,
-                content: messageToSend
+                content: messageToSend,
+                repliedToMessageId: replyToMessageId
             )
 
             // If REST was used (WebSocket not connected), add message to UI
@@ -164,6 +180,10 @@ class ChatDetailViewModel: ObservableObject {
             await MainActor.run {
                 self.messageText = messageToSend
                 self.isSendingMessage = false
+                // Restore reply state on error
+                if let replyId = replyToMessageId {
+                    self.replyingToMessage = self.messages.first { $0.id == replyId }
+                }
             }
 
             await handleError(error)
@@ -178,8 +198,10 @@ class ChatDetailViewModel: ObservableObject {
             self.isTyping = typing
         }
 
-        // Send typing indicator via WebSocket
-        chatAPIService.sendTypingIndicator(isTyping: typing)
+        // TODO: Send typing indicator via WebSocket when implemented
+        // For now, typing indicators are disabled until WebSocket is fully implemented
+        // let chatService = ChatAPIService.shared
+        // await chatService.sendTypingIndicator(isTyping: typing)
 
         if typing {
             // Reset typing timer
@@ -200,15 +222,12 @@ class ChatDetailViewModel: ObservableObject {
         guard let conversationId = conversation?.id else { return }
 
         do {
-            // Use WebSocket if connected, otherwise REST
-            if connectionState == .connected {
-                chatAPIService.markMessagesAsReadRealTime(lastMessageId: messageId)
-            } else {
-                try await chatAPIService.markMessagesAsRead(
-                    conversationId: conversationId,
-                    lastMessageId: messageId
-                )
-            }
+            let chatService = ChatAPIService.shared
+            // TODO: For now, always use REST API until WebSocket is fully implemented
+            try await chatService.markMessagesAsRead(
+                conversationId: conversationId,
+                lastMessageId: messageId
+            )
 
             logger.debug("Marked messages as read up to message \(messageId)")
 
@@ -220,7 +239,10 @@ class ChatDetailViewModel: ObservableObject {
     /// Disconnects from real-time chat
     func disconnect() {
         logger.info("Disconnecting from chat")
-        chatAPIService.disconnectFromChat()
+        Task {
+            let chatService = ChatAPIService.shared
+            await chatService.disconnectFromChat()
+        }
 
         // Clean up typing timer
         typingTimer?.invalidate()
@@ -230,43 +252,54 @@ class ChatDetailViewModel: ObservableObject {
     // MARK: - Real-time Updates
 
     private func setupRealTimeUpdates() {
-        // Listen for incoming messages
-        chatAPIService.messagePublisher
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] message in
-                self?.handleIncomingMessage(message)
-            }
-            .store(in: &cancellables)
+        Task { @MainActor in
+            let chatService = ChatAPIService.shared
 
-        // Listen for typing indicators
-        chatAPIService.typingPublisher
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] typingEvent in
-                self?.handleTypingEvent(typingEvent)
-            }
-            .store(in: &cancellables)
+            // Listen for incoming messages
+            let messagePublisher = await chatService.messagePublisher
+            messagePublisher
+                .receive(on: DispatchQueue.main)
+                .sink { [weak self] message in
+                    self?.handleIncomingMessage(message)
+                }
+                .store(in: &cancellables)
 
-        // Listen for presence updates
-        chatAPIService.presencePublisher
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] presenceEvent in
-                self?.handlePresenceEvent(presenceEvent)
-            }
-            .store(in: &cancellables)
+            // Listen for typing indicators
+            let typingPublisher = await chatService.typingPublisher
+            typingPublisher
+                .receive(on: DispatchQueue.main)
+                .sink { [weak self] typingEvent in
+                    self?.handleTypingEvent(typingEvent)
+                }
+                .store(in: &cancellables)
 
-        // Listen for message status updates
-        chatAPIService.messageStatusPublisher
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] statusEvent in
-                self?.handleMessageStatusEvent(statusEvent)
-            }
-            .store(in: &cancellables)
+            // Listen for presence updates
+            let presencePublisher = await chatService.presencePublisher
+            presencePublisher
+                .receive(on: DispatchQueue.main)
+                .sink { [weak self] presenceEvent in
+                    self?.handlePresenceEvent(presenceEvent)
+                }
+                .store(in: &cancellables)
 
-        // Listen for connection state changes
-        chatAPIService.connectionStatePublisher
-            .receive(on: DispatchQueue.main)
-            .assign(to: \.connectionState, on: self)
-            .store(in: &cancellables)
+            // Listen for message status updates
+            let messageStatusPublisher = await chatService.messageStatusPublisher
+            messageStatusPublisher
+                .receive(on: DispatchQueue.main)
+                .sink { [weak self] statusEvent in
+                    self?.handleMessageStatusEvent(statusEvent)
+                }
+                .store(in: &cancellables)
+
+            // Listen for connection state changes
+            let connectionStatePublisher = await chatService.connectionStatePublisher
+            connectionStatePublisher
+                .receive(on: DispatchQueue.main)
+                .sink { [weak self] connectionState in
+                    self?.connectionState = connectionState
+                }
+                .store(in: &cancellables)
+        }
     }
 
     private func handleIncomingMessage(_ message: Message) {
@@ -326,7 +359,8 @@ class ChatDetailViewModel: ObservableObject {
                 createdAt: updatedMessage.createdAt,
                 deliveredAt: newStatus == .delivered ? event.timestamp : updatedMessage.deliveredAt,
                 readAt: newStatus == .read ? event.timestamp : updatedMessage.readAt,
-                sender: updatedMessage.sender
+                sender: updatedMessage.sender,
+                repliedToMessageId: updatedMessage.repliedToMessageId
             )
 
             messages[index] = updatedMessage
@@ -336,12 +370,23 @@ class ChatDetailViewModel: ObservableObject {
     // MARK: - Helper Methods
 
     private func getCurrentUserId() {
-        // TODO: Get from AuthManager/Clerk
-        // For now, we'll set it when conversation is loaded
         Task {
-            // Mock current user ID - replace with actual auth service
+            await getCurrentUserIdAsync()
+        }
+    }
+
+    private func getCurrentUserIdAsync() async {
+        do {
+            let user = try await APIService.shared.getCurrentUser()
             await MainActor.run {
-                self.currentUserId = 1 // This should come from AuthManager
+                self.currentUserId = user.id
+            }
+            logger.info("Current user ID set to: \(user.id)")
+        } catch {
+            logger.error("Failed to get current user ID: \(error)")
+            // Fallback to a default value or handle error
+            await MainActor.run {
+                self.currentUserId = nil
             }
         }
     }
@@ -359,7 +404,7 @@ class ChatDetailViewModel: ObservableObject {
     }
 
     private func handleError(_ error: Error) async {
-        let chatError = chatAPIService.handleChatError(error)
+        let chatError = await ChatAPIService.shared.handleChatError(error)
 
         await MainActor.run {
             self.errorMessage = chatError.localizedDescription
@@ -374,7 +419,17 @@ class ChatDetailViewModel: ObservableObject {
     // MARK: - View Helpers
 
     func isMyMessage(_ message: Message) -> Bool {
-        return message.senderId == currentUserId
+        let result = message.senderId == currentUserId
+        if currentUserId == nil {
+            logger.warning("Current user ID is nil when checking message ownership for message \(message.id)")
+        }
+        logger.debug("Message \(message.id) from sender \(message.senderId), current user: \(self.currentUserId ?? -1), isMyMessage: \(result)")
+        return result
+    }
+
+    func getRepliedMessage(for message: Message) -> Message? {
+        guard let repliedToMessageId = message.repliedToMessageId else { return nil }
+        return messages.first { $0.id == repliedToMessageId }
     }
 
     func shouldShowTimestamp(for message: Message, at index: Int) -> Bool {
@@ -387,6 +442,38 @@ class ChatDetailViewModel: ObservableObject {
         let previousMessage = messages[index - 1]
         let timeDifference = message.createdAt.timeIntervalSince(previousMessage.createdAt)
         return timeDifference > 300 // 5 minutes
+    }
+
+    func shouldShowDateHeader(for message: Message, at index: Int) -> Bool {
+        // Always show for first message
+        if index == 0 { return true }
+
+        // Show if this message is from a different day than the previous message
+        let previousMessage = messages[index - 1]
+        let calendar = Calendar.current
+        return !calendar.isDate(message.createdAt, inSameDayAs: previousMessage.createdAt)
+    }
+
+    func shouldShowTimeBelow(for message: Message, at index: Int) -> Bool {
+        // Show time below the last message in a group from the same sender
+
+        // Always show for the last message in the conversation
+        if index == messages.count - 1 { return true }
+
+        // Show if next message is from a different sender
+        if index < messages.count - 1 {
+            let nextMessage = messages[index + 1]
+            if nextMessage.senderId != message.senderId { return true }
+        }
+
+        // Show if there's a significant time gap (more than 10 minutes) to the next message
+        if index < messages.count - 1 {
+            let nextMessage = messages[index + 1]
+            let timeDifference = nextMessage.createdAt.timeIntervalSince(message.createdAt)
+            if timeDifference > 600 { return true } // 10 minutes instead of 5
+        }
+
+        return false
     }
 
     func shouldShowSenderName(for message: Message, at index: Int) -> Bool {
@@ -457,6 +544,152 @@ class ChatDetailViewModel: ObservableObject {
         guard let otherUser = conversation?.otherParticipant else { return "" }
         return "\(otherUser.displayName) is typing..."
     }
+
+    // MARK: - Message Actions
+
+    func canEditMessage(_ message: Message) -> Bool {
+        guard isMyMessage(message) else { return false }
+
+        // Can edit if message is less than 30 minutes old
+        let timeElapsed = Date().timeIntervalSince(message.createdAt)
+        return timeElapsed < 1800 // 30 minutes
+    }
+
+    func canDeleteForEveryone(_ message: Message) -> Bool {
+        guard isMyMessage(message) else { return false }
+
+        // Can delete for everyone if message is less than 30 minutes old
+        let timeElapsed = Date().timeIntervalSince(message.createdAt)
+        return timeElapsed < 1800 // 30 minutes
+    }
+
+    func canDeleteForMe(_ message: Message) -> Bool {
+        // Can always delete for yourself
+        return true
+    }
+
+    func canReplyToMessage(_ message: Message) -> Bool {
+        // Can reply to any message, including your own
+        return true
+    }
+
+    // MARK: - Message Action Handlers
+
+    func editMessage(_ message: Message, newContent: String) async {
+        guard let conversationId = conversation?.id else {
+            logger.error("No conversation ID available for editing message")
+            return
+        }
+
+        do {
+            logger.info("Edit message \(message.id) with new content: \(newContent)")
+
+            let updatedMessage = try await ChatAPIService.shared.editMessage(
+                conversationId: conversationId,
+                messageId: message.id,
+                newContent: newContent
+            )
+
+            await MainActor.run {
+                // Update the message in our local array
+                if let index = self.messages.firstIndex(where: { $0.id == message.id }) {
+                    self.messages[index] = updatedMessage
+                }
+            }
+
+            logger.info("Message edited successfully")
+        } catch {
+            logger.error("Failed to edit message: \(error)")
+            await MainActor.run {
+                self.errorMessage = "Failed to edit message"
+            }
+        }
+    }
+
+    func deleteMessageForMe(_ message: Message) async {
+        guard let conversationId = conversation?.id else {
+            logger.error("No conversation ID available for deleting message")
+            return
+        }
+
+        do {
+            logger.info("Delete message \(message.id) for me")
+
+            try await ChatAPIService.shared.deleteMessage(
+                conversationId: conversationId,
+                messageId: message.id,
+                deleteForEveryone: false
+            )
+
+            await MainActor.run {
+                // Remove the message from our local array (delete for me)
+                self.messages.removeAll { $0.id == message.id }
+            }
+
+            logger.info("Message deleted for me successfully")
+        } catch {
+            logger.error("Failed to delete message for me: \(error)")
+            await MainActor.run {
+                self.errorMessage = "Failed to delete message"
+            }
+        }
+    }
+
+    func deleteMessageForEveryone(_ message: Message) async {
+        guard let conversationId = conversation?.id else {
+            logger.error("No conversation ID available for deleting message")
+            return
+        }
+
+        do {
+            logger.info("Delete message \(message.id) for everyone")
+
+            try await ChatAPIService.shared.deleteMessage(
+                conversationId: conversationId,
+                messageId: message.id,
+                deleteForEveryone: true
+            )
+
+            await MainActor.run {
+                // Update the message content to show it was deleted
+                if let index = self.messages.firstIndex(where: { $0.id == message.id }) {
+                    var deletedMessage = self.messages[index]
+                    deletedMessage = Message(
+                        id: deletedMessage.id,
+                        conversationId: deletedMessage.conversationId,
+                        senderId: deletedMessage.senderId,
+                        content: "[Message deleted]",
+                        messageType: "system",
+                        status: deletedMessage.status,
+                        createdAt: deletedMessage.createdAt,
+                        deliveredAt: deletedMessage.deliveredAt,
+                        readAt: deletedMessage.readAt,
+                        sender: deletedMessage.sender,
+                        repliedToMessageId: deletedMessage.repliedToMessageId
+                    )
+                    self.messages[index] = deletedMessage
+                }
+            }
+
+            logger.info("Message deleted for everyone successfully")
+        } catch {
+            logger.error("Failed to delete message for everyone: \(error)")
+            await MainActor.run {
+                self.errorMessage = "Failed to delete message"
+            }
+        }
+    }
+
+    func replyToMessage(_ message: Message) async {
+        await MainActor.run {
+            self.replyingToMessage = message
+        }
+        logger.info("Reply to message \(message.id): \(message.content)")
+    }
+
+    func cancelReply() {
+        replyingToMessage = nil
+    }
 }
 
 // MARK: - Development Helpers
@@ -476,6 +709,7 @@ extension ChatDetailViewModel {
                 id: 2,
                 username: "sarah_wellness",
                 name: "Sarah Johnson",
+                bio: nil,
                 profileImageUrl: nil
             ),
             lastMessage: nil,
@@ -498,7 +732,8 @@ extension ChatDetailViewModel {
                 createdAt: Date().addingTimeInterval(-3600),
                 deliveredAt: Date().addingTimeInterval(-3590),
                 readAt: Date().addingTimeInterval(-3580),
-                sender: UserBasic(id: 1, username: "me", name: "Me", profileImageUrl: nil)
+                sender: UserBasic(id: 1, username: "me", name: "Me", bio: nil, profileImageUrl: nil),
+                repliedToMessageId: nil
             ),
             Message(
                 id: 2,
@@ -510,7 +745,8 @@ extension ChatDetailViewModel {
                 createdAt: Date().addingTimeInterval(-3500),
                 deliveredAt: Date().addingTimeInterval(-3490),
                 readAt: Date().addingTimeInterval(-3480),
-                sender: UserBasic(id: 2, username: "sarah_wellness", name: "Sarah Johnson", profileImageUrl: nil)
+                sender: UserBasic(id: 2, username: "sarah_wellness", name: "Sarah Johnson", bio: nil, profileImageUrl: nil),
+                repliedToMessageId: nil
             ),
             Message(
                 id: 3,
@@ -522,7 +758,8 @@ extension ChatDetailViewModel {
                 createdAt: Date().addingTimeInterval(-300),
                 deliveredAt: Date().addingTimeInterval(-290),
                 readAt: nil,
-                sender: UserBasic(id: 1, username: "me", name: "Me", profileImageUrl: nil)
+                sender: UserBasic(id: 1, username: "me", name: "Me", bio: nil, profileImageUrl: nil),
+                repliedToMessageId: nil
             )
         ]
     }
@@ -539,7 +776,8 @@ extension ChatDetailViewModel {
             createdAt: Date(),
             deliveredAt: Date(),
             readAt: nil,
-            sender: conversation?.otherParticipant ?? UserBasic(id: 2, username: "test", name: "Test User", profileImageUrl: nil)
+            sender: conversation?.otherParticipant ?? UserBasic(id: 2, username: "test", name: "Test User", bio: nil, profileImageUrl: nil),
+            repliedToMessageId: nil
         )
 
         handleIncomingMessage(message)

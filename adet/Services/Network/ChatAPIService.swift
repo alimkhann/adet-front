@@ -1,13 +1,13 @@
 import Foundation
 import Combine
 import OSLog
+import Clerk
 
-@MainActor
+// Remove @MainActor annotation to avoid conflict with actor
 actor ChatAPIService {
     static let shared = ChatAPIService()
 
     private let networkService = NetworkService.shared
-    private let webSocketManager = WebSocketManager.shared
     private let logger = Logger(subsystem: "com.adet.api", category: "ChatAPIService")
 
     private init() {}
@@ -65,8 +65,8 @@ actor ChatAPIService {
     }
 
     /// Sends a message via REST API (fallback when WebSocket is not available)
-    func sendMessage(conversationId: Int, content: String) async throws -> Message {
-        let requestBody = MessageCreateRequest(content: content)
+    func sendMessage(conversationId: Int, content: String, repliedToMessageId: Int? = nil) async throws -> Message {
+        let requestBody = MessageCreateRequest(content: content, repliedToMessageId: repliedToMessageId)
         return try await networkService.makeAuthenticatedRequest(
             endpoint: "/api/v1/chats/conversations/\(conversationId)/messages",
             method: "POST",
@@ -76,10 +76,33 @@ actor ChatAPIService {
 
     /// Marks messages as read up to a specific message
     func markMessagesAsRead(conversationId: Int, lastMessageId: Int) async throws {
-        let requestBody = MarkAsReadRequest(lastMessageId: lastMessageId)
+        let endpoint = "/api/v1/chats/conversations/\(conversationId)/read?last_message_id=\(lastMessageId)"
+
         let _: [String: String] = try await networkService.makeAuthenticatedRequest(
-            endpoint: "/api/v1/chats/conversations/\(conversationId)/read",
+            endpoint: endpoint,
             method: "POST",
+            body: (nil as String?)
+        )
+
+        logger.info("Messages marked as read successfully")
+    }
+
+    /// Edits a message content
+    func editMessage(conversationId: Int, messageId: Int, newContent: String) async throws -> Message {
+        let requestBody = MessageEditRequest(content: newContent)
+        return try await networkService.makeAuthenticatedRequest(
+            endpoint: "/api/v1/chats/conversations/\(conversationId)/messages/\(messageId)",
+            method: "PUT",
+            body: requestBody
+        )
+    }
+
+    /// Deletes a message
+    func deleteMessage(conversationId: Int, messageId: Int, deleteForEveryone: Bool = false) async throws {
+        let requestBody = MessageDeleteRequest(deleteForEveryone: deleteForEveryone)
+        let _: [String: String] = try await networkService.makeAuthenticatedRequest(
+            endpoint: "/api/v1/chats/conversations/\(conversationId)/messages/\(messageId)",
+            method: "DELETE",
             body: requestBody
         )
     }
@@ -88,88 +111,110 @@ actor ChatAPIService {
 
     /// Connects to real-time chat for a conversation
     func connectToChat(conversationId: Int) async throws {
-        // Get auth token from Clerk
-        guard let authService = AuthManager.shared.clerkAuthService,
-              let token = await authService.getValidToken() else {
+        // Get auth token from Clerk session
+        guard let token = try? await Clerk.shared.session?.getToken(.init(template: "adet-back"))?.jwt else {
             throw ChatError.authenticationFailed
         }
 
         logger.info("Connecting to real-time chat for conversation \(conversationId)")
-        webSocketManager.connect(to: conversationId, with: token)
+        await WebSocketManager.shared.connect(to: conversationId, with: token)
     }
 
     /// Disconnects from real-time chat
-    func disconnectFromChat() {
+    func disconnectFromChat() async {
         logger.info("Disconnecting from real-time chat")
-        webSocketManager.disconnect()
+        await WebSocketManager.shared.disconnect()
     }
 
     /// Sends a message via WebSocket (preferred method for real-time)
-    func sendMessageRealTime(_ content: String) {
-        webSocketManager.sendMessage(content)
+    func sendMessageRealTime(_ content: String) async {
+        await WebSocketManager.shared.sendMessage(content)
     }
 
     /// Sends typing indicator
-    func sendTypingIndicator(isTyping: Bool) {
-        webSocketManager.sendTypingIndicator(isTyping: isTyping)
+    func sendTypingIndicator(isTyping: Bool) async {
+        await WebSocketManager.shared.sendTypingIndicator(isTyping: isTyping)
     }
 
     /// Marks messages as read via WebSocket
-    func markMessagesAsReadRealTime(lastMessageId: Int) {
-        webSocketManager.markMessagesAsRead(lastMessageId: lastMessageId)
+    func markMessagesAsReadRealTime(lastMessageId: Int) async {
+        await WebSocketManager.shared.markMessagesAsRead(lastMessageId: lastMessageId)
     }
 
     // MARK: - Publishers for Real-time Events
 
     /// Publisher for incoming messages
     var messagePublisher: AnyPublisher<Message, Never> {
-        webSocketManager.messagePublisher
+        get async {
+            await WebSocketManager.shared.messagePublisher
+        }
     }
 
     /// Publisher for typing indicators
     var typingPublisher: AnyPublisher<TypingEvent, Never> {
-        webSocketManager.typingPublisher
+        get async {
+            await WebSocketManager.shared.typingPublisher
+        }
     }
 
     /// Publisher for presence updates (online/offline status)
     var presencePublisher: AnyPublisher<PresenceEvent, Never> {
-        webSocketManager.presencePublisher
+        get async {
+            await WebSocketManager.shared.presencePublisher
+        }
     }
 
     /// Publisher for message status updates (delivered, read)
     var messageStatusPublisher: AnyPublisher<MessageStatusEvent, Never> {
-        webSocketManager.messageStatusPublisher
+        get async {
+            await WebSocketManager.shared.messageStatusPublisher
+        }
     }
 
     /// Publisher for connection events
     var connectionPublisher: AnyPublisher<ConnectionEvent, Never> {
-        webSocketManager.connectionPublisher
+        get async {
+            await WebSocketManager.shared.connectionPublisher
+        }
     }
 
     /// Connection state publisher
     var connectionStatePublisher: Published<ConnectionState>.Publisher {
-        webSocketManager.$connectionState
+        get async {
+            await WebSocketManager.shared.$connectionState
+        }
     }
 
     /// Error publisher
     var errorPublisher: Published<ChatError?>.Publisher {
-        webSocketManager.$lastError
+        get async {
+            await WebSocketManager.shared.$lastError
+        }
     }
 
     // MARK: - Hybrid Operations (REST + WebSocket)
 
     /// Sends a message using WebSocket if connected, otherwise falls back to REST
-    func sendMessageHybrid(conversationId: Int, content: String) async throws -> Message? {
+    func sendMessageHybrid(conversationId: Int, content: String, repliedToMessageId: Int? = nil) async throws -> Message? {
+        // TODO: For now, always use REST API until WebSocket is fully implemented
+        // Once WebSocket implementation is complete, uncomment the WebSocket logic below
+
+        logger.info("Sending message via REST API (WebSocket simulation disabled)")
+        return try await sendMessage(conversationId: conversationId, content: content, repliedToMessageId: repliedToMessageId)
+
+        /*
         // If WebSocket is connected, use real-time messaging
-        if webSocketManager.connectionState == .connected {
+        let connectionState = await WebSocketManager.shared.connectionState
+        if connectionState == .connected {
             logger.info("Sending message via WebSocket")
-            webSocketManager.sendMessage(content)
+            await WebSocketManager.shared.sendMessage(content)
             return nil // Message will be delivered via publisher
         } else {
             // Fallback to REST API
             logger.info("WebSocket not connected, falling back to REST API")
             return try await sendMessage(conversationId: conversationId, content: content)
         }
+        */
     }
 
     /// Ensures conversation is loaded and WebSocket is connected
@@ -204,12 +249,16 @@ actor ChatAPIService {
 
     /// Gets current WebSocket connection state
     var connectionState: ConnectionState {
-        webSocketManager.connectionState
+        get async {
+            await WebSocketManager.shared.connectionState
+        }
     }
 
     /// Gets last WebSocket error
     var lastError: ChatError? {
-        webSocketManager.lastError
+        get async {
+            await WebSocketManager.shared.lastError
+        }
     }
 }
 
@@ -226,8 +275,8 @@ extension ChatAPIService {
             switch networkError {
             case .unauthorized:
                 return .authenticationFailed
-            case .notFound:
-                return .conversationNotFound
+            case .requestFailed, .decodeError, .unknown:
+                return .networkError(error)
             default:
                 return .networkError(error)
             }
@@ -242,7 +291,7 @@ extension ChatAPIService {
 #if DEBUG
 extension ChatAPIService {
     /// Debug method to simulate incoming messages (for testing UI)
-    func simulateIncomingMessage(conversationId: Int, content: String, senderId: Int) {
+    func simulateIncomingMessage(conversationId: Int, content: String, senderId: Int) async {
         let message = Message(
             id: Int.random(in: 1000...9999),
             conversationId: conversationId,
@@ -257,16 +306,18 @@ extension ChatAPIService {
                 id: senderId,
                 username: "test_user",
                 name: "Test User",
+                bio: nil,
                 profileImageUrl: nil
-            )
+            ),
+            repliedToMessageId: nil
         )
 
         // Simulate message via WebSocket manager
-        webSocketManager.messageSubject.send(message)
+        await WebSocketManager.shared.simulateMessage(message)
     }
 
     /// Debug method to test typing indicators
-    func simulateTypingIndicator(conversationId: Int, userId: Int, isTyping: Bool) {
+    func simulateTypingIndicator(conversationId: Int, userId: Int, isTyping: Bool) async {
         let typingEvent = TypingEvent(
             type: "typing",
             conversationId: conversationId,
@@ -274,7 +325,7 @@ extension ChatAPIService {
             isTyping: isTyping
         )
 
-        webSocketManager.typingSubject.send(typingEvent)
+        await WebSocketManager.shared.simulateTyping(typingEvent)
     }
 }
 #endif

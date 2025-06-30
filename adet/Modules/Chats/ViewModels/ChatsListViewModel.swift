@@ -5,7 +5,6 @@ import OSLog
 @MainActor
 class ChatsListViewModel: ObservableObject {
     private let logger = Logger(subsystem: "com.adet.chats", category: "ChatsListViewModel")
-    private let chatAPIService = ChatAPIService.shared
     private var cancellables = Set<AnyCancellable>()
 
     // Published properties for UI
@@ -34,7 +33,8 @@ class ChatsListViewModel: ObservableObject {
 
         do {
             logger.info("Loading conversations")
-            let loadedConversations = try await chatAPIService.getConversations(
+            let chatService = ChatAPIService.shared
+            let loadedConversations = try await chatService.getConversations(
                 limit: conversationsPerPage,
                 offset: 0
             )
@@ -60,7 +60,8 @@ class ChatsListViewModel: ObservableObject {
 
         do {
             logger.info("Refreshing conversations")
-            let refreshedConversations = try await chatAPIService.getConversations(
+            let chatService = ChatAPIService.shared
+            let refreshedConversations = try await chatService.getConversations(
                 limit: conversationsPerPage,
                 offset: 0
             )
@@ -87,8 +88,9 @@ class ChatsListViewModel: ObservableObject {
         await setLoading(true)
 
         do {
-            logger.info("Loading more conversations (offset: \(conversations.count))")
-            let moreConversations = try await chatAPIService.getConversations(
+            logger.info("Loading more conversations (offset: \(self.conversations.count))")
+            let chatService = ChatAPIService.shared
+            let moreConversations = try await chatService.getConversations(
                 limit: conversationsPerPage,
                 offset: conversations.count
             )
@@ -110,7 +112,8 @@ class ChatsListViewModel: ObservableObject {
     func startConversation(with friendId: Int) async -> Conversation? {
         do {
             logger.info("Starting conversation with friend \(friendId)")
-            let conversation = try await chatAPIService.createConversation(with: friendId)
+            let chatService = ChatAPIService.shared
+            let conversation = try await chatService.createConversation(with: friendId)
 
             await MainActor.run {
                 // Add to the beginning of the list if not already present
@@ -137,27 +140,36 @@ class ChatsListViewModel: ObservableObject {
     // MARK: - Real-time Updates
 
     private func setupRealTimeUpdates() {
-        // Listen for incoming messages to update conversation list
-        chatAPIService.messagePublisher
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] message in
-                self?.handleIncomingMessage(message)
-            }
-            .store(in: &cancellables)
+        Task {
+            let chatService = ChatAPIService.shared
 
-        // Listen for connection state changes
-        chatAPIService.connectionStatePublisher
-            .receive(on: DispatchQueue.main)
-            .assign(to: \.connectionState, on: self)
-            .store(in: &cancellables)
+            // Listen for incoming messages to update conversation list
+            let messagePublisher = await chatService.messagePublisher
+            messagePublisher
+                .receive(on: DispatchQueue.main)
+                .sink { [weak self] message in
+                    self?.handleIncomingMessage(message)
+                }
+                .store(in: &cancellables)
 
-        // Listen for presence updates
-        chatAPIService.presencePublisher
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] presenceEvent in
-                self?.handlePresenceUpdate(presenceEvent)
-            }
-            .store(in: &cancellables)
+            // Listen for connection state changes
+            let connectionStatePublisher = await chatService.connectionStatePublisher
+            connectionStatePublisher
+                .receive(on: DispatchQueue.main)
+                .sink { [weak self] connectionState in
+                    self?.connectionState = connectionState
+                }
+                .store(in: &cancellables)
+
+            // Listen for presence updates
+            let presencePublisher = await chatService.presencePublisher
+            presencePublisher
+                .receive(on: DispatchQueue.main)
+                .sink { [weak self] presenceEvent in
+                    self?.handlePresenceUpdate(presenceEvent)
+                }
+                .store(in: &cancellables)
+        }
     }
 
     private func handleIncomingMessage(_ message: Message) {
@@ -230,7 +242,8 @@ class ChatsListViewModel: ObservableObject {
     }
 
     private func handleError(_ error: Error) async {
-        let chatError = chatAPIService.handleChatError(error)
+        let chatService = ChatAPIService.shared
+        let chatError = await chatService.handleChatError(error)
 
         await MainActor.run {
             self.errorMessage = chatError.localizedDescription
@@ -312,6 +325,7 @@ extension ChatsListViewModel {
                     id: 2,
                     username: "sarah_wellness",
                     name: "Sarah Johnson",
+                    bio: nil,
                     profileImageUrl: nil
                 ),
                 lastMessage: Message(
@@ -324,7 +338,8 @@ extension ChatsListViewModel {
                     createdAt: Date().addingTimeInterval(-3600),
                     deliveredAt: Date().addingTimeInterval(-3590),
                     readAt: Date().addingTimeInterval(-3580),
-                    sender: UserBasic(id: 2, username: "sarah_wellness", name: "Sarah Johnson", profileImageUrl: nil)
+                    sender: UserBasic(id: 2, username: "sarah_wellness", name: "Sarah Johnson", bio: nil, profileImageUrl: nil),
+                    repliedToMessageId: nil
                 ),
                 unreadCount: 0,
                 isOtherOnline: true,
@@ -341,6 +356,7 @@ extension ChatsListViewModel {
                     id: 3,
                     username: "mike_fitness",
                     name: "Mike Chen",
+                    bio: nil,
                     profileImageUrl: nil
                 ),
                 lastMessage: Message(
@@ -353,7 +369,8 @@ extension ChatsListViewModel {
                     createdAt: Date().addingTimeInterval(-7200),
                     deliveredAt: Date().addingTimeInterval(-7190),
                     readAt: nil,
-                    sender: UserBasic(id: 3, username: "mike_fitness", name: "Mike Chen", profileImageUrl: nil)
+                    sender: UserBasic(id: 3, username: "mike_fitness", name: "Mike Chen", bio: nil, profileImageUrl: nil),
+                    repliedToMessageId: nil
                 ),
                 unreadCount: 1,
                 isOtherOnline: false,

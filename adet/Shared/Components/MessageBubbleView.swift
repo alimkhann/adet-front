@@ -5,24 +5,38 @@ struct MessageBubbleView: View {
     let isFromCurrentUser: Bool
     let showSenderName: Bool
     let showTimestamp: Bool
+    let showTimeBelow: Bool
+    let viewModel: ChatDetailViewModel?
+
+    @State private var dragOffset: CGSize = .zero
+    @State private var showingActions = false
+    @State private var showingEditAlert = false
+    @State private var editText = ""
+
+    init(message: Message, isFromCurrentUser: Bool, showSenderName: Bool, showTimestamp: Bool, showTimeBelow: Bool, viewModel: ChatDetailViewModel? = nil) {
+        self.message = message
+        self.isFromCurrentUser = isFromCurrentUser
+        self.showSenderName = showSenderName
+        self.showTimestamp = showTimestamp
+        self.showTimeBelow = showTimeBelow
+        self.viewModel = viewModel
+        self._editText = State(initialValue: message.content)
+    }
 
     var body: some View {
-        VStack(alignment: isFromCurrentUser ? .trailing : .leading, spacing: 4) {
-            // Sender name (only for other users)
-            if showSenderName && !isFromCurrentUser {
-                Text(message.sender.displayName)
-                    .font(.caption2)
-                    .foregroundColor(.secondary)
-                    .padding(.horizontal, 16)
-            }
-
+        VStack(alignment: isFromCurrentUser ? .trailing : .leading, spacing: 2) {
             HStack {
                 if isFromCurrentUser {
                     Spacer(minLength: 50)
                 }
 
-                // Message Content
+                // Message Content with gestures
                 VStack(alignment: isFromCurrentUser ? .trailing : .leading, spacing: 4) {
+                    // Replied message preview (if this is a reply)
+                    if let repliedMessage = viewModel?.getRepliedMessage(for: message) {
+                        repliedMessageView(repliedMessage)
+                    }
+
                     Text(message.content)
                         .font(.body)
                         .foregroundColor(isFromCurrentUser ? .white : .primary)
@@ -32,38 +46,110 @@ struct MessageBubbleView: View {
                             RoundedRectangle(cornerRadius: 18)
                                 .fill(isFromCurrentUser ? Color.accentColor : Color(.systemGray5))
                         )
+                        .offset(x: dragOffset.width)
+                        .scaleEffect(dragOffset.width != 0 ? 0.95 : 1.0)
+                        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: dragOffset)
 
-                    // Message Status and Time
-                    HStack(spacing: 4) {
-                        // Timestamp
-                        Text(formatTime(message.createdAt))
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
+                    // Show time below message when showTimeBelow is true
+                    if showTimeBelow {
+                        HStack(spacing: 4) {
+                            // Status Indicator (only for current user messages)
+                            if isFromCurrentUser {
+                                statusIcon
+                            }
 
-                        // Status Indicator (only for current user messages)
-                        if isFromCurrentUser {
-                            statusIcon
+                            // Time
+                            Text(formatTime(message.createdAt))
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
                         }
+                        .padding(.horizontal, 4)
                     }
-                    .padding(.horizontal, 4)
                 }
+                .contentShape(Rectangle()) // Make entire area tappable
+                .onLongPressGesture {
+                    showingActions = true
+                }
+                .gesture(
+                    DragGesture()
+                        .onChanged { value in
+                            // Allow swipe right to reply for all messages
+                            if value.translation.width > 0 && abs(value.translation.width) > abs(value.translation.height) {
+                                dragOffset = CGSize(width: value.translation.width * 0.3, height: 0)
+                            }
+                        }
+                        .onEnded { value in
+                            let swipeThreshold: CGFloat = 60
+                            let swipeDirection = value.translation.width > swipeThreshold
+
+                            if swipeDirection {
+                                // Trigger reply action
+                                Task {
+                                    await viewModel?.replyToMessage(message)
+                                }
+                            }
+
+                            // Reset offset
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                dragOffset = .zero
+                            }
+                        }
+                )
 
                 if !isFromCurrentUser {
                     Spacer(minLength: 50)
                 }
             }
-
-            // Full Timestamp (if shown)
-            if showTimestamp {
-                Text(formatFullTimestamp(message.createdAt))
-                    .font(.caption2)
-                    .foregroundColor(.tertiary)
-                    .padding(.horizontal, 16)
-                    .padding(.top, 4)
-            }
         }
         .padding(.horizontal, 16)
-        .padding(.vertical, 2)
+        .padding(.vertical, 1) // Reduced padding for better grouping
+        .confirmationDialog("Message Actions", isPresented: $showingActions) {
+            messageActionButtons
+        }
+        .alert("Edit Message", isPresented: $showingEditAlert) {
+            TextField("Message", text: $editText)
+            Button("Cancel", role: .cancel) { }
+            Button("Save") {
+                Task {
+                    await viewModel?.editMessage(message, newContent: editText)
+                }
+            }
+        }
+    }
+
+    // MARK: - Action Buttons
+
+    @ViewBuilder
+    private var messageActionButtons: some View {
+        if viewModel?.canReplyToMessage(message) == true {
+            Button("Reply") {
+                Task {
+                    await viewModel?.replyToMessage(message)
+                }
+            }
+        }
+
+        if viewModel?.canEditMessage(message) == true {
+            Button("Edit") {
+                showingEditAlert = true
+            }
+        }
+
+        if viewModel?.canDeleteForEveryone(message) == true {
+            Button("Delete for Everyone", role: .destructive) {
+                Task {
+                    await viewModel?.deleteMessageForEveryone(message)
+                }
+            }
+        }
+
+        if viewModel?.canDeleteForMe(message) == true {
+            Button("Delete for Me", role: .destructive) {
+                Task {
+                    await viewModel?.deleteMessageForMe(message)
+                }
+            }
+        }
     }
 
     // MARK: - Status Icon
@@ -117,6 +203,41 @@ struct MessageBubbleView: View {
             return formatter.string(from: date)
         }
     }
+
+    // MARK: - Replied Message View
+
+    private func repliedMessageView(_ repliedMessage: Message) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            // Replied to label
+            HStack(spacing: 4) {
+                Image(systemName: "arrowshape.turn.up.left")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+
+                Text("Replying to \(repliedMessage.sender.displayName)")
+                    .font(.caption2)
+                    .fontWeight(.medium)
+                    .foregroundColor(.secondary)
+            }
+
+            // Replied message content preview
+            Text(repliedMessage.content)
+                .font(.caption)
+                .lineLimit(2)
+                .foregroundColor(.secondary)
+                .padding(.leading, 16) // Indent the content
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+        .background(
+            RoundedRectangle(cornerRadius: 8)
+                .fill(Color(.systemGray6))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(Color(.systemGray4), lineWidth: 0.5)
+        )
+    }
 }
 
 #Preview {
@@ -133,11 +254,14 @@ struct MessageBubbleView: View {
                 createdAt: Date().addingTimeInterval(-3600),
                 deliveredAt: Date().addingTimeInterval(-3590),
                 readAt: Date().addingTimeInterval(-3580),
-                sender: UserBasic(id: 2, username: "sarah_wellness", name: "Sarah Johnson", profileImageUrl: nil)
+                sender: UserBasic(id: 2, username: "sarah_wellness", name: "Sarah Johnson", bio: nil, profileImageUrl: nil),
+                repliedToMessageId: nil
             ),
             isFromCurrentUser: false,
             showSenderName: true,
-            showTimestamp: false
+            showTimestamp: false,
+            showTimeBelow: true,
+            viewModel: nil
         )
 
         // Message from current user (sent)
@@ -152,11 +276,14 @@ struct MessageBubbleView: View {
                 createdAt: Date().addingTimeInterval(-3500),
                 deliveredAt: Date().addingTimeInterval(-3490),
                 readAt: nil,
-                sender: UserBasic(id: 1, username: "me", name: "Me", profileImageUrl: nil)
+                sender: UserBasic(id: 1, username: "me", name: "Me", bio: nil, profileImageUrl: nil),
+                repliedToMessageId: nil
             ),
             isFromCurrentUser: true,
             showSenderName: false,
-            showTimestamp: false
+            showTimestamp: false,
+            showTimeBelow: false,
+            viewModel: nil
         )
 
         // Message from current user (read)
@@ -171,11 +298,14 @@ struct MessageBubbleView: View {
                 createdAt: Date().addingTimeInterval(-300),
                 deliveredAt: Date().addingTimeInterval(-290),
                 readAt: Date().addingTimeInterval(-280),
-                sender: UserBasic(id: 1, username: "me", name: "Me", profileImageUrl: nil)
+                sender: UserBasic(id: 1, username: "me", name: "Me", bio: nil, profileImageUrl: nil),
+                repliedToMessageId: nil
             ),
             isFromCurrentUser: true,
             showSenderName: false,
-            showTimestamp: true
+            showTimestamp: true,
+            showTimeBelow: true,
+            viewModel: nil
         )
 
         // Failed message
@@ -190,11 +320,14 @@ struct MessageBubbleView: View {
                 createdAt: Date(),
                 deliveredAt: nil,
                 readAt: nil,
-                sender: UserBasic(id: 1, username: "me", name: "Me", profileImageUrl: nil)
+                sender: UserBasic(id: 1, username: "me", name: "Me", bio: nil, profileImageUrl: nil),
+                repliedToMessageId: nil
             ),
             isFromCurrentUser: true,
             showSenderName: false,
-            showTimestamp: false
+            showTimestamp: false,
+            showTimeBelow: true,
+            viewModel: nil
         )
     }
     .padding()
