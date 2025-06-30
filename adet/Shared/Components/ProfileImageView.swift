@@ -19,6 +19,7 @@ struct ProfileImageView: View {
     let jwtToken: String?
 
     @Environment(\.colorScheme) private var colorScheme
+    private let mediaCache = MediaCacheService.shared
 
     init(user: User?, size: CGFloat = 80, isEditable: Bool = false, onImageTap: (() -> Void)? = nil, onDeleteTap: (() -> Void)? = nil, jwtToken: String?) {
         self.user = user
@@ -45,6 +46,7 @@ struct ProfileImageView: View {
                         return URL(string: imageUrl)
                     }
                 }()
+
                 if let displayUrl = displayUrl, let jwtToken = jwtToken {
                     KFImage(displayUrl)
                         .requestModifier(AuthModifier(token: jwtToken))
@@ -53,6 +55,9 @@ struct ProfileImageView: View {
                                 .progressViewStyle(CircularProgressViewStyle(tint: .secondary))
                                 .scaleEffect(0.8)
                         }
+                        .fade(duration: 0.25)
+                        .retry(maxCount: 2)
+                        .cacheOriginalImage()
                         .resizable()
                         .aspectRatio(contentMode: .fill)
                         .frame(width: size, height: size)
@@ -137,6 +142,15 @@ struct ProfileImageView: View {
 
         // Fallback to first character of email
         return String(user.email.prefix(1)).uppercased()
+    }
+}
+
+// MARK: - ProfileImageView Extensions for Media Compression
+
+extension ProfileImageView {
+    /// Creates compressed data from UIImage for profile upload
+    static func compressProfileImage(_ image: UIImage) -> Data? {
+        return MediaCompressionService.shared.compressProfileImage(image)
     }
 }
 
