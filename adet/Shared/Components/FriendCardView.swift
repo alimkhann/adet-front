@@ -9,27 +9,28 @@ struct FriendCardView: View {
     @EnvironmentObject var authViewModel: AuthViewModel
 
     var body: some View {
-        HStack(spacing: 16) {
-            // Profile Image
-            ProfileImageView(
-                user: User(
-                    id: friend.friend.id,
-                    clerkId: "",
-                    email: "",
-                    name: friend.friend.name,
-                    username: friend.friend.username,
-                    bio: friend.friend.bio,
-                    profileImageUrl: friend.friend.profileImageUrl,
-                    isActive: true,
-                    createdAt: Date(),
-                    updatedAt: nil
-                ),
-                size: 50,
-                isEditable: false,
-                onImageTap: nil,
-                onDeleteTap: nil,
-                jwtToken: authViewModel.jwtToken
-            )
+        NavigationLink(destination: OtherUserProfileView(userId: friend.friend.id).environmentObject(authViewModel)) {
+            HStack(spacing: 16) {
+                // Profile Image
+                ProfileImageView(
+                    user: User(
+                        id: friend.friend.id,
+                        clerkId: "",
+                        email: "",
+                        name: friend.friend.name,
+                        username: friend.friend.username,
+                        bio: friend.friend.bio,
+                        profileImageUrl: friend.friend.profileImageUrl,
+                        isActive: true,
+                        createdAt: Date(),
+                        updatedAt: nil
+                    ),
+                    size: 50,
+                    isEditable: false,
+                    onImageTap: nil,
+                    onDeleteTap: nil,
+                    jwtToken: authViewModel.jwtToken
+                )
 
             // User Info
             VStack(alignment: .leading, spacing: 4) {
@@ -54,23 +55,28 @@ struct FriendCardView: View {
 
             Spacer()
 
-            // Remove Button
-            if isRemoving {
-                ProgressView()
-                    .scaleEffect(0.8)
-            } else {
-                Button(action: {
-                    showRemoveAlert = true
-                }) {
-                    Image(systemName: "person.badge.minus")
-                        .font(.system(size: 16, weight: .medium))
-                        .foregroundColor(.red)
-                        .padding(8)
-                        .background(Color(.systemGray6))
-                        .cornerRadius(8)
+                // Remove Button
+                if isRemoving {
+                    ProgressView()
+                        .scaleEffect(0.8)
+                } else {
+                    Button(action: {
+                        showRemoveAlert = true
+                    }) {
+                        Image(systemName: "person.badge.minus")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundColor(.red)
+                            .padding(8)
+                            .background(Color(.systemGray6))
+                            .cornerRadius(8)
+                    }
+                    .onTapGesture {
+                        // Prevent navigation when tapping remove button
+                    }
                 }
             }
         }
+        .foregroundColor(.primary) // Ensure text color for NavigationLink
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
         .background(Color(.systemBackground))

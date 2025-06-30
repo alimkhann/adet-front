@@ -13,18 +13,23 @@ struct FriendsView: View {
             VStack(spacing: 0) {
                 // Always-visible search bar
                 searchBar
+                    .background(Color(.systemBackground))
+                    .shadow(color: Color.black.opacity(0.05), radius: 1, x: 0, y: 1)
 
                 // Tab structure below search
                 if viewModel.shouldShowSearchResults {
                     // Show search results when searching
                     searchResultsView
+                        .background(Color(.systemGroupedBackground))
                 } else {
                     // Show normal tab content
                     tabContentView
+                        .background(Color(.systemGroupedBackground))
                 }
             }
             .navigationTitle("Friends")
             .navigationBarTitleDisplayMode(.large)
+            .background(Color(.systemGroupedBackground))
             .onAppear {
                 logger.info("FriendsView appeared")
                 Task {
@@ -90,7 +95,10 @@ struct FriendsView: View {
                     count: viewModel.friendsCount,
                     isSelected: viewModel.selectedTab == 0
                 ) {
-                    viewModel.selectedTab = 0
+                    HapticManager.shared.selection()
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        viewModel.selectedTab = 0
+                    }
                 }
 
                 TabButton(
@@ -98,11 +106,15 @@ struct FriendsView: View {
                     count: viewModel.incomingRequestsCount,
                     isSelected: viewModel.selectedTab == 1
                 ) {
-                    viewModel.selectedTab = 1
+                    HapticManager.shared.selection()
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        viewModel.selectedTab = 1
+                    }
                 }
             }
             .padding(.horizontal)
             .padding(.top, 16)
+            .background(Color(.systemBackground))
 
             Divider()
                 .padding(.top, 12)
@@ -124,12 +136,11 @@ struct FriendsView: View {
     private var friendsListView: some View {
         Group {
             if viewModel.isLoadingFriends {
-                ProgressView("Loading friends...")
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                ShimmerFriendsListView()
             } else if viewModel.hasAnyFriends {
                 ScrollView {
                     LazyVStack(spacing: 12) {
-                        ForEach(viewModel.friends) { friend in
+                        ForEach(Array(viewModel.friends.enumerated()), id: \.element.id) { index, friend in
                             FriendCardView(
                                 friend: friend,
                                 isRemoving: viewModel.isRemovingFriend(friend.friendId),
@@ -139,6 +150,11 @@ struct FriendsView: View {
                                     }
                                 }
                             )
+                            .transition(.asymmetric(
+                                insertion: .move(edge: .trailing).combined(with: .opacity),
+                                removal: .move(edge: .leading).combined(with: .opacity)
+                            ))
+                            .animation(.easeInOut(duration: 0.3).delay(Double(index) * 0.05), value: viewModel.friends)
                         }
                     }
                     .padding(.horizontal)
@@ -155,8 +171,7 @@ struct FriendsView: View {
     private var friendRequestsView: some View {
         Group {
             if viewModel.isLoadingRequests {
-                ProgressView("Loading requests...")
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                ShimmerRequestsListView()
             } else if viewModel.hasIncomingRequests || viewModel.hasOutgoingRequests {
                 ScrollView {
                     LazyVStack(spacing: 16) {
@@ -235,12 +250,18 @@ struct FriendsView: View {
     private var searchResultsView: some View {
         Group {
             if viewModel.isSearching {
-                ProgressView("Searching...")
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                VStack(spacing: 16) {
+                    ProgressView()
+                        .scaleEffect(1.2)
+                    Text("Searching...")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if viewModel.hasSearchResults {
                 ScrollView {
                     LazyVStack(spacing: 12) {
-                        ForEach(viewModel.searchResults) { user in
+                        ForEach(Array(viewModel.searchResults.enumerated()), id: \.element.id) { index, user in
                             UserSearchCardView(
                                 user: user,
                                 onAddFriend: {
@@ -249,6 +270,11 @@ struct FriendsView: View {
                                     }
                                 }
                             )
+                            .transition(.asymmetric(
+                                insertion: .move(edge: .top).combined(with: .opacity),
+                                removal: .scale.combined(with: .opacity)
+                            ))
+                            .animation(.easeInOut(duration: 0.3).delay(Double(index) * 0.05), value: viewModel.searchResults)
                         }
                     }
                     .padding(.horizontal)
@@ -273,7 +299,7 @@ struct TabButton: View {
 
     var body: some View {
         Button(action: action) {
-            VStack(spacing: 4) {
+            VStack(spacing: 6) {
                 HStack(spacing: 6) {
                     Text(title)
                         .font(.subheadline)
@@ -282,21 +308,28 @@ struct TabButton: View {
                     if count > 0 {
                         Text("\(count)")
                             .font(.caption)
+                            .fontWeight(.medium)
                             .foregroundColor(.white)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(Color.accentColor)
-                            .cornerRadius(8)
+                            .frame(minWidth: 18, minHeight: 18)
+                            .background(
+                                Circle()
+                                    .fill(isSelected ? Color.accentColor : Color.red)
+                            )
+                            .scaleEffect(isSelected ? 1.0 : 0.9)
                     }
                 }
                 .foregroundColor(isSelected ? .primary : .secondary)
+                .padding(.vertical, 8)
 
                 Rectangle()
-                    .frame(height: 2)
+                    .frame(height: isSelected ? 2 : 1)
                     .foregroundColor(isSelected ? .accentColor : .clear)
+                    .animation(.easeInOut(duration: 0.2), value: isSelected)
             }
         }
         .frame(maxWidth: .infinity)
+        .scaleEffect(isSelected ? 1.02 : 1.0)
+        .animation(.easeInOut(duration: 0.2), value: isSelected)
     }
 }
 

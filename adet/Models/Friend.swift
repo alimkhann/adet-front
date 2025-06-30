@@ -93,3 +93,10 @@ enum FriendshipStatus: String, CaseIterable {
     case requestSent = "request_sent"
     case requestReceived = "request_received"
 }
+
+// MARK: - Profile Statistics
+
+struct ProfileStat {
+    let title: String
+    let value: String
+}

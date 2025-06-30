@@ -23,27 +23,28 @@ struct FriendRequestCardView: View {
     }
 
     var body: some View {
-        HStack(spacing: 16) {
-            // Profile Image
-            ProfileImageView(
-                user: User(
-                    id: displayUser.id,
-                    clerkId: "",
-                    email: "",
-                    name: displayUser.name,
-                    username: displayUser.username,
-                    bio: displayUser.bio,
-                    profileImageUrl: displayUser.profileImageUrl,
-                    isActive: true,
-                    createdAt: Date(),
-                    updatedAt: nil
-                ),
-                size: 50,
-                isEditable: false,
-                onImageTap: nil,
-                onDeleteTap: nil,
-                jwtToken: authViewModel.jwtToken
-            )
+        NavigationLink(destination: OtherUserProfileView(userId: displayUser.id).environmentObject(authViewModel)) {
+            HStack(spacing: 16) {
+                // Profile Image
+                ProfileImageView(
+                    user: User(
+                        id: displayUser.id,
+                        clerkId: "",
+                        email: "",
+                        name: displayUser.name,
+                        username: displayUser.username,
+                        bio: displayUser.bio,
+                        profileImageUrl: displayUser.profileImageUrl,
+                        isActive: true,
+                        createdAt: Date(),
+                        updatedAt: nil
+                    ),
+                    size: 50,
+                    isEditable: false,
+                    onImageTap: nil,
+                    onDeleteTap: nil,
+                    jwtToken: authViewModel.jwtToken
+                )
 
             // User Info
             VStack(alignment: .leading, spacing: 4) {
@@ -78,14 +79,19 @@ struct FriendRequestCardView: View {
 
             Spacer()
 
-            // Action Buttons
-            if isProcessing {
-                ProgressView()
-                    .scaleEffect(0.8)
-            } else {
-                actionButtons
+                // Action Buttons
+                if isProcessing {
+                    ProgressView()
+                        .scaleEffect(0.8)
+                } else {
+                    actionButtons
+                        .onTapGesture {
+                            // Prevent navigation when tapping action buttons
+                        }
+                }
             }
         }
+        .foregroundColor(.primary) // Ensure text color for NavigationLink
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
         .background(Color(.systemBackground))

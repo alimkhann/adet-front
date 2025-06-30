@@ -179,14 +179,17 @@ class FriendsViewModel: ObservableObject {
         do {
             let response = try await friendsAPI.sendFriendRequest(to: user.id, message: message)
             if response.success {
+                HapticManager.shared.success()
                 toastManager.showSuccess("Friend request sent to \(user.displayName)")
                 // Reload requests to update the UI
                 await loadFriendRequests()
             } else {
+                HapticManager.shared.error()
                 toastManager.showError(response.message)
             }
             logger.info("Friend request sent to \(user.displayName)")
         } catch {
+            HapticManager.shared.error()
             logger.error("Failed to send friend request: \(error.localizedDescription)")
             handleError(error, message: "Failed to send friend request")
         }
@@ -201,14 +204,17 @@ class FriendsViewModel: ObservableObject {
         do {
             let response = try await friendsAPI.acceptFriendRequest(requestId: request.id)
             if response.success {
+                HapticManager.shared.success()
                 toastManager.showSuccess("You are now friends with \(request.sender.displayName)")
                 // Reload both friends and requests
                 await loadAllData()
             } else {
+                HapticManager.shared.error()
                 toastManager.showError(response.message)
             }
             logger.info("Accepted friend request from \(request.sender.displayName)")
         } catch {
+            HapticManager.shared.error()
             logger.error("Failed to accept friend request: \(error.localizedDescription)")
             handleError(error, message: "Failed to accept friend request")
         }

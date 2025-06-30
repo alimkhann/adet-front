@@ -9,27 +9,28 @@ struct UserSearchCardView: View {
     @EnvironmentObject var authViewModel: AuthViewModel
 
     var body: some View {
-        HStack(spacing: 16) {
-            // Profile Image
-            ProfileImageView(
-                user: User(
-                    id: user.id,
-                    clerkId: "",
-                    email: "",
-                    name: user.name,
-                    username: user.username,
-                    bio: user.bio,
-                    profileImageUrl: user.profileImageUrl,
-                    isActive: true,
-                    createdAt: Date(),
-                    updatedAt: nil
-                ),
-                size: 50,
-                isEditable: false,
-                onImageTap: nil,
-                onDeleteTap: nil,
-                jwtToken: authViewModel.jwtToken
-            )
+        NavigationLink(destination: OtherUserProfileView(userId: user.id).environmentObject(authViewModel)) {
+            HStack(spacing: 16) {
+                // Profile Image
+                ProfileImageView(
+                    user: User(
+                        id: user.id,
+                        clerkId: "",
+                        email: "",
+                        name: user.name,
+                        username: user.username,
+                        bio: user.bio,
+                        profileImageUrl: user.profileImageUrl,
+                        isActive: true,
+                        createdAt: Date(),
+                        updatedAt: nil
+                    ),
+                    size: 50,
+                    isEditable: false,
+                    onImageTap: nil,
+                    onDeleteTap: nil,
+                    jwtToken: authViewModel.jwtToken
+                )
 
             // User Info
             VStack(alignment: .leading, spacing: 4) {
@@ -54,9 +55,11 @@ struct UserSearchCardView: View {
 
             Spacer()
 
-            // Action Button
-            actionButton
+                // Action Button
+                actionButton
+            }
         }
+        .foregroundColor(.primary) // Ensure text color for NavigationLink
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
         .background(Color(.systemBackground))
