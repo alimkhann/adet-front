@@ -94,18 +94,19 @@ struct ProfileView: View {
                     .font(.title2)
                     .fontWeight(.bold)
                     .foregroundColor(.primary)
-                    .padding(.leading, 20)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
                 Spacer()
                 NavigationLink(destination: SettingsView().environmentObject(authViewModel)) {
                     Image(systemName: "gearshape.fill")
                         .font(.system(size: 20, weight: .semibold))
-                        .padding(.trailing, 20)
                 }
             }
+            .padding(.horizontal, 20)
             .padding(.top, 16)
 
             // Profile row: pfp, name, stats
-            HStack(alignment: .top, spacing: 16) {
+            HStack(alignment: .top, spacing: 12) {
                 Group {
                     if let user = authViewModel.user {
                         ProfileImageView(
@@ -134,7 +135,6 @@ struct ProfileView: View {
                 }, perform: {
                     viewModel.onPfpLongPress()
                 })
-                .padding(.leading, 20)
 
                 VStack(alignment: .leading, spacing: 8) {
                     // Name
@@ -144,24 +144,17 @@ struct ProfileView: View {
                         .foregroundColor(.primary)
                         .lineLimit(1)
                         .truncationMode(.tail)
-                        .padding(.leading, 16)
 
-                    // Stats
-                    HStack(spacing: 24) {
+                    // Stats - Include posts count here to avoid duplication
+                    HStack(spacing: 16) {
                         ForEach(viewModel.getProfileStats(), id: \.title) { stat in
                             ProfileStatView(title: stat.title, value: stat.value)
                         }
-
-                        // Add posts count
-                        ProfileStatView(
-                            title: "Posts",
-                            value: "\(postsViewModel.myPosts.count)"
-                        )
                     }
                 }
-                .padding(.top, 8)
-                Spacer()
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
+            .padding(.horizontal, 20)
             .padding(.top, 12)
 
             // Bio below pfp
@@ -180,6 +173,7 @@ struct ProfileView: View {
                         .font(.subheadline)
                         .fontWeight(.medium)
                         .frame(minHeight: 36)
+                        .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(PrimaryButtonStyle())
 
@@ -190,6 +184,7 @@ struct ProfileView: View {
                         .font(.subheadline)
                         .fontWeight(.medium)
                         .frame(minHeight: 36)
+                        .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(SecondaryButtonStyle())
             }
@@ -220,7 +215,15 @@ struct ProfileView: View {
                         }
                         .foregroundColor(selectedTab == tab ? .primary : .secondary)
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
+                        .padding(.vertical, 16)
+                        .background(Color(.systemBackground))
+                        .overlay(
+                            Rectangle()
+                                .frame(height: 2)
+                                .foregroundColor(selectedTab == tab ? .accentColor : .clear)
+                                .animation(.easeInOut(duration: 0.2), value: selectedTab),
+                            alignment: .bottom
+                        )
                     }
                     .buttonStyle(PlainButtonStyle())
                 }
@@ -229,6 +232,7 @@ struct ProfileView: View {
 
             Divider()
         }
+        .background(Color(.systemBackground))
     }
 
     // MARK: - Content Section

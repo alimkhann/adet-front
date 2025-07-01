@@ -18,7 +18,7 @@ struct SignInView: View {
 
                     Group {
                         StyledTextField(
-                            placeholder: "Email",
+                            placeholder: "Email or username",
                             text: $email)
                         .accessibilityIdentifier("Email")
                         .padding(.bottom, 12)

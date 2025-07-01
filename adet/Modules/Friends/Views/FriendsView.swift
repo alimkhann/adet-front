@@ -33,9 +33,8 @@ struct FriendsView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     NavigationLink(destination: CloseFriendsManagementView().environmentObject(authViewModel)) {
-                        Image(systemName: "heart.circle")
-                            .font(.system(size: 20))
-                            .foregroundColor(.red)
+                        Image(systemName: "person.2.circle")
+                            .font(.system(size: 18, weight: .medium))
                     }
                 }
             }
@@ -126,7 +125,6 @@ struct FriendsView: View {
             .background(Color(.systemBackground))
 
             Divider()
-                .padding(.top, 12)
 
             // Tab content
             TabView(selection: $viewModel.selectedTab) {

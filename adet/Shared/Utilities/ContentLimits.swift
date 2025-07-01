@@ -15,7 +15,7 @@ struct ContentLimits {
 
     // MARK: - Friend Limits
     static let maxFriends = 5000
-    static let maxCloseFriends = 50
+    static let maxCloseFriends = 999999 // Effectively unlimited
     static let maxFriendRequestsPerDay = 100
 
     // MARK: - Chat Limits

@@ -11,9 +11,6 @@ struct CloseFriendsManagementView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                // Header info
-                headerView
-
                 // Friends list
                 if viewModel.isLoading {
                     loadingView
@@ -49,45 +46,6 @@ struct CloseFriendsManagementView: View {
                 Text(viewModel.errorMessage ?? "")
             }
         }
-    }
-
-    // MARK: - Header View
-
-    private var headerView: some View {
-        VStack(spacing: 12) {
-            // Close friends icon
-            Image(systemName: "heart.circle.fill")
-                .font(.system(size: 40))
-                .foregroundColor(.red)
-
-            // Description
-            VStack(spacing: 4) {
-                Text("Close Friends")
-                    .font(.title2)
-                    .fontWeight(.semibold)
-
-                Text("Share posts with your closest friends only")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-                    .multilineTextAlignment(.center)
-            }
-
-            // Count info
-            HStack {
-                Text("\(viewModel.getCloseFriendsCount()) of \(viewModel.getMaxCloseFriendsCount())")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-
-                if !viewModel.canAddMoreCloseFriends() {
-                    Image(systemName: "exclamationmark.triangle.fill")
-                        .font(.caption)
-                        .foregroundColor(.orange)
-                }
-            }
-        }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 16)
-        .background(Color(.systemGroupedBackground))
     }
 
     // MARK: - Loading View
@@ -136,7 +94,7 @@ struct CloseFriendsManagementView: View {
                     CloseFriendRowView(
                         friend: friend.user,
                         isCloseFriend: viewModel.isCloseFriend(friend.user.id),
-                        canAddMore: viewModel.canAddMoreCloseFriends(),
+                        canAddMore: true,
                         onToggle: { isCloseFriend in
                             Task {
                                 await viewModel.updateCloseFriend(friend.user, isCloseFriend: isCloseFriend)
@@ -202,12 +160,6 @@ struct CloseFriendRowView: View {
             // Toggle button
             Button(action: {
                 let newState = !isCloseFriend
-                if newState && !canAddMore {
-                    // Can't add more - show some feedback
-                    HapticManager.shared.error()
-                    return
-                }
-
                 HapticManager.shared.selection()
                 onToggle(newState)
             }) {
@@ -216,8 +168,6 @@ struct CloseFriendRowView: View {
                     .foregroundColor(isCloseFriend ? .red : .gray)
                     .animation(.easeInOut(duration: 0.2), value: isCloseFriend)
             }
-            .disabled(!canAddMore && !isCloseFriend)
-            .opacity((!canAddMore && !isCloseFriend) ? 0.5 : 1.0)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)

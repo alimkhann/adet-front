@@ -565,3 +565,4 @@ extension PostComment: Equatable {
 
     CommentsView(post: samplePost)
 }
+

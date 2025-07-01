@@ -8,33 +8,23 @@ struct HomeView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 20) {
-                    Text("Welcome to ädet")
-                        .font(.largeTitle)
-                        .fontWeight(.bold)
-                        .padding(.top)
-
-                    Text("Your AI-powered habit tracking companion")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal)
-
-                    // TODO: Add dashboard content here
-                    VStack {
-                        Image(systemName: "chart.line.uptrend.xyaxis")
-                            .font(.system(size: 50))
-                            .foregroundColor(.secondary)
-                        Text("Dashboard content coming soon")
-                            .font(.title3)
-                            .foregroundColor(.secondary)
-                    }
-                    .padding(.top, 40)
+                    Spacer()
+                    
+                    Image(systemName: "wind")
+                        .resizable()
+                        .frame(width: 80, height: 80)
+                        .foregroundColor(.gray)
+                    
+                    Text("It is a bit quiet here.")
+                    
+                    Text("Start posting and find friends to see content!")
 
                     Spacer()
                 }
                 .padding()
             }
-            .navigationTitle("Home")
+            .navigationTitle("ädet")
+            .navigationBarTitleDisplayMode(.inline)
             .onAppear {
                 logger.info("HomeView appeared")
             }

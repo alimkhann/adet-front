@@ -49,7 +49,7 @@ class CloseFriendsViewModel: ObservableObject {
     }
 
     func canAddMoreCloseFriends() -> Bool {
-        return closeFriends.count < ContentLimits.maxCloseFriends
+        return true // No limit anymore
     }
 
     func getCloseFriendsCount() -> Int {
@@ -57,17 +57,17 @@ class CloseFriendsViewModel: ObservableObject {
     }
 
     func getMaxCloseFriendsCount() -> Int {
-        return ContentLimits.maxCloseFriends
+        return ContentLimits.maxCloseFriends // For backward compatibility
     }
 
     // MARK: - Helper Methods
 
-    func clearError() {
-        errorMessage = nil
-    }
-
     func refresh() async {
         await loadCloseFriends()
         await loadAllFriends()
+    }
+
+    func clearError() {
+        errorMessage = nil
     }
 }
