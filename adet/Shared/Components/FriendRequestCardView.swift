@@ -153,8 +153,7 @@ struct FriendRequestCardView: View {
                 user: UserBasic(
                     id: 2,
                     username: "jane_doe",
-                    firstName: "Jane",
-                    lastName: "Doe",
+                    name: "Jane Doe",
                     bio: "Fitness enthusiast",
                     profileImageUrl: nil
                 ),
@@ -179,8 +178,7 @@ struct FriendRequestCardView: View {
                 user: UserBasic(
                     id: 3,
                     username: "bob_smith",
-                    firstName: "Bob",
-                    lastName: "Smith",
+                    name: "Bob Smith",
                     bio: "Running everyday",
                     profileImageUrl: nil
                 ),

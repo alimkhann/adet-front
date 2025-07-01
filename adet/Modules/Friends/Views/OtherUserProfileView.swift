@@ -68,10 +68,13 @@ struct OtherUserProfileView: View {
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
 
-            Button("Try Again") {
+            Button {
                 Task {
                     await viewModel.loadUserProfile(userId: userId)
                 }
+            } label: {
+                Text("Retry")
+                    .frame(minHeight: 48)
             }
             .buttonStyle(PrimaryButtonStyle())
         }

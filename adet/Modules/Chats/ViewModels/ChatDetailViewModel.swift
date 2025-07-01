@@ -708,8 +708,7 @@ extension ChatDetailViewModel {
             otherParticipant: UserBasic(
                 id: 2,
                 username: "sarah_wellness",
-                firstName: "Sarah",
-                lastName: "Johnson",
+                name: "Sarah Johnson",
                 bio: nil,
                 profileImageUrl: nil
             ),
@@ -733,7 +732,7 @@ extension ChatDetailViewModel {
                 createdAt: Date().addingTimeInterval(-3600),
                 deliveredAt: Date().addingTimeInterval(-3590),
                 readAt: Date().addingTimeInterval(-3580),
-                sender: UserBasic(id: 1, username: "me", firstName: "Me", lastName: "", bio: nil, profileImageUrl: nil),
+                sender: UserBasic(id: 1, username: "me", name: "Me", bio: nil, profileImageUrl: nil),
                 repliedToMessageId: nil
             ),
             Message(
@@ -746,7 +745,7 @@ extension ChatDetailViewModel {
                 createdAt: Date().addingTimeInterval(-3500),
                 deliveredAt: Date().addingTimeInterval(-3490),
                 readAt: Date().addingTimeInterval(-3480),
-                sender: UserBasic(id: 2, username: "sarah_wellness", firstName: "Sarah", lastName: "Johnson", bio: nil, profileImageUrl: nil),
+                sender: UserBasic(id: 2, username: "sarah_wellness", name: "Sarah", bio: nil, profileImageUrl: nil),
                 repliedToMessageId: nil
             ),
             Message(
@@ -759,7 +758,7 @@ extension ChatDetailViewModel {
                 createdAt: Date().addingTimeInterval(-300),
                 deliveredAt: Date().addingTimeInterval(-290),
                 readAt: nil,
-                sender: UserBasic(id: 1, username: "me", firstName: "Me", lastName: "", bio: nil, profileImageUrl: nil),
+                sender: UserBasic(id: 1, username: "me", name: "Me", bio: nil, profileImageUrl: nil),
                 repliedToMessageId: nil
             )
         ]
@@ -777,7 +776,7 @@ extension ChatDetailViewModel {
             createdAt: Date(),
             deliveredAt: Date(),
             readAt: nil,
-            sender: conversation?.otherParticipant ?? UserBasic(id: 2, username: "test", firstName: "Test", lastName: "User", bio: nil, profileImageUrl: nil),
+            sender: conversation?.otherParticipant ?? UserBasic(id: 2, username: "test", name: "Test User", bio: nil, profileImageUrl: nil),
             repliedToMessageId: nil
         )
 

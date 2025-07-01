@@ -103,8 +103,7 @@ struct FriendCardView: View {
             user: UserBasic(
                 id: 2,
                 username: "john_doe",
-                firstName: "John",
-                lastName: "Doe",
+                name: "John Doe",
                 bio: "Love building healthy habits!",
                 profileImageUrl: nil
             )

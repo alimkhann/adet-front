@@ -14,7 +14,7 @@ class FriendsAPIService: ObservableObject {
 
     func getFriends() async -> FriendsResponse {
         do {
-            let url = URL(string: "\(baseURL)/friends")!
+            let url = URL(string: "\(baseURL)/friends/")!
             var request = URLRequest(url: url)
             request.httpMethod = "GET"
 
@@ -26,6 +26,7 @@ class FriendsAPIService: ObservableObject {
 
             guard let httpResponse = response as? HTTPURLResponse,
                   httpResponse.statusCode == 200 else {
+                logger.error("Failed to get friends - HTTP \(((response as? HTTPURLResponse)?.statusCode ?? 0))")
                 throw FriendsAPIError.httpError
             }
 
@@ -40,7 +41,7 @@ class FriendsAPIService: ObservableObject {
 
     func getCloseFriends() async -> CloseFriendsResponse {
         do {
-            let url = URL(string: "\(baseURL)/friends/close")!
+            let url = URL(string: "\(baseURL)/friends/close-friends")!
             var request = URLRequest(url: url)
             request.httpMethod = "GET"
 
@@ -52,6 +53,7 @@ class FriendsAPIService: ObservableObject {
 
             guard let httpResponse = response as? HTTPURLResponse,
                   httpResponse.statusCode == 200 else {
+                logger.error("Failed to get close friends - HTTP \(((response as? HTTPURLResponse)?.statusCode ?? 0))")
                 throw FriendsAPIError.httpError
             }
 
@@ -66,9 +68,9 @@ class FriendsAPIService: ObservableObject {
 
     func updateCloseFriend(friendId: Int, isCloseFriend: Bool) async -> Bool {
         do {
-            let url = URL(string: "\(baseURL)/friends/\(friendId)/close")!
+            let url = URL(string: "\(baseURL)/friends/close-friends")!
             var request = URLRequest(url: url)
-            request.httpMethod = "PUT"
+            request.httpMethod = "POST"
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
             if let token = await AuthService.shared.getValidToken() {
@@ -82,6 +84,7 @@ class FriendsAPIService: ObservableObject {
 
             guard let httpResponse = response as? HTTPURLResponse,
                   httpResponse.statusCode == 200 else {
+                logger.error("Failed to update close friend - HTTP \(((response as? HTTPURLResponse)?.statusCode ?? 0))")
                 throw FriendsAPIError.httpError
             }
 
@@ -92,11 +95,46 @@ class FriendsAPIService: ObservableObject {
         }
     }
 
+    // MARK: - Search Users
+
+    func searchUsers(query: String, limit: Int = 20) async -> UserSearchResponse {
+        guard !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return UserSearchResponse(users: [], count: 0, query: query)
+        }
+
+        do {
+            guard let encodedQuery = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) else {
+                throw FriendsAPIError.invalidInput
+            }
+
+            let url = URL(string: "\(baseURL)/friends/search?q=\(encodedQuery)&limit=\(limit)")!
+            var request = URLRequest(url: url)
+            request.httpMethod = "GET"
+
+            if let token = await AuthService.shared.getValidToken() {
+                request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+            }
+
+            let (data, response) = try await session.data(for: request)
+
+            guard let httpResponse = response as? HTTPURLResponse,
+                  httpResponse.statusCode == 200 else {
+                logger.error("Failed to search users - HTTP \(((response as? HTTPURLResponse)?.statusCode ?? 0))")
+                throw FriendsAPIError.httpError
+            }
+
+            return try JSONDecoder().decode(UserSearchResponse.self, from: data)
+        } catch {
+            logger.error("Failed to search users: \(error.localizedDescription)")
+            return UserSearchResponse(users: [], count: 0, query: query)
+        }
+    }
+
     // MARK: - Send Friend Request
 
-    func sendFriendRequest(to userId: Int) async -> Bool {
+    func sendFriendRequest(to userId: Int, message: String? = nil) async -> Bool {
         do {
-            let url = URL(string: "\(baseURL)/friends/request")!
+            let url = URL(string: "\(baseURL)/friends/request/\(userId)")!
             var request = URLRequest(url: url)
             request.httpMethod = "POST"
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -105,13 +143,14 @@ class FriendsAPIService: ObservableObject {
                 request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
             }
 
-            let requestBody = ["requested_id": userId]
-            request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
+            let requestBody = ["message": message ?? ""]
+            request.httpBody = try JSONData(requestBody)
 
             let (_, response) = try await session.data(for: request)
 
             guard let httpResponse = response as? HTTPURLResponse,
-                  httpResponse.statusCode == 201 else {
+                  httpResponse.statusCode == 200 else {
+                logger.error("Failed to send friend request - HTTP \(((response as? HTTPURLResponse)?.statusCode ?? 0))")
                 throw FriendsAPIError.httpError
             }
 
@@ -137,6 +176,7 @@ class FriendsAPIService: ObservableObject {
 
         guard let httpResponse = response as? HTTPURLResponse,
               httpResponse.statusCode == 200 else {
+            logger.error("Failed to get friend requests - HTTP \(((response as? HTTPURLResponse)?.statusCode ?? 0))")
             throw FriendsAPIError.httpError
         }
 
@@ -146,7 +186,7 @@ class FriendsAPIService: ObservableObject {
     // MARK: - Get User Profile
 
     func getUserProfile(userId: Int) async throws -> UserProfile {
-        let url = URL(string: "\(baseURL)/users/\(userId)")!
+        let url = URL(string: "\(baseURL)/friends/user/\(userId)/profile")!
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
 
@@ -158,16 +198,31 @@ class FriendsAPIService: ObservableObject {
 
         guard let httpResponse = response as? HTTPURLResponse,
               httpResponse.statusCode == 200 else {
+            logger.error("Failed to get user profile - HTTP \(((response as? HTTPURLResponse)?.statusCode ?? 0))")
             throw FriendsAPIError.httpError
         }
 
-        return try JSONDecoder().decode(UserProfile.self, from: data)
+        // Debug: Log the raw response
+        if let jsonString = String(data: data, encoding: .utf8) {
+            logger.info("User profile response: \(jsonString)")
+        }
+
+        do {
+            let decoder = JSONDecoder()
+            let userProfile = try decoder.decode(UserProfile.self, from: data)
+            logger.info("Successfully decoded user profile for user ID: \(userProfile.id)")
+            return userProfile
+        } catch {
+            logger.error("Failed to decode user profile: \(error)")
+            logger.error("Decoding error details: \(error.localizedDescription)")
+            throw FriendsAPIError.decodingError
+        }
     }
 
     // MARK: - Get Friendship Status
 
     func getFriendshipStatus(userId: Int) async throws -> FriendshipStatus {
-        let url = URL(string: "\(baseURL)/friends/status/\(userId)")!
+        let url = URL(string: "\(baseURL)/friends/user/\(userId)/friendship-status")!
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
 
@@ -182,9 +237,19 @@ class FriendsAPIService: ObservableObject {
             throw FriendsAPIError.httpError
         }
 
-        let result = try JSONDecoder().decode([String: String].self, from: data)
-        let statusString = result["status"] ?? "none"
-        return FriendshipStatus(rawValue: statusString) ?? .none
+        // Debug: Log the raw response
+        if let jsonString = String(data: data, encoding: .utf8) {
+            logger.info("Friendship status response: \(jsonString)")
+        }
+
+        do {
+            let response = try JSONDecoder().decode(FriendshipStatusResponse.self, from: data)
+            logger.info("Decoded friendship status: \(response.friendshipStatus)")
+            return FriendshipStatus(rawValue: response.friendshipStatus) ?? .none
+        } catch {
+            logger.error("Failed to decode friendship status: \(error.localizedDescription)")
+            throw FriendsAPIError.decodingError
+        }
     }
 }
 
@@ -211,22 +276,17 @@ struct FriendRequestsResponse: Codable {
 
 struct UserProfile: Codable {
     let id: Int
-    let username: String
-    let firstName: String
-    let lastName: String
+    let username: String?
+    let name: String?
     let bio: String?
     let profileImageUrl: String?
-    let isActive: Bool
-    let friendsCount: Int
-    let postsCount: Int
 
     enum CodingKeys: String, CodingKey {
-        case id, username, bio, isActive
-        case firstName = "first_name"
-        case lastName = "last_name"
+        case id = "id"
+        case username = "username"
+        case name = "name"
+        case bio = "bio"
         case profileImageUrl = "profile_image_url"
-        case friendsCount = "friends_count"
-        case postsCount = "posts_count"
     }
 }
 
@@ -234,6 +294,23 @@ struct UserProfile: Codable {
 
 enum FriendsAPIError: Error {
     case httpError
+    case invalidInput
     case decodingError
-    case networkError
+
+    var localizedDescription: String {
+        switch self {
+        case .httpError:
+            return "Network request failed"
+        case .invalidInput:
+            return "Invalid input provided"
+        case .decodingError:
+            return "Failed to decode response"
+        }
+    }
+}
+
+// MARK: - Helper Functions
+
+private func JSONData<T: Encodable>(_ object: T) throws -> Data {
+    return try JSONEncoder().encode(object)
 }

@@ -69,6 +69,13 @@ struct FriendsView: View {
                     .onChange(of: viewModel.searchQuery) { _, newValue in
                         if !newValue.isEmpty {
                             viewModel.setSearchActive(true)
+                            // Trigger search with a small delay to avoid too many API calls
+                            Task {
+                                try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 second delay
+                                await viewModel.searchUsers()
+                            }
+                        } else {
+                            viewModel.clearSearch()
                         }
                     }
 

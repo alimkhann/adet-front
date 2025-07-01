@@ -163,8 +163,7 @@ struct UserSearchCardView: View {
             user: UserBasic(
                 id: 1,
                 username: "alex_runner",
-                firstName: "Alex",
-                lastName: "Runner",
+                name: "Alex Runner",
                 bio: "Marathon enthusiast and habit tracker 🏃‍♂️",
                 profileImageUrl: nil
             ),
@@ -175,8 +174,7 @@ struct UserSearchCardView: View {
             user: UserBasic(
                 id: 2,
                 username: "sara_yoga",
-                firstName: "Sara",
-                lastName: "",
+                name: "Sara Yoga",
                 bio: nil,
                 profileImageUrl: nil
             ),

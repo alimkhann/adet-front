@@ -553,8 +553,7 @@ extension PostComment: Equatable {
         user: UserBasic(
             id: 1,
             username: "johndoe",
-            firstName: "John",
-            lastName: "Doe",
+            name: "johndoe",
             bio: nil,
             profileImageUrl: nil
         ),

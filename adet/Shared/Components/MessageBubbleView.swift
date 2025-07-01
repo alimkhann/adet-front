@@ -254,7 +254,7 @@ struct MessageBubbleView: View {
                 createdAt: Date().addingTimeInterval(-3600),
                 deliveredAt: Date().addingTimeInterval(-3590),
                 readAt: Date().addingTimeInterval(-3580),
-                sender: UserBasic(id: 2, username: "sarah_wellness", firstName: "Sarah", lastName: "Johnson", bio: nil, profileImageUrl: nil),
+                sender: UserBasic(id: 2, username: "sarah_wellness", name: "Sarah Johnson", bio: nil, profileImageUrl: nil),
                 repliedToMessageId: nil
             ),
             isFromCurrentUser: false,
@@ -276,7 +276,7 @@ struct MessageBubbleView: View {
                 createdAt: Date().addingTimeInterval(-3500),
                 deliveredAt: Date().addingTimeInterval(-3490),
                 readAt: nil,
-                sender: UserBasic(id: 1, username: "me", firstName: "Me", lastName: "", bio: nil, profileImageUrl: nil),
+                sender: UserBasic(id: 1, username: "me", name: "mee?", bio: nil, profileImageUrl: nil),
                 repliedToMessageId: nil
             ),
             isFromCurrentUser: true,
@@ -298,7 +298,7 @@ struct MessageBubbleView: View {
                 createdAt: Date().addingTimeInterval(-300),
                 deliveredAt: Date().addingTimeInterval(-290),
                 readAt: Date().addingTimeInterval(-280),
-                sender: UserBasic(id: 1, username: "me", firstName: "Me", lastName: "", bio: nil, profileImageUrl: nil),
+                sender: UserBasic(id: 1, username: "me", name: "Me", bio: nil, profileImageUrl: nil),
                 repliedToMessageId: nil
             ),
             isFromCurrentUser: true,
@@ -320,7 +320,7 @@ struct MessageBubbleView: View {
                 createdAt: Date(),
                 deliveredAt: nil,
                 readAt: nil,
-                sender: UserBasic(id: 1, username: "me", firstName: "Me", lastName: "", bio: nil, profileImageUrl: nil),
+                sender: UserBasic(id: 1, username: "me", name: "Me", bio: nil, profileImageUrl: nil),
                 repliedToMessageId: nil
             ),
             isFromCurrentUser: true,

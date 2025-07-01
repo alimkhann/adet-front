@@ -58,28 +58,24 @@ struct FriendRequest: Identifiable, Codable {
 
 struct UserBasic: Codable, Identifiable, Hashable {
     let id: Int
-    let username: String
-    let firstName: String
-    let lastName: String
+    let username: String?
+    let name: String?
     let bio: String?
     let profileImageUrl: String?
 
     enum CodingKeys: String, CodingKey {
         case id
         case username
-        case firstName = "first_name"
-        case lastName = "last_name"
+        case name
         case bio
         case profileImageUrl = "profile_image_url"
     }
 
     // Computed properties for display
     var fullName: String {
-        if !firstName.isEmpty && !lastName.isEmpty {
-            return "\(firstName) \(lastName)"
-        } else if !firstName.isEmpty {
-            return firstName
-        } else if !username.isEmpty {
+        if let name = name, !name.isEmpty {
+            return name
+        } else if let username = username, !username.isEmpty {
             return username
         } else {
             return "User"
@@ -92,7 +88,7 @@ struct UserBasic: Codable, Identifiable, Hashable {
     }
 
     var displayUsername: String {
-        return username.isEmpty ? "no_username" : username
+        return username ?? "no_username"
     }
 
     // Hashable conformance

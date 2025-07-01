@@ -367,7 +367,7 @@ extension Message {
             createdAt: Date(),
             deliveredAt: Date(),
             readAt: nil,
-            sender: UserBasic(id: 1, username: "test", firstName: "Test", lastName: "User", bio: nil, profileImageUrl: nil),
+            sender: UserBasic(id: 1, username: "test", name: "Test User", bio: nil, profileImageUrl: nil),
             repliedToMessageId: repliedToMessageId
         )
     }

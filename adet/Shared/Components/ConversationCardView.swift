@@ -150,8 +150,7 @@ struct ConversationCardView: View {
                 otherParticipant: UserBasic(
                     id: 2,
                     username: "sarah_wellness",
-                    firstName: "Sarah",
-                    lastName: "Johnson",
+                    name: "Sarah Wellness",
                     bio: nil,
                     profileImageUrl: nil
                 ),
@@ -165,7 +164,7 @@ struct ConversationCardView: View {
                     createdAt: Date().addingTimeInterval(-3600),
                     deliveredAt: Date().addingTimeInterval(-3590),
                     readAt: nil,
-                    sender: UserBasic(id: 2, username: "sarah_wellness", firstName: "Sarah", lastName: "Johnson", bio: nil, profileImageUrl: nil),
+                    sender: UserBasic(id: 2, username: "sarah_wellness", name: "Sarah Wellness", bio: nil, profileImageUrl: nil),
                     repliedToMessageId: nil
                 ),
                 unreadCount: 2,
@@ -187,8 +186,7 @@ struct ConversationCardView: View {
                 otherParticipant: UserBasic(
                     id: 3,
                     username: "mike_fitness",
-                    firstName: "Mike",
-                    lastName: "Chen",
+                    name: "Mike Chen",
                     bio: nil,
                     profileImageUrl: nil
                 ),
@@ -202,7 +200,7 @@ struct ConversationCardView: View {
                     createdAt: Date().addingTimeInterval(-7200),
                     deliveredAt: Date().addingTimeInterval(-7190),
                     readAt: Date().addingTimeInterval(-7180),
-                    sender: UserBasic(id: 1, username: "me", firstName: "Me", lastName: "", bio: nil, profileImageUrl: nil),
+                    sender: UserBasic(id: 1, username: "me", name: "Me", bio: nil, profileImageUrl: nil),
                     repliedToMessageId: nil
                 ),
                 unreadCount: 0,

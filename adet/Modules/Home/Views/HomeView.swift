@@ -9,6 +9,7 @@ struct HomeView: View {
             ScrollView {
                 VStack(spacing: 20) {
                     Spacer()
+                        .frame(height: 200)
                     
                     Image(systemName: "wind")
                         .resizable()

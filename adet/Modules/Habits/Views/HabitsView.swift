@@ -14,6 +14,9 @@ struct HabitsView: View {
                 VStack(alignment: .leading, spacing: 16) {
                     if viewModel.habits.isEmpty {
                         VStack(spacing: 16) {
+                            Spacer()
+                                .frame(height: 300)
+                            
                             Text("No habits yet")
                                 .font(.title2)
                                 .fontWeight(.semibold)

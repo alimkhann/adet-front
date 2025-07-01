@@ -71,12 +71,12 @@ class OtherProfileViewModel: ObservableObject {
 
     var displayName: String {
         guard let user = user else { return "Unknown User" }
-        if !user.firstName.isEmpty && !user.lastName.isEmpty {
-            return "\(user.firstName) \(user.lastName)"
-        } else if !user.firstName.isEmpty {
-            return user.firstName
+        if let name = user.name, !name.isEmpty {
+            return name
+        } else if let username = user.username, !username.isEmpty {
+            return username
         } else {
-            return user.username
+            return "Unknown User"
         }
     }
 
@@ -101,12 +101,11 @@ class OtherProfileViewModel: ObservableObject {
 
             let (profile, statusResponse) = try await (userProfile, friendshipStatusResponse)
 
-            // Convert UserProfile to UserBasic
+            // Convert UserProfile to UserBasic - UserProfile and UserBasic now have the same structure
             user = UserBasic(
                 id: profile.id,
                 username: profile.username,
-                firstName: profile.firstName,
-                lastName: profile.lastName,
+                name: profile.name,
                 bio: profile.bio,
                 profileImageUrl: profile.profileImageUrl
             )

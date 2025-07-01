@@ -667,8 +667,7 @@ struct AudioPlayerView: View {
         user: UserBasic(
             id: 1,
             username: "johndoe",
-            firstName: "John",
-            lastName: "Doe",
+            name: "John Doe",
             bio: nil,
             profileImageUrl: nil
         ),

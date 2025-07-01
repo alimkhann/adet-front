@@ -24,7 +24,7 @@ struct ChatsListView: View {
         } else {
             return viewModel.conversations.filter { conversation in
                 conversation.otherParticipant.displayName.localizedCaseInsensitiveContains(searchText) ||
-                (conversation.otherParticipant.username.localizedCaseInsensitiveContains(searchText))
+                (conversation.otherParticipant.username?.localizedCaseInsensitiveContains(searchText) ?? false)
             }
         }
     }
@@ -52,8 +52,6 @@ struct ChatsListView: View {
                     conversationsList
                 }
             }
-            .navigationTitle("Messages")
-            .navigationBarTitleDisplayMode(.large)
             .searchable(text: $searchText, prompt: "Search conversations")
             .refreshable {
                 await viewModel.refreshConversations()

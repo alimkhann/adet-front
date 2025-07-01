@@ -236,8 +236,7 @@ struct ChatDetailView: View {
                 otherParticipant: UserBasic(
                     id: 2,
                     username: "sarah_wellness",
-                    firstName: "Sarah",
-                    lastName: "Johnson",
+                    name: "Sarah Wellness",
                     bio: "Wellness Enthusiast",
                     profileImageUrl: nil
                 ),

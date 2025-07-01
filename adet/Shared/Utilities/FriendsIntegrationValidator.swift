@@ -67,8 +67,7 @@ class FriendsIntegrationValidator {
         let _ = UserBasic(
             id: 1,
             username: "test_user",
-            firstName: "Test",
-            lastName: "User",
+            name: "Test User",
             bio: "Test bio",
             profileImageUrl: nil
         )
@@ -137,7 +136,7 @@ class FriendsIntegrationValidator {
 
         // Test computed properties
         let _ = viewModel.friendsCount
-        let _ = viewModel.closeFriendsCount
+        let _ = viewModel.closeFriends.count
         let _ = viewModel.pendingRequestsCount
         successes.append("✅ Computed properties accessible")
 

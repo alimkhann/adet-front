@@ -305,8 +305,7 @@ extension ChatAPIService {
             sender: UserBasic(
                 id: senderId,
                 username: "test_user",
-                firstName: "Test",
-                lastName: "User",
+                name: "Test User",
                 bio: nil,
                 profileImageUrl: nil
             ),

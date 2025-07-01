@@ -145,9 +145,11 @@ class FriendsViewModel: ObservableObject {
         isSearching = true
         defer { isSearching = false }
 
-        // This would need to be implemented in FriendsAPIService
-        // For now, we'll simulate search
-        searchResults = []
+        let response = await friendsService.searchUsers(query: searchQuery)
+        await MainActor.run {
+            self.searchResults = response.users
+            logger.info("Found \(response.count) users for query: \(self.searchQuery)")
+        }
     }
 
     // MARK: - Request Processing Methods
@@ -164,81 +166,81 @@ class FriendsViewModel: ObservableObject {
         processingRequests.insert(request.id)
         defer { processingRequests.remove(request.id) }
 
-        // TODO: Implement API call
+        // TODO: Implement accept friend request API call
         // For now, just remove from incoming requests
         incomingRequests.removeAll { $0.id == request.id }
-        showSuccessMessage("Accepted friend request from \(request.user.displayName)")
+        showSuccessMessage("Friend request accepted")
     }
 
     func declineFriendRequest(_ request: FriendRequest) async {
         processingRequests.insert(request.id)
         defer { processingRequests.remove(request.id) }
 
-        // TODO: Implement API call
+        // TODO: Implement decline friend request API call
         // For now, just remove from incoming requests
         incomingRequests.removeAll { $0.id == request.id }
-        showSuccessMessage("Declined friend request from \(request.user.displayName)")
+        showSuccessMessage("Friend request declined")
     }
 
     func cancelFriendRequest(_ request: FriendRequest) async {
         processingRequests.insert(request.id)
         defer { processingRequests.remove(request.id) }
 
-        // TODO: Implement API call
+        // TODO: Implement cancel friend request API call
         // For now, just remove from outgoing requests
         outgoingRequests.removeAll { $0.id == request.id }
-        showSuccessMessage("Cancelled friend request to \(request.user.displayName)")
+        showSuccessMessage("Friend request cancelled")
     }
 
     // MARK: - Helper Methods
 
+    private func showSuccessMessage(_ message: String) {
+        // For now, just log - you can implement a toast system later
+        logger.info("Success: \(message)")
+    }
+
     private func showErrorMessage(_ message: String) {
         errorMessage = message
         showError = true
-        logger.error("\(message)")
-    }
-
-    private func showSuccessMessage(_ message: String) {
-        // In a real app, you might want to show a toast or success message
-        logger.info("\(message)")
+        logger.error("Error: \(message)")
     }
 
     // MARK: - Computed Properties
 
     var shouldShowSearchResults: Bool {
-        isSearchActive && !searchQuery.isEmpty
-    }
-
-    var friendsCount: Int {
-        friends.count
-    }
-
-    var incomingRequestsCount: Int {
-        incomingRequests.count
-    }
-
-    var closeFriendsCount: Int {
-        closeFriends.count
-    }
-
-    var pendingRequestsCount: Int {
-        incomingRequests.count
-    }
-
-    var hasAnyFriends: Bool {
-        !friends.isEmpty
-    }
-
-    var hasIncomingRequests: Bool {
-        !incomingRequests.isEmpty
-    }
-
-    var hasOutgoingRequests: Bool {
-        !outgoingRequests.isEmpty
+        return isSearchActive && !searchQuery.isEmpty
     }
 
     var hasSearchResults: Bool {
-        !searchResults.isEmpty
+        return !searchResults.isEmpty
+    }
+
+    var friendsCount: Int {
+        return friends.count
+    }
+
+    var incomingRequestsCount: Int {
+        return incomingRequests.count
+    }
+
+    var hasAnyFriends: Bool {
+        return !friends.isEmpty
+    }
+
+    var hasIncomingRequests: Bool {
+        return !incomingRequests.isEmpty
+    }
+
+    var hasOutgoingRequests: Bool {
+        return !outgoingRequests.isEmpty
+    }
+
+    var closeFriendsCount: Int {
+        return closeFriends.count
+    }
+
+    var pendingRequestsCount: Int {
+        return incomingRequests.count
     }
 
     // MARK: - Public Interface
