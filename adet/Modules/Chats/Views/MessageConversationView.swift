@@ -119,7 +119,8 @@ struct MessageConversationView: View {
             friendUser: UserBasic(
                 id: 2,
                 username: "sarah_wellness",
-                name: "Sarah Johnson",
+                firstName: "Sarah",
+                lastName: "Johnson",
                 bio: nil,
                 profileImageUrl: nil
             )

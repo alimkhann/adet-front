@@ -30,14 +30,26 @@ struct SettingsView: View {
                 // Account Section
                 Section(header: Text("account".t(language))) {
                     HStack(spacing: 16) {
-                        ProfileImageView(
-                            user: authViewModel.user,
-                            size: 48,
-                            isEditable: false,
-                            onImageTap: nil,
-                            onDeleteTap: nil,
-                            jwtToken: authViewModel.jwtToken
-                        )
+                        if let user = authViewModel.user {
+                            ProfileImageView(
+                                user: user,
+                                size: 48,
+                                isEditable: false,
+                                onImageTap: nil,
+                                onDeleteTap: nil,
+                                jwtToken: authViewModel.jwtToken
+                            )
+                        } else {
+                            // Fallback when user is nil
+                            Circle()
+                                .fill(Color(.systemGray5))
+                                .frame(width: 48, height: 48)
+                                .overlay(
+                                    Image(systemName: "person.fill")
+                                        .foregroundColor(.secondary)
+                                        .font(.system(size: 20))
+                                )
+                        }
                         VStack(alignment: .leading, spacing: 2) {
                             Text(authViewModel.user?.name ?? "Name")
                                 .font(.headline)

@@ -1,5 +1,16 @@
 import Foundation
 
+// MARK: - API Error Model
+struct APIError: Codable, Error {
+    let detail: String
+    let code: String?
+
+    init(detail: String, code: String? = nil) {
+        self.detail = detail
+        self.code = code
+    }
+}
+
 // MARK: - API Response Types
 struct HealthResponse: Codable {
     let status: String
@@ -161,20 +172,6 @@ struct FriendRequestCreateRequest: Codable {
 struct FriendsListResponse: Codable {
     let friends: [Friend]
     let count: Int
-}
-
-struct FriendRequestsResponse: Codable {
-    let incomingRequests: [FriendRequest]
-    let outgoingRequests: [FriendRequest]
-    let incomingCount: Int
-    let outgoingCount: Int
-
-    enum CodingKeys: String, CodingKey {
-        case incomingRequests = "incoming_requests"
-        case outgoingRequests = "outgoing_requests"
-        case incomingCount = "incoming_count"
-        case outgoingCount = "outgoing_count"
-    }
 }
 
 struct UserSearchResponse: Codable {

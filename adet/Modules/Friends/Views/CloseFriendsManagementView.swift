@@ -169,7 +169,7 @@ struct CloseFriendRowView: View {
                     id: friend.id,
                     clerkId: "",
                     email: "",
-                    name: friend.name,
+                    name: friend.displayName,
                     username: friend.username,
                     bio: friend.bio,
                     profileImageUrl: friend.profileImageUrl,
@@ -204,11 +204,11 @@ struct CloseFriendRowView: View {
                 let newState = !isCloseFriend
                 if newState && !canAddMore {
                     // Can't add more - show some feedback
-                    HapticManager.shared.errorFeedback()
+                    HapticManager.shared.error()
                     return
                 }
 
-                HapticManager.shared.selectionFeedback()
+                HapticManager.shared.selection()
                 onToggle(newState)
             }) {
                 Image(systemName: isCloseFriend ? "heart.fill" : "heart")

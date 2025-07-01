@@ -17,53 +17,31 @@ class CloseFriendsViewModel: ObservableObject {
         isLoading = true
         errorMessage = nil
 
-        do {
-            let response = await friendsAPI.getCloseFriends()
-            closeFriends = response.closeFriends
-            logger.info("Loaded \(closeFriends.count) close friends")
-        } catch {
-            logger.error("Failed to load close friends: \(error.localizedDescription)")
-            errorMessage = "Failed to load close friends"
-        }
+        let response = await friendsAPI.getCloseFriends()
+        self.closeFriends = response.closeFriends
+        logger.info("Loaded \(self.closeFriends.count) close friends")
 
         isLoading = false
     }
 
     func loadAllFriends() async {
-        do {
-            let response = await friendsAPI.getFriends()
-            allFriends = response.friends
-            logger.info("Loaded \(allFriends.count) total friends")
-        } catch {
-            logger.error("Failed to load friends: \(error.localizedDescription)")
-            errorMessage = "Failed to load friends"
-        }
+        let response = await friendsAPI.getFriends()
+        self.allFriends = response.friends
+        logger.info("Loaded \(self.allFriends.count) total friends")
     }
 
     func updateCloseFriend(_ friend: UserBasic, isCloseFriend: Bool) async {
-        let originalCloseFriends = closeFriends
-
-        // Optimistic update
         if isCloseFriend {
-            if !closeFriends.contains(where: { $0.id == friend.id }) {
-                closeFriends.append(friend)
+            if !self.closeFriends.contains(where: { $0.id == friend.id }) {
+                self.closeFriends.append(friend)
             }
         } else {
-            closeFriends.removeAll { $0.id == friend.id }
+            self.closeFriends.removeAll { $0.id == friend.id }
         }
 
-        do {
-            _ = await friendsAPI.updateCloseFriend(friendId: friend.id, isCloseFriend: isCloseFriend)
-
-            let action = isCloseFriend ? "Added" : "Removed"
-            logger.info("\(action) \(friend.displayName) \(isCloseFriend ? "to" : "from") close friends")
-
-        } catch {
-            // Revert optimistic update on error
-            closeFriends = originalCloseFriends
-            logger.error("Failed to update close friend status: \(error.localizedDescription)")
-            errorMessage = "Failed to update close friend"
-        }
+        _ = await friendsAPI.updateCloseFriend(friendId: friend.id, isCloseFriend: isCloseFriend)
+        let action = isCloseFriend ? "Added" : "Removed"
+        logger.info("\(action) \(friend.displayName) \(isCloseFriend ? "to" : "from") close friends")
     }
 
     func isCloseFriend(_ userId: Int) -> Bool {

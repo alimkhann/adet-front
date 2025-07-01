@@ -104,7 +104,9 @@ struct ProofSubmissionModal: View {
             }
         }
         .sheet(isPresented: $showCamera) {
-            CameraView(selectedImage: $selectedImage)
+            CameraView { image in
+                selectedImage = image
+            }
         }
         .sheet(isPresented: $showVideoCamera) {
             VideoCameraView(selectedVideoURL: $selectedVideoURL)
@@ -330,8 +332,8 @@ struct ProofSubmissionModal: View {
 
     // MARK: - Helper Methods
 
-    private func getPreferredProofType() -> ProofType {
-        return ProofType(rawValue: task.proofType ?? "photo") ?? .photo
+    private func getPreferredProofType() -> TaskProofType {
+        return TaskProofType(rawValue: task.proofType ?? "photo") ?? .photo
     }
 
     private func canSubmit() -> Bool {
@@ -461,7 +463,7 @@ struct ProofSubmissionModal: View {
 
 struct ProofSubmissionData {
     let taskId: Int
-    let proofType: ProofType
+    let proofType: TaskProofType
     let proofContent: String
     let image: UIImage?
     let videoURL: URL?
@@ -545,45 +547,6 @@ struct Movie: Transferable {
             let copy = URL.documentsDirectory.appending(path: "video_\(Date().timeIntervalSince1970).mov")
             try FileManager.default.copyItem(at: received.file, to: copy)
             return Self.init(url: copy)
-        }
-    }
-}
-
-// MARK: - Camera View (Photos)
-
-struct CameraView: UIViewControllerRepresentable {
-    @Binding var selectedImage: UIImage?
-    @Environment(\.presentationMode) var presentationMode
-
-    func makeUIViewController(context: Context) -> UIImagePickerController {
-        let picker = UIImagePickerController()
-        picker.sourceType = .camera
-        picker.delegate = context.coordinator
-        return picker
-    }
-
-    func updateUIViewController(_ uiViewController: UIImagePickerController, context: Context) {}
-
-    func makeCoordinator() -> Coordinator {
-        Coordinator(self)
-    }
-
-    class Coordinator: NSObject, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
-        let parent: CameraView
-
-        init(_ parent: CameraView) {
-            self.parent = parent
-        }
-
-        func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey : Any]) {
-            if let image = info[.originalImage] as? UIImage {
-                parent.selectedImage = image
-            }
-            parent.presentationMode.wrappedValue.dismiss()
-        }
-
-        func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
-            parent.presentationMode.wrappedValue.dismiss()
         }
     }
 }

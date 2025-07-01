@@ -126,9 +126,9 @@ enum TaskStatus: String, CaseIterable, Codable {
     }
 }
 
-// MARK: - Proof Type Enum
+// MARK: - Task Proof Type Enum
 
-enum ProofType: String, CaseIterable, Codable {
+enum TaskProofType: String, CaseIterable, Codable {
     case photo = "photo"
     case video = "video"
     case audio = "audio"

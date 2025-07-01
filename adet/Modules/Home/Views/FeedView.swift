@@ -3,19 +3,15 @@ import SwiftUI
 struct FeedView: View {
     @StateObject private var postsViewModel = PostsViewModel()
     @State private var showingCreatePost = false
-    @State private var showingComments = false
-    @State private var selectedPost: Post?
+    @State private var refreshTrigger = false
 
     var body: some View {
         NavigationView {
             ZStack {
-                Color(.systemGroupedBackground)
-                    .ignoresSafeArea()
-
-                if postsViewModel.feedPosts.isEmpty && !postsViewModel.isLoadingFeed {
-                    EmptyFeedView(onCreatePost: {
-                        showingCreatePost = true
-                    })
+                if postsViewModel.isLoading && postsViewModel.posts.isEmpty {
+                    loadingView
+                } else if postsViewModel.posts.isEmpty && !postsViewModel.isLoading {
+                    emptyStateView
                 } else {
                     feedContent
                 }
@@ -29,24 +25,18 @@ struct FeedView: View {
                     } label: {
                         Image(systemName: "plus.circle.fill")
                             .font(.title2)
-                            .foregroundColor(.blue)
                     }
                 }
             }
             .refreshable {
-                await postsViewModel.loadFeedPosts(refresh: true)
-            }
-            .task {
-                if postsViewModel.feedPosts.isEmpty {
-                    await postsViewModel.loadFeedPosts(refresh: true)
-                }
+                await refreshFeed()
             }
             .sheet(isPresented: $showingCreatePost) {
                 CreatePostView()
             }
-            .sheet(isPresented: $showingComments) {
-                if let post = selectedPost {
-                    CommentsView(post: post)
+            .onAppear {
+                Task {
+                    await loadFeedIfNeeded()
                 }
             }
             .alert("Error", isPresented: .constant(postsViewModel.errorMessage != nil)) {
@@ -61,203 +51,120 @@ struct FeedView: View {
         }
     }
 
-    private var feedContent: some View {
-        ScrollView(.vertical, showsIndicators: false) {
-            LazyVStack(spacing: 0) {
-                // Header section with time window info
-                feedHeaderSection
+    // MARK: - Feed Content
 
-                // Posts
-                ForEach(postsViewModel.feedPosts) { post in
+    private var feedContent: some View {
+        ScrollView {
+            LazyVStack(spacing: 16) {
+                ForEach(postsViewModel.posts) { post in
                     PostCardView(
                         post: post,
                         onLike: {
-                            Task {
-                                await postsViewModel.toggleLike(for: post)
-                            }
+                            Task { await toggleLike(for: post) }
                         },
-                        onComment: {
-                            selectedPost = post
-                            showingComments = true
-                        },
+                        onComment: { showComments(for: post) },
                         onView: {
-                            Task {
-                                await postsViewModel.markPostAsViewed(post)
-                            }
+                            Task { await postsViewModel.markAsViewed(postId: post.id) }
                         },
-                        onShare: {
-                            sharePost(post)
-                        },
-                        onUserTap: {
-                            // Navigate to user profile
-                            // TODO: Implement navigation
-                        }
+                        onShare: { sharePost(post) },
+                        onUserTap: { showUserProfile(for: post.user) }
                     )
                     .onAppear {
                         // Load more posts when approaching the end
-                        if post == postsViewModel.feedPosts.last {
+                        if post == postsViewModel.posts.last {
                             Task {
-                                await postsViewModel.loadMoreFeedPosts()
+                                await postsViewModel.loadMorePosts()
                             }
                         }
                     }
                 }
 
-                // Loading indicator for pagination
-                if postsViewModel.isLoadingFeed && !postsViewModel.feedPosts.isEmpty {
-                    HStack {
-                        Spacer()
-                        ProgressView()
-                            .scaleEffect(0.8)
-                        Spacer()
-                    }
-                    .padding()
-                }
-
-                // End of feed indicator
-                if !postsViewModel.hasMorePosts && !postsViewModel.feedPosts.isEmpty {
-                    endOfFeedSection
+                // Loading more indicator
+                if postsViewModel.isLoadingFeed && !postsViewModel.posts.isEmpty {
+                    ProgressView()
+                        .padding()
                 }
             }
-        }
-    }
-
-    private var feedHeaderSection: some View {
-        VStack(spacing: 12) {
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Recent Activity")
-                        .font(.title2)
-                        .fontWeight(.bold)
-
-                    Text("Posts from the last 3 days")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-
-                Spacer()
-
-                // Filter button (future feature)
-                Menu {
-                    Button("All Posts", systemImage: "list.bullet") {
-                        // Filter implementation
-                    }
-                    Button("Close Friends Only", systemImage: "heart.fill") {
-                        // Filter implementation
-                    }
-                    Button("Media Only", systemImage: "photo") {
-                        // Filter implementation
-                    }
-                } label: {
-                    Image(systemName: "line.3.horizontal.decrease.circle")
-                        .font(.title3)
-                        .foregroundColor(.blue)
-                }
-            }
-            .padding(.horizontal, 20)
+            .padding(.horizontal)
             .padding(.top, 8)
-
-            Divider()
         }
-        .background(Color(.systemBackground))
     }
 
-    private var endOfFeedSection: some View {
+    // MARK: - Loading View
+
+    private var loadingView: some View {
         VStack(spacing: 16) {
-            Image(systemName: "checkmark.circle.fill")
-                .font(.largeTitle)
-                .foregroundColor(.green)
+            ProgressView()
+                .scaleEffect(1.2)
 
-            Text("You're all caught up!")
-                .font(.headline)
-                .fontWeight(.semibold)
-
-            Text("Share your own progress to inspire others")
+            Text("Loading feed...")
                 .font(.subheadline)
                 .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
-
-            Button("Create Post") {
-                showingCreatePost = true
-            }
-            .buttonStyle(.borderedProminent)
-            .buttonBorderShape(.capsule)
-        }
-        .padding(.vertical, 40)
-        .padding(.horizontal, 20)
-    }
-
-    private func sharePost(_ post: Post) {
-        // Implement sharing functionality
-        let shareText = "Check out this post from \(post.user.displayName)!"
-        let activityViewController = UIActivityViewController(
-            activityItems: [shareText],
-            applicationActivities: nil
-        )
-
-        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-           let rootViewController = windowScene.windows.first?.rootViewController {
-            rootViewController.present(activityViewController, animated: true)
         }
     }
-}
 
-// MARK: - Empty Feed View
+    // MARK: - Empty State View
 
-struct EmptyFeedView: View {
-    let onCreatePost: () -> Void
-
-    var body: some View {
+    private var emptyStateView: some View {
         VStack(spacing: 24) {
-            Image(systemName: "rectangle.stack.person.crop")
-                .font(.system(size: 64))
+            Image(systemName: "person.2.circle")
+                .font(.system(size: 60))
                 .foregroundColor(.secondary)
 
             VStack(spacing: 8) {
-                Text("No Posts Yet")
+                Text("No posts yet")
                     .font(.title2)
-                    .fontWeight(.bold)
+                    .fontWeight(.semibold)
 
-                Text("Be the first to share your progress!\nConnect with friends to see their posts here.")
-                    .font(.body)
+                Text("Be the first to share your habit progress!")
+                    .font(.subheadline)
                     .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)
             }
 
-            VStack(spacing: 12) {
-                Button("Create Your First Post") {
-                    onCreatePost()
-                }
-                .buttonStyle(.borderedProminent)
-                .buttonBorderShape(.capsule)
-
-                NavigationLink("Find Friends") {
-                    // Navigate to friends search
-                    Text("Friends Search") // Placeholder
-                }
-                .buttonStyle(.bordered)
-                .buttonBorderShape(.capsule)
+            Button {
+                showingCreatePost = true
+            } label: {
+                Label("Create Post", systemImage: "plus.circle.fill")
+                    .font(.headline)
+                    .foregroundColor(.white)
+                    .padding()
+                    .background(Color.blue)
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
             }
         }
-        .padding(.horizontal, 40)
+        .padding()
     }
-}
 
-// MARK: - Feed Filter Options
+    // MARK: - Actions
 
-enum FeedFilter: String, CaseIterable {
-    case all = "All Posts"
-    case closeFriends = "Close Friends"
-    case media = "Media Only"
-    case recent = "Most Recent"
-
-    var icon: String {
-        switch self {
-        case .all: return "list.bullet"
-        case .closeFriends: return "heart.fill"
-        case .media: return "photo"
-        case .recent: return "clock"
+    private func loadFeedIfNeeded() async {
+        if postsViewModel.posts.isEmpty && !postsViewModel.isLoading {
+            await postsViewModel.loadFeed()
         }
+    }
+
+    private func refreshFeed() async {
+        await postsViewModel.refreshFeed()
+    }
+
+    private func toggleLike(for post: Post) async {
+        await postsViewModel.toggleLike(for: post)
+    }
+
+    private func showComments(for post: Post) {
+        // TODO: Navigate to comments view
+        print("Show comments for post \(post.id)")
+    }
+
+    private func sharePost(_ post: Post) {
+        // TODO: Implement native sharing
+        print("Share post \(post.id)")
+    }
+
+    private func showUserProfile(for user: UserBasic) {
+        // TODO: Navigate to user profile view
+        print("Show user profile for user \(user.id)")
     }
 }
 

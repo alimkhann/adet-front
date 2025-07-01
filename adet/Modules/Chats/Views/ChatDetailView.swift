@@ -64,7 +64,7 @@ struct ChatDetailView: View {
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .tabBar)
-        .toolbar {
+        .toolbar(content: {
             ToolbarItem(placement: .principal) {
                 NavigationLink(destination: OtherUserProfileView(userId: conversation.otherParticipant.id).environmentObject(authViewModel)) {
                     VStack(spacing: 2) {
@@ -82,7 +82,7 @@ struct ChatDetailView: View {
                 }
                 .buttonStyle(PlainButtonStyle())
             }
-        }
+        })
         .task {
             #if DEBUG
             // For development, load mock data first
@@ -236,7 +236,8 @@ struct ChatDetailView: View {
                 otherParticipant: UserBasic(
                     id: 2,
                     username: "sarah_wellness",
-                    name: "Sarah Johnson",
+                    firstName: "Sarah",
+                    lastName: "Johnson",
                     bio: "Wellness Enthusiast",
                     profileImageUrl: nil
                 ),

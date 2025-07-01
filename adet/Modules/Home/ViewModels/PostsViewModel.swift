@@ -10,6 +10,7 @@ class PostsViewModel: ObservableObject {
     @Published var isLoadingMyPosts = false
     @Published var isCreatingPost = false
     @Published var errorMessage: String?
+    @Published var showError = false
     @Published var hasMorePosts = false
 
     // Pagination
@@ -22,6 +23,10 @@ class PostsViewModel: ObservableObject {
 
     // Cache for viewed posts to avoid duplicate API calls
     private var viewedPostIds: Set<Int> = []
+
+    // MARK: - Convenience Properties for Profile
+    var personalPosts: [Post] { myPosts }
+    var isLoading: Bool { isLoadingMyPosts || isLoadingFeed }
 
     init() {
         setupNotifications()
@@ -39,8 +44,10 @@ class PostsViewModel: ObservableObject {
             object: nil,
             queue: .main
         ) { [weak self] notification in
-            if let post = notification.object as? Post {
-                self?.handleNewPost(post)
+            Task { @MainActor in
+                if let post = notification.object as? Post {
+                    self?.handleNewPost(post)
+                }
             }
         }
 
@@ -49,13 +56,46 @@ class PostsViewModel: ObservableObject {
             object: nil,
             queue: .main
         ) { [weak self] notification in
-            if let postId = notification.object as? Int {
-                self?.handleDeletedPost(postId)
+            Task { @MainActor in
+                if let postId = notification.object as? Int {
+                    self?.handleDeletedPost(postId)
+                }
             }
         }
     }
 
+    // MARK: - Convenience Methods for Profile
+
+    func loadPersonalPosts() async {
+        await loadMyPosts(refresh: true)
+    }
+
+    func toggleLike(postId: Int) async {
+        guard let post = getPost(by: postId) else { return }
+        await toggleLike(for: post)
+    }
+
+    func markAsViewed(postId: Int) async {
+        guard let post = getPost(by: postId) else { return }
+        await markPostAsViewed(post)
+    }
+
     // MARK: - Feed Operations
+
+    func loadFeed() async {
+        await loadFeedPosts(refresh: true)
+    }
+
+    func refreshFeed() async {
+        await loadFeedPosts(refresh: true)
+    }
+
+    func loadMorePosts() async {
+        await loadMoreFeedPosts()
+    }
+
+    // Alias for compatibility
+    var posts: [Post] { feedPosts }
 
     func loadFeedPosts(refresh: Bool = false) async {
         guard !isLoadingFeed else { return }
@@ -331,6 +371,22 @@ class PostsViewModel: ObservableObject {
     func canEditPost(_ post: Post, currentUserId: Int) -> Bool {
         return post.userId == currentUserId
     }
+
+    private func showErrorMessage(_ message: String) {
+        errorMessage = message
+        showError = true
+        logger.error("\(message)")
+    }
+
+    private func showSuccessMessage(_ message: String) {
+        logger.info("\(message)")
+    }
+
+    // MARK: - Computed Properties for Privacy Selection
+
+    var privacyOptions: [PostPrivacy] {
+        PostPrivacy.allCases
+    }
 }
 
 // MARK: - Notification Names
@@ -374,18 +430,19 @@ extension Post {
         }
     }
 
-    var privacyIcon: String {
-        switch privacy {
-        case .private:
-            return "lock.fill"
-        case .friends:
-            return "person.2.fill"
-        case .closeFriends:
-            return "heart.fill"
-        }
-    }
+
 
     var engagementCount: Int {
         return likesCount + commentsCount
     }
+}
+
+// MARK: - Preview Support
+
+extension PostsViewModel {
+    static let preview: PostsViewModel = {
+        let vm = PostsViewModel()
+        // Add some mock data for previews if needed
+        return vm
+    }()
 }

@@ -101,7 +101,7 @@ struct OtherUserProfileView: View {
                         id: user.id,
                         clerkId: "",
                         email: "",
-                        name: user.name,
+                        name: user.displayName,
                         username: user.username,
                         bio: user.bio,
                         profileImageUrl: user.profileImageUrl,

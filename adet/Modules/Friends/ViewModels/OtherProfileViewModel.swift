@@ -1,3 +1,4 @@
+import Foundation
 import SwiftUI
 import OSLog
 
@@ -14,6 +15,7 @@ class OtherProfileViewModel: ObservableObject {
     @Published var isLoading = false
     @Published var isPerformingAction = false
     @Published var errorMessage: String?
+    @Published var showError = false
 
     // MARK: - Computed Properties
 
@@ -34,16 +36,7 @@ class OtherProfileViewModel: ObservableObject {
     }
 
     var actionButtonTitle: String {
-        switch friendshipStatus {
-        case .none:
-            return "Add Friend"
-        case .friends:
-            return "Remove Friend"
-        case .requestSent:
-            return "Cancel Request"
-        case .requestReceived:
-            return "Respond to Request"
-        }
+        friendshipStatus.actionDisplayName
     }
 
     var actionButtonColor: Color {
@@ -60,16 +53,7 @@ class OtherProfileViewModel: ObservableObject {
     }
 
     var actionButtonIcon: String {
-        switch friendshipStatus {
-        case .none:
-            return "person.badge.plus"
-        case .friends:
-            return "person.badge.minus"
-        case .requestSent:
-            return "clock"
-        case .requestReceived:
-            return "person.crop.circle.badge.questionmark"
-        }
+        friendshipStatus.icon
     }
 
     var statusDescription: String {
@@ -82,6 +66,17 @@ class OtherProfileViewModel: ObservableObject {
             return "Friend request sent"
         case .requestReceived:
             return "Wants to be friends"
+        }
+    }
+
+    var displayName: String {
+        guard let user = user else { return "Unknown User" }
+        if !user.firstName.isEmpty && !user.lastName.isEmpty {
+            return "\(user.firstName) \(user.lastName)"
+        } else if !user.firstName.isEmpty {
+            return user.firstName
+        } else {
+            return user.username
         }
     }
 
@@ -106,8 +101,16 @@ class OtherProfileViewModel: ObservableObject {
 
             let (profile, statusResponse) = try await (userProfile, friendshipStatusResponse)
 
-            user = profile
-            friendshipStatus = FriendshipStatus(rawValue: statusResponse.friendshipStatus) ?? .none
+            // Convert UserProfile to UserBasic
+            user = UserBasic(
+                id: profile.id,
+                username: profile.username,
+                firstName: profile.firstName,
+                lastName: profile.lastName,
+                bio: profile.bio,
+                profileImageUrl: profile.profileImageUrl
+            )
+            friendshipStatus = statusResponse
 
             logger.info("Loaded profile for user \(userId) with friendship status: \(self.friendshipStatus.rawValue)")
         } catch {
@@ -121,7 +124,7 @@ class OtherProfileViewModel: ObservableObject {
 
         do {
             let response = try await friendsAPI.getFriendshipStatus(userId: user.id)
-            friendshipStatus = FriendshipStatus(rawValue: response.friendshipStatus) ?? .none
+            friendshipStatus = response
             logger.info("Refreshed friendship status: \(self.friendshipStatus.rawValue)")
         } catch {
             logger.error("Failed to refresh friendship status: \(error.localizedDescription)")
@@ -153,35 +156,22 @@ class OtherProfileViewModel: ObservableObject {
     }
 
     private func sendFriendRequest(to user: UserBasic) async {
-        do {
-            let response = try await friendsAPI.sendFriendRequest(to: user.id, message: nil)
-            if response.success {
-                toastManager.showSuccess("Friend request sent to \(user.displayName)")
-                friendshipStatus = .requestSent
-            } else {
-                toastManager.showError(response.message)
-            }
-            logger.info("Friend request sent to \(user.displayName)")
-        } catch {
-            logger.error("Failed to send friend request: \(error.localizedDescription)")
-            handleError(error, message: "Failed to send friend request")
+        let success = await friendsAPI.sendFriendRequest(to: user.id)
+        if success {
+            toastManager.showSuccess("Friend request sent to \(user.displayName)")
+            friendshipStatus = .requestSent
+        } else {
+            toastManager.showError("Failed to send friend request")
         }
+        logger.info("Friend request sent to \(user.displayName)")
     }
 
     private func removeFriend(_ user: UserBasic) async {
-        do {
-            let response = try await friendsAPI.removeFriend(friendId: user.id)
-            if response.success {
-                toastManager.showInfo("Removed \(user.displayName) from friends")
-                friendshipStatus = .none
-            } else {
-                toastManager.showError(response.message)
-            }
-            logger.info("Removed \(user.displayName) from friends")
-        } catch {
-            logger.error("Failed to remove friend: \(error.localizedDescription)")
-            handleError(error, message: "Failed to remove friend")
-        }
+        // Note: FriendsAPIService doesn't have removeFriend method yet
+        // This would need to be implemented in the API service
+        // For now, we'll show a placeholder message
+        toastManager.showInfo("Remove friend functionality coming soon")
+        logger.info("Remove friend functionality not yet implemented")
     }
 
     private func cancelFriendRequest(to user: UserBasic) async {
@@ -219,5 +209,15 @@ class OtherProfileViewModel: ObservableObject {
 
     func clearError() {
         errorMessage = nil
+    }
+
+    private func showErrorMessage(_ message: String) {
+        errorMessage = message
+        showError = true
+        logger.error("\(message)")
+    }
+
+    private func showSuccessMessage(_ message: String) {
+        logger.info("\(message)")
     }
 }

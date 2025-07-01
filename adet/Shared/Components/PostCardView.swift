@@ -38,17 +38,32 @@ struct PostCardView: View {
                         onView()
                     }
                 }
+            } else {
+                // Text and Audio posts
+                PostContentView(post: post)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 8)
+                    .onAppear {
+                        if !hasAppeared {
+                            hasAppeared = true
+                            onView()
+                        }
+                    }
             }
 
             // Interaction buttons
             PostActionsView(
+                post: post,
                 isLiked: post.isLikedByCurrentUser,
                 likesCount: post.likesCount,
                 commentsCount: post.commentsCount,
                 viewsCount: post.viewsCount,
                 onLike: onLike,
                 onComment: onComment,
-                onShare: onShare
+                onShare: {
+                    onShare()
+                    SharingHelper.shared.sharePost(post)
+                }
             )
             .padding(.horizontal, 16)
             .padding(.top, 12)
@@ -65,7 +80,7 @@ struct PostCardView: View {
 
             // Habit info if linked
             if let habitId = post.habitId {
-                PostHabitInfoView(habitId: habitId)
+                PostHabitInfoView(habitId: habitId, streak: post.habitStreak)
                     .padding(.horizontal, 16)
                     .padding(.top, 8)
             }
@@ -165,6 +180,132 @@ struct PostHeaderView: View {
     private func getCurrentUserId() -> Int {
         // TODO: Get from AuthService or UserDefaults
         return 1
+    }
+}
+
+// MARK: - Content Component for Text/Audio Posts
+
+struct PostContentView: View {
+    let post: Post
+
+    var body: some View {
+        switch post.proofType {
+        case .text:
+            TextProofView(content: post.proofUrls.first ?? "")
+        case .audio:
+            AudioProofView(audioUrl: post.proofUrls.first ?? "")
+        default:
+            EmptyView()
+        }
+    }
+}
+
+struct TextProofView: View {
+    let content: String
+
+    var body: some View {
+        VStack(spacing: 12) {
+            HStack {
+                Image(systemName: "quote.opening")
+                    .foregroundColor(.blue)
+                    .font(.title3)
+                Spacer()
+                Image(systemName: "text.alignleft")
+                    .foregroundColor(.blue)
+                    .font(.caption)
+            }
+
+            Text(content)
+                .font(.body)
+                .multilineTextAlignment(.center)
+                .padding(.vertical, 8)
+
+            HStack {
+                Spacer()
+                Image(systemName: "quote.closing")
+                    .foregroundColor(.blue)
+                    .font(.title3)
+            }
+        }
+        .padding(20)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(
+                    LinearGradient(
+                        colors: [Color.blue.opacity(0.05), Color.blue.opacity(0.1)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(Color.blue.opacity(0.2), lineWidth: 1)
+        )
+    }
+}
+
+struct AudioProofView: View {
+    let audioUrl: String
+    @State private var isPlaying = false
+    @State private var duration: TimeInterval = 45 // Mock duration
+    @State private var currentTime: TimeInterval = 0
+
+    var body: some View {
+        HStack(spacing: 16) {
+            Button(action: {
+                isPlaying.toggle()
+                // Handle audio playback
+            }) {
+                Circle()
+                    .fill(Color.blue)
+                    .frame(width: 50, height: 50)
+                    .overlay(
+                        Image(systemName: isPlaying ? "pause.fill" : "play.fill")
+                            .foregroundColor(.white)
+                            .font(.title3)
+                    )
+            }
+            .buttonStyle(PlainButtonStyle())
+
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    HStack(spacing: 4) {
+                        Image(systemName: "waveform")
+                            .foregroundColor(.blue)
+                            .font(.caption)
+                        Text("Audio Proof")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                    }
+
+                    Spacer()
+
+                    Text(formatTime(duration))
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+
+                // Waveform visualization (simplified)
+                HStack(spacing: 2) {
+                    ForEach(0..<20, id: \.self) { index in
+                        RoundedRectangle(cornerRadius: 1)
+                            .fill(index < Int(currentTime / duration * 20) ? Color.blue : Color.gray.opacity(0.3))
+                            .frame(width: 3, height: CGFloat.random(in: 8...24))
+                    }
+                }
+                .frame(height: 24)
+            }
+        }
+        .padding(16)
+        .background(Color(.systemGray6))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+    }
+
+    private func formatTime(_ time: TimeInterval) -> String {
+        let minutes = Int(time) / 60
+        let seconds = Int(time) % 60
+        return String(format: "%d:%02d", minutes, seconds)
     }
 }
 
@@ -281,6 +422,7 @@ struct SingleMediaView: View {
 // MARK: - Actions Component
 
 struct PostActionsView: View {
+    let post: Post
     let isLiked: Bool
     let likesCount: Int
     let commentsCount: Int
@@ -363,11 +505,11 @@ struct PostDescriptionView: View {
                     .font(.body)
                     .fixedSize(horizontal: false, vertical: true)
             } else {
-                Text(description.prefix(characterLimit) + "...")
+                (Text(description.prefix(characterLimit) + "...")
                     .font(.body)
                 + Text(" more")
                     .font(.body)
-                    .foregroundColor(.blue)
+                    .foregroundColor(.blue))
                     .onTapGesture {
                         withAnimation(.easeInOut(duration: 0.3)) {
                             showFull = true
@@ -393,23 +535,66 @@ struct PostDescriptionView: View {
 
 struct PostHabitInfoView: View {
     let habitId: Int
+    let streak: Int?
 
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 12) {
             Image(systemName: "target")
                 .foregroundColor(.blue)
-                .font(.caption)
+                .font(.callout)
 
-            Text("Linked to habit")
-                .font(.caption)
-                .foregroundColor(.blue)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Linked to habit")
+                    .font(.subheadline)
+                    .foregroundColor(.blue)
+                    .fontWeight(.medium)
+
+                if let streak = streak, streak > 0 {
+                    HStack(spacing: 4) {
+                        Image(systemName: "flame.fill")
+                            .foregroundColor(.orange)
+                            .font(.caption)
+                        Text("\(streak) day streak")
+                            .font(.caption)
+                            .foregroundColor(.orange)
+                            .fontWeight(.semibold)
+                    }
+                }
+            }
 
             Spacer()
+
+            // Streak celebration for milestones
+            if let streak = streak, [7, 30, 100].contains(streak) {
+                HStack(spacing: 4) {
+                    Image(systemName: "star.fill")
+                        .foregroundColor(.yellow)
+                        .font(.caption)
+                    Text("Milestone!")
+                        .font(.caption)
+                        .foregroundColor(.yellow)
+                        .fontWeight(.semibold)
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(Color.yellow.opacity(0.1))
+                .clipShape(Capsule())
+            }
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 6)
-        .background(Color.blue.opacity(0.1))
-        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .background(
+            LinearGradient(
+                colors: [Color.blue.opacity(0.08), Color.blue.opacity(0.12)],
+                startPoint: .leading,
+                endPoint: .trailing
+            )
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(Color.blue.opacity(0.2), lineWidth: 1)
+        )
     }
 }
 
@@ -463,37 +648,7 @@ struct AudioPlayerView: View {
 
 // MARK: - Extensions
 
-extension PostPrivacy {
-    var displayName: String {
-        switch self {
-        case .private: return "Private"
-        case .friends: return "Friends"
-        case .closeFriends: return "Close Friends"
-        }
-    }
-
-    var icon: String {
-        switch self {
-        case .private: return "lock.fill"
-        case .friends: return "person.2.fill"
-        case .closeFriends: return "heart.fill"
-        }
-    }
-}
-
-extension UserBasic {
-    var displayName: String {
-        if !firstName.isEmpty && !lastName.isEmpty {
-            return "\(firstName) \(lastName)"
-        } else if !firstName.isEmpty {
-            return firstName
-        } else if !username.isEmpty {
-            return username
-        } else {
-            return "User"
-        }
-    }
-}
+// Note: PostPrivacy and UserBasic extensions are already defined in their respective model files
 
 #Preview {
     let samplePost = Post(
@@ -514,8 +669,10 @@ extension UserBasic {
             username: "johndoe",
             firstName: "John",
             lastName: "Doe",
+            bio: nil,
             profileImageUrl: nil
         ),
+        habitStreak: 15,
         isLikedByCurrentUser: false,
         isViewedByCurrentUser: false
     )
@@ -529,5 +686,4 @@ extension UserBasic {
         onUserTap: {}
     )
     .padding()
-    .previewLayout(.sizeThatFits)
 }

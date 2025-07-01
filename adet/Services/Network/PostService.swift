@@ -1,286 +1,619 @@
 import Foundation
-import OSLog
 
-actor PostService {
+class PostService: ObservableObject {
     static let shared = PostService()
-    private let networkService = NetworkService.shared
-    private let logger = Logger(subsystem: "com.adet.api", category: "PostService")
+
+    private let baseURL = "http://localhost:8000/api/v1"
+    private let session = URLSession.shared
 
     private init() {}
 
-    // MARK: - Feed Operations
+    // MARK: - Create Post
 
-    /// Get feed posts (3-day window, BeReal style)
-    func getFeedPosts(cursor: String? = nil) async throws -> PostsResponse {
-        logger.info("Fetching feed posts")
-        var endpoint = "/api/v1/posts/feed"
+    func createPost(
+        habitId: Int?,
+        proofUrls: [String],
+        proofType: ProofType,
+        description: String,
+        privacy: PostPrivacy
+    ) async throws -> Post {
+        let url = URL(string: "\(baseURL)/posts")!
 
-        if let cursor = cursor {
-            endpoint += "?cursor=\(cursor)"
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        // Add authorization header
+        if let token = await AuthService.shared.getValidToken() {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
-        return try await networkService.makeAuthenticatedRequest(
-            endpoint: endpoint,
-            method: "GET",
-            body: (nil as String?)
+        let requestBody = CreatePostRequest(
+            habitId: habitId,
+            proofUrls: proofUrls,
+            proofType: proofType,
+            description: description,
+            privacy: privacy
         )
-    }
 
-    /// Get posts for a specific user
-    func getUserPosts(userId: Int, cursor: String? = nil) async throws -> PostsResponse {
-        logger.info("Fetching posts for user \(userId)")
-        var endpoint = "/api/v1/posts/user/\(userId)"
+        request.httpBody = try JSONEncoder().encode(requestBody)
 
-        if let cursor = cursor {
-            endpoint += "?cursor=\(cursor)"
+        let (data, response) = try await session.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw NetworkError.requestFailed(statusCode: 0, body: "Invalid response")
         }
 
-        return try await networkService.makeAuthenticatedRequest(
-            endpoint: endpoint,
-            method: "GET",
-            body: (nil as String?)
-        )
-    }
-
-    /// Get current user's posts (including private)
-    func getMyPosts(cursor: String? = nil) async throws -> PostsResponse {
-        logger.info("Fetching my posts")
-        var endpoint = "/api/v1/posts/me"
-
-        if let cursor = cursor {
-            endpoint += "?cursor=\(cursor)"
-        }
-
-        return try await networkService.makeAuthenticatedRequest(
-            endpoint: endpoint,
-            method: "GET",
-            body: (nil as String?)
-        )
-    }
-
-    // MARK: - Post CRUD Operations
-
-    /// Create a new post
-    func createPost(_ postData: PostCreate) async throws -> PostActionResponse {
-        logger.info("Creating new post")
-        return try await networkService.makeAuthenticatedRequest(
-            endpoint: "/api/v1/posts",
-            method: "POST",
-            body: postData
-        )
-    }
-
-    /// Get a specific post by ID
-    func getPost(id: Int) async throws -> Post {
-        logger.info("Fetching post \(id)")
-        return try await networkService.makeAuthenticatedRequest(
-            endpoint: "/api/v1/posts/\(id)",
-            method: "GET",
-            body: (nil as String?)
-        )
-    }
-
-    /// Update a post (privacy and description only)
-    func updatePost(id: Int, updateData: PostUpdate) async throws -> PostActionResponse {
-        logger.info("Updating post \(id)")
-        return try await networkService.makeAuthenticatedRequest(
-            endpoint: "/api/v1/posts/\(id)",
-            method: "PUT",
-            body: updateData
-        )
-    }
-
-    /// Delete a post (admin only)
-    func deletePost(id: Int) async throws -> PostActionResponse {
-        logger.info("Deleting post \(id)")
-        return try await networkService.makeAuthenticatedRequest(
-            endpoint: "/api/v1/posts/\(id)",
-            method: "DELETE",
-            body: (nil as String?)
-        )
-    }
-
-    // MARK: - Like Operations
-
-    /// Toggle like on a post
-    func togglePostLike(postId: Int) async throws -> LikeActionResponse {
-        logger.info("Toggling like for post \(postId)")
-        return try await networkService.makeAuthenticatedRequest(
-            endpoint: "/api/v1/posts/\(postId)/like",
-            method: "POST",
-            body: (nil as String?)
-        )
-    }
-
-    /// Toggle like on a comment
-    func toggleCommentLike(commentId: Int) async throws -> LikeActionResponse {
-        logger.info("Toggling like for comment \(commentId)")
-        return try await networkService.makeAuthenticatedRequest(
-            endpoint: "/api/v1/posts/comments/\(commentId)/like",
-            method: "POST",
-            body: (nil as String?)
-        )
-    }
-
-    /// Get users who liked a post
-    func getPostLikes(postId: Int) async throws -> [PostLike] {
-        logger.info("Fetching likes for post \(postId)")
-        return try await networkService.makeAuthenticatedRequest(
-            endpoint: "/api/v1/posts/\(postId)/likes",
-            method: "GET",
-            body: (nil as String?)
-        )
-    }
-
-    // MARK: - Comment Operations
-
-    /// Get comments for a post
-    func getPostComments(postId: Int, cursor: String? = nil) async throws -> PostCommentsResponse {
-        logger.info("Fetching comments for post \(postId)")
-        var endpoint = "/api/v1/posts/\(postId)/comments"
-
-        if let cursor = cursor {
-            endpoint += "?cursor=\(cursor)"
-        }
-
-        return try await networkService.makeAuthenticatedRequest(
-            endpoint: endpoint,
-            method: "GET",
-            body: (nil as String?)
-        )
-    }
-
-    /// Create a new comment
-    func createComment(_ commentData: PostCommentCreate) async throws -> CommentActionResponse {
-        logger.info("Creating comment for post \(commentData.postId)")
-        return try await networkService.makeAuthenticatedRequest(
-            endpoint: "/api/v1/posts/comments",
-            method: "POST",
-            body: commentData
-        )
-    }
-
-    /// Get replies to a comment
-    func getCommentReplies(commentId: Int, cursor: String? = nil) async throws -> PostCommentsResponse {
-        logger.info("Fetching replies for comment \(commentId)")
-        var endpoint = "/api/v1/posts/comments/\(commentId)/replies"
-
-        if let cursor = cursor {
-            endpoint += "?cursor=\(cursor)"
-        }
-
-        return try await networkService.makeAuthenticatedRequest(
-            endpoint: endpoint,
-            method: "GET",
-            body: (nil as String?)
-        )
-    }
-
-    /// Delete a comment
-    func deleteComment(id: Int) async throws -> CommentActionResponse {
-        logger.info("Deleting comment \(id)")
-        return try await networkService.makeAuthenticatedRequest(
-            endpoint: "/api/v1/posts/comments/\(id)",
-            method: "DELETE",
-            body: (nil as String?)
-        )
-    }
-
-    // MARK: - Analytics Operations
-
-    /// Mark post as viewed
-    func markPostAsViewed(postId: Int) async throws {
-        logger.debug("Marking post \(postId) as viewed")
-        let _: PostActionResponse = try await networkService.makeAuthenticatedRequest(
-            endpoint: "/api/v1/posts/\(postId)/view",
-            method: "POST",
-            body: (nil as String?)
-        )
-    }
-
-    /// Get post analytics
-    func getPostAnalytics(postId: Int) async throws -> PostAnalytics {
-        logger.info("Fetching analytics for post \(postId)")
-        return try await networkService.makeAuthenticatedRequest(
-            endpoint: "/api/v1/posts/\(postId)/analytics",
-            method: "GET",
-            body: (nil as String?)
-        )
-    }
-
-    // MARK: - Media Upload Operations
-
-    /// Upload media files for a post
-    func uploadPostMedia(_ mediaData: [Data], types: [ProofType]) async throws -> [String] {
-        logger.info("Uploading \(mediaData.count) media files")
-
-        var uploadedUrls: [String] = []
-
-        for (index, data) in mediaData.enumerated() {
-            let type = types[safe: index] ?? .image
-            let url = try await uploadSingleMedia(data, type: type)
-            uploadedUrls.append(url)
-        }
-
-        return uploadedUrls
-    }
-
-    /// Upload a single media file
-    private func uploadSingleMedia(_ data: Data, type: ProofType) async throws -> String {
-        // This would integrate with your media upload service (Azure, AWS, etc.)
-        // For now, return a placeholder URL
-        let mediaId = UUID().uuidString
-        return "https://media.adet.app/posts/\(mediaId).\(type.fileExtension)"
-    }
-
-    // MARK: - Batch Operations
-
-    /// Mark multiple posts as viewed (for feed scrolling)
-    func markPostsAsViewed(postIds: [Int]) async throws {
-        logger.debug("Marking \(postIds.count) posts as viewed")
-
-        let requestBody = ["post_ids": postIds]
-
-        let _: PostActionResponse = try await networkService.makeAuthenticatedRequest(
-            endpoint: "/api/v1/posts/batch/view",
-            method: "POST",
-            body: requestBody
-        )
-    }
-
-    /// Preload posts for better UX
-    func preloadPosts(postIds: [Int]) async {
-        // Cache posts for faster loading
-        for postId in postIds {
-            do {
-                let _ = try await getPost(id: postId)
-                logger.debug("Preloaded post \(postId)")
-            } catch {
-                logger.warning("Failed to preload post \(postId): \(error.localizedDescription)")
+        guard httpResponse.statusCode == 201 else {
+            if let errorData = try? JSONDecoder().decode(APIError.self, from: data) {
+                throw NetworkError.requestFailed(statusCode: httpResponse.statusCode, body: errorData.detail)
             }
+            throw NetworkError.requestFailed(statusCode: httpResponse.statusCode, body: nil)
+        }
+
+        return try JSONDecoder().decode(Post.self, from: data)
+    }
+
+    // MARK: - Get Feed
+
+    func getFeed(limit: Int = 20, offset: Int = 0) async throws -> [Post] {
+        var components = URLComponents(string: "\(baseURL)/posts/feed")!
+        components.queryItems = [
+            URLQueryItem(name: "limit", value: String(limit)),
+            URLQueryItem(name: "offset", value: String(offset))
+        ]
+
+        guard let url = components.url else {
+            throw NetworkError.invalidURL
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+
+        // Add authorization header
+        if let token = await AuthService.shared.getValidToken() {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        let (data, response) = try await session.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw NetworkError.requestFailed(statusCode: 0, body: "Invalid response")
+        }
+
+        guard httpResponse.statusCode == 200 else {
+            if let errorData = try? JSONDecoder().decode(APIError.self, from: data) {
+                throw NetworkError.requestFailed(statusCode: httpResponse.statusCode, body: errorData.detail)
+            }
+            throw NetworkError.requestFailed(statusCode: httpResponse.statusCode, body: nil)
+        }
+
+        return try JSONDecoder().decode([Post].self, from: data)
+    }
+
+    // MARK: - Get Feed Posts (with pagination)
+
+    func getFeedPosts(cursor: String? = nil, limit: Int = 20) async throws -> PostsResponse {
+        var components = URLComponents(string: "\(baseURL)/posts/feed")!
+        var queryItems = [URLQueryItem(name: "limit", value: String(limit))]
+
+        if let cursor = cursor {
+            queryItems.append(URLQueryItem(name: "cursor", value: cursor))
+        }
+
+        components.queryItems = queryItems
+
+        guard let url = components.url else {
+            throw NetworkError.invalidURL
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+
+        if let token = await AuthService.shared.getValidToken() {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        let (data, response) = try await session.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw NetworkError.requestFailed(statusCode: 0, body: "Invalid response")
+        }
+
+        guard httpResponse.statusCode == 200 else {
+            if let errorData = try? JSONDecoder().decode(APIError.self, from: data) {
+                throw NetworkError.requestFailed(statusCode: httpResponse.statusCode, body: errorData.detail)
+            }
+            throw NetworkError.requestFailed(statusCode: httpResponse.statusCode, body: nil)
+        }
+
+        return try JSONDecoder().decode(PostsResponse.self, from: data)
+    }
+
+    // MARK: - Get My Posts
+
+    func getMyPosts(cursor: String? = nil, limit: Int = 20) async throws -> PostsResponse {
+        var components = URLComponents(string: "\(baseURL)/posts/me")!
+        var queryItems = [URLQueryItem(name: "limit", value: String(limit))]
+
+        if let cursor = cursor {
+            queryItems.append(URLQueryItem(name: "cursor", value: cursor))
+        }
+
+        components.queryItems = queryItems
+
+        guard let url = components.url else {
+            throw NetworkError.invalidURL
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+
+        if let token = await AuthService.shared.getValidToken() {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        let (data, response) = try await session.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw NetworkError.requestFailed(statusCode: 0, body: "Invalid response")
+        }
+
+        guard httpResponse.statusCode == 200 else {
+            if let errorData = try? JSONDecoder().decode(APIError.self, from: data) {
+                throw NetworkError.requestFailed(statusCode: httpResponse.statusCode, body: errorData.detail)
+            }
+            throw NetworkError.requestFailed(statusCode: httpResponse.statusCode, body: nil)
+        }
+
+        return try JSONDecoder().decode(PostsResponse.self, from: data)
+    }
+
+    // MARK: - Create Post (updated)
+
+    func createPost(_ postData: PostCreate) async throws -> PostActionResponse {
+        let url = URL(string: "\(baseURL)/posts")!
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        if let token = await AuthService.shared.getValidToken() {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        request.httpBody = try JSONEncoder().encode(postData)
+
+        let (data, response) = try await session.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw NetworkError.requestFailed(statusCode: 0, body: "Invalid response")
+        }
+
+        guard httpResponse.statusCode == 201 else {
+            if let errorData = try? JSONDecoder().decode(APIError.self, from: data) {
+                throw NetworkError.requestFailed(statusCode: httpResponse.statusCode, body: errorData.detail)
+            }
+            throw NetworkError.requestFailed(statusCode: httpResponse.statusCode, body: nil)
+        }
+
+        return try JSONDecoder().decode(PostActionResponse.self, from: data)
+    }
+
+    // MARK: - Toggle Post Like
+
+    func togglePostLike(postId: Int) async throws -> LikeActionResponse {
+        let url = URL(string: "\(baseURL)/posts/\(postId)/like")!
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+
+        if let token = await AuthService.shared.getValidToken() {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        let (data, response) = try await session.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw NetworkError.requestFailed(statusCode: 0, body: "Invalid response")
+        }
+
+        guard httpResponse.statusCode == 200 else {
+            if let errorData = try? JSONDecoder().decode(APIError.self, from: data) {
+                throw NetworkError.requestFailed(statusCode: httpResponse.statusCode, body: errorData.detail)
+            }
+            throw NetworkError.requestFailed(statusCode: httpResponse.statusCode, body: nil)
+        }
+
+        return try JSONDecoder().decode(LikeActionResponse.self, from: data)
+    }
+
+    // MARK: - Mark Post as Viewed
+
+    func markPostAsViewed(postId: Int) async throws {
+        let url = URL(string: "\(baseURL)/posts/\(postId)/view")!
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+
+        if let token = await AuthService.shared.getValidToken() {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        let (_, response) = try await session.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw NetworkError.requestFailed(statusCode: 0, body: "Invalid response")
+        }
+
+        guard httpResponse.statusCode == 201 else {
+            throw NetworkError.requestFailed(statusCode: httpResponse.statusCode, body: nil)
+        }
+    }
+
+    // MARK: - Update Post
+
+    func updatePost(id: Int, updateData: PostUpdate) async throws -> PostActionResponse {
+        let url = URL(string: "\(baseURL)/posts/\(id)")!
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "PUT"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        if let token = await AuthService.shared.getValidToken() {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        request.httpBody = try JSONEncoder().encode(updateData)
+
+        let (data, response) = try await session.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw NetworkError.requestFailed(statusCode: 0, body: "Invalid response")
+        }
+
+        guard httpResponse.statusCode == 200 else {
+            if let errorData = try? JSONDecoder().decode(APIError.self, from: data) {
+                throw NetworkError.requestFailed(statusCode: httpResponse.statusCode, body: errorData.detail)
+            }
+            throw NetworkError.requestFailed(statusCode: httpResponse.statusCode, body: nil)
+        }
+
+        return try JSONDecoder().decode(PostActionResponse.self, from: data)
+    }
+
+    // MARK: - Get Post Analytics
+
+    func getPostAnalytics(postId: Int) async throws -> PostAnalytics {
+        let url = URL(string: "\(baseURL)/posts/\(postId)/analytics")!
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+
+        if let token = await AuthService.shared.getValidToken() {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        let (data, response) = try await session.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw NetworkError.requestFailed(statusCode: 0, body: "Invalid response")
+        }
+
+        guard httpResponse.statusCode == 200 else {
+            if let errorData = try? JSONDecoder().decode(APIError.self, from: data) {
+                throw NetworkError.requestFailed(statusCode: httpResponse.statusCode, body: errorData.detail)
+            }
+            throw NetworkError.requestFailed(statusCode: httpResponse.statusCode, body: nil)
+        }
+
+        return try JSONDecoder().decode(PostAnalytics.self, from: data)
+    }
+
+    // MARK: - Get Post Comments (updated)
+
+    func getPostComments(postId: Int, cursor: String? = nil, limit: Int = 20) async throws -> PostCommentsResponse {
+        var components = URLComponents(string: "\(baseURL)/posts/\(postId)/comments")!
+        var queryItems = [URLQueryItem(name: "limit", value: String(limit))]
+
+        if let cursor = cursor {
+            queryItems.append(URLQueryItem(name: "cursor", value: cursor))
+        }
+
+        components.queryItems = queryItems
+
+        guard let url = components.url else {
+            throw NetworkError.invalidURL
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+
+        if let token = await AuthService.shared.getValidToken() {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        let (data, response) = try await session.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw NetworkError.requestFailed(statusCode: 0, body: "Invalid response")
+        }
+
+        guard httpResponse.statusCode == 200 else {
+            if let errorData = try? JSONDecoder().decode(APIError.self, from: data) {
+                throw NetworkError.requestFailed(statusCode: httpResponse.statusCode, body: errorData.detail)
+            }
+            throw NetworkError.requestFailed(statusCode: httpResponse.statusCode, body: nil)
+        }
+
+        return try JSONDecoder().decode(PostCommentsResponse.self, from: data)
+    }
+
+    // MARK: - Create Comment (updated)
+
+    func createComment(_ commentData: PostCommentCreate) async throws -> CommentActionResponse {
+        let url = URL(string: "\(baseURL)/posts/\(commentData.postId)/comments")!
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        if let token = await AuthService.shared.getValidToken() {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        request.httpBody = try JSONEncoder().encode(commentData)
+
+        let (data, response) = try await session.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw NetworkError.requestFailed(statusCode: 0, body: "Invalid response")
+        }
+
+        guard httpResponse.statusCode == 201 else {
+            if let errorData = try? JSONDecoder().decode(APIError.self, from: data) {
+                throw NetworkError.requestFailed(statusCode: httpResponse.statusCode, body: errorData.detail)
+            }
+            throw NetworkError.requestFailed(statusCode: httpResponse.statusCode, body: nil)
+        }
+
+        return try JSONDecoder().decode(CommentActionResponse.self, from: data)
+    }
+
+    // MARK: - Toggle Comment Like
+
+    func toggleCommentLike(commentId: Int) async throws -> LikeActionResponse {
+        let url = URL(string: "\(baseURL)/comments/\(commentId)/like")!
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+
+        if let token = await AuthService.shared.getValidToken() {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        let (data, response) = try await session.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw NetworkError.requestFailed(statusCode: 0, body: "Invalid response")
+        }
+
+        guard httpResponse.statusCode == 200 else {
+            if let errorData = try? JSONDecoder().decode(APIError.self, from: data) {
+                throw NetworkError.requestFailed(statusCode: httpResponse.statusCode, body: errorData.detail)
+            }
+            throw NetworkError.requestFailed(statusCode: httpResponse.statusCode, body: nil)
+        }
+
+        return try JSONDecoder().decode(LikeActionResponse.self, from: data)
+    }
+
+    // MARK: - Get User Posts
+
+    func getUserPosts(userId: String, limit: Int = 20, offset: Int = 0) async throws -> [Post] {
+        var components = URLComponents(string: "\(baseURL)/posts/user/\(userId)")!
+        components.queryItems = [
+            URLQueryItem(name: "limit", value: String(limit)),
+            URLQueryItem(name: "offset", value: String(offset))
+        ]
+
+        guard let url = components.url else {
+            throw NetworkError.invalidURL
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+
+        // Add authorization header
+        if let token = await AuthService.shared.getValidToken() {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        let (data, response) = try await session.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw NetworkError.requestFailed(statusCode: 0, body: "Invalid response")
+        }
+
+        guard httpResponse.statusCode == 200 else {
+            if let errorData = try? JSONDecoder().decode(APIError.self, from: data) {
+                throw NetworkError.requestFailed(statusCode: httpResponse.statusCode, body: errorData.detail)
+            }
+            throw NetworkError.requestFailed(statusCode: httpResponse.statusCode, body: nil)
+        }
+
+        return try JSONDecoder().decode([Post].self, from: data)
+    }
+
+    // MARK: - Like Post
+
+    func likePost(postId: Int) async throws -> PostLike {
+        let url = URL(string: "\(baseURL)/posts/\(postId)/like")!
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+
+        // Add authorization header
+        if let token = await AuthService.shared.getValidToken() {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        let (data, response) = try await session.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw NetworkError.requestFailed(statusCode: 0, body: "Invalid response")
+        }
+
+        guard httpResponse.statusCode == 201 else {
+            if let errorData = try? JSONDecoder().decode(APIError.self, from: data) {
+                throw NetworkError.requestFailed(statusCode: httpResponse.statusCode, body: errorData.detail)
+            }
+            throw NetworkError.requestFailed(statusCode: httpResponse.statusCode, body: nil)
+        }
+
+        return try JSONDecoder().decode(PostLike.self, from: data)
+    }
+
+    // MARK: - Unlike Post
+
+    func unlikePost(postId: Int) async throws {
+        let url = URL(string: "\(baseURL)/posts/\(postId)/like")!
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "DELETE"
+
+        // Add authorization header
+        if let token = await AuthService.shared.getValidToken() {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        let (data, response) = try await session.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw NetworkError.requestFailed(statusCode: 0, body: "Invalid response")
+        }
+
+        guard httpResponse.statusCode == 204 else {
+            if let errorData = try? JSONDecoder().decode(APIError.self, from: data) {
+                throw NetworkError.requestFailed(statusCode: httpResponse.statusCode, body: errorData.detail)
+            }
+            throw NetworkError.requestFailed(statusCode: httpResponse.statusCode, body: nil)
+        }
+    }
+
+    // MARK: - Add Comment
+
+    func addComment(postId: Int, content: String) async throws -> PostComment {
+        let url = URL(string: "\(baseURL)/posts/\(postId)/comments")!
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        // Add authorization header
+        if let token = await AuthService.shared.getValidToken() {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        let requestBody = CreateCommentRequest(content: content)
+        request.httpBody = try JSONEncoder().encode(requestBody)
+
+        let (data, response) = try await session.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw NetworkError.requestFailed(statusCode: 0, body: "Invalid response")
+        }
+
+        guard httpResponse.statusCode == 201 else {
+            if let errorData = try? JSONDecoder().decode(APIError.self, from: data) {
+                throw NetworkError.requestFailed(statusCode: httpResponse.statusCode, body: errorData.detail)
+            }
+            throw NetworkError.requestFailed(statusCode: httpResponse.statusCode, body: nil)
+        }
+
+        return try JSONDecoder().decode(PostComment.self, from: data)
+    }
+
+    // MARK: - Get Comments
+
+    func getComments(postId: Int, limit: Int = 20, offset: Int = 0) async throws -> [PostComment] {
+        var components = URLComponents(string: "\(baseURL)/posts/\(postId)/comments")!
+        components.queryItems = [
+            URLQueryItem(name: "limit", value: String(limit)),
+            URLQueryItem(name: "offset", value: String(offset))
+        ]
+
+        guard let url = components.url else {
+            throw NetworkError.invalidURL
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+
+        // Add authorization header
+        if let token = await AuthService.shared.getValidToken() {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        let (data, response) = try await session.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw NetworkError.requestFailed(statusCode: 0, body: "Invalid response")
+        }
+
+        guard httpResponse.statusCode == 200 else {
+            if let errorData = try? JSONDecoder().decode(APIError.self, from: data) {
+                throw NetworkError.requestFailed(statusCode: httpResponse.statusCode, body: errorData.detail)
+            }
+            throw NetworkError.requestFailed(statusCode: httpResponse.statusCode, body: nil)
+        }
+
+        return try JSONDecoder().decode([PostComment].self, from: data)
+    }
+
+    // MARK: - View Post
+
+    func viewPost(postId: Int) async throws {
+        let url = URL(string: "\(baseURL)/posts/\(postId)/view")!
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+
+        // Add authorization header
+        if let token = await AuthService.shared.getValidToken() {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        let (_, response) = try await session.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw NetworkError.requestFailed(statusCode: 0, body: "Invalid response")
+        }
+
+        guard httpResponse.statusCode == 201 else {
+            throw NetworkError.requestFailed(statusCode: httpResponse.statusCode, body: nil)
         }
     }
 }
 
-// MARK: - Helper Extensions
+// MARK: - Request/Response Models
 
-extension ProofType {
-    var fileExtension: String {
-        switch self {
-        case .image:
-            return "jpg"
-        case .video:
-            return "mp4"
-        case .text:
-            return "txt"
-        case .audio:
-            return "m4a"
-        }
+struct CreatePostRequest: Codable {
+    let habitId: Int?
+    let proofUrls: [String]
+    let proofType: ProofType
+    let description: String
+    let privacy: PostPrivacy
+
+    enum CodingKeys: String, CodingKey {
+        case habitId = "habit_id"
+        case proofUrls = "proof_urls"
+        case proofType = "proof_type"
+        case description
+        case privacy
     }
 }
 
-extension Array {
-    subscript(safe index: Index) -> Element? {
-        return indices.contains(index) ? self[index] : nil
-    }
+struct CreateCommentRequest: Codable {
+    let content: String
 }

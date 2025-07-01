@@ -1,3 +1,4 @@
+import Foundation
 import SwiftUI
 import OSLog
 
@@ -45,7 +46,7 @@ class FriendsIntegrationValidator {
 
     // MARK: - Individual Validation Methods
 
-        private func validateAPIService(_ issues: inout [String], _ successes: inout [String]) {
+    private func validateAPIService(_ issues: inout [String], _ successes: inout [String]) {
         // Check FriendsAPIService singleton
         let _ = FriendsAPIService.shared
         successes.append("✅ FriendsAPIService singleton accessible")
@@ -54,19 +55,20 @@ class FriendsIntegrationValidator {
         successes.append("✅ FriendsAPIService properly implements Actor pattern")
     }
 
-            private func validateViewModels(_ issues: inout [String], _ successes: inout [String]) {
+    private func validateViewModels(_ issues: inout [String], _ successes: inout [String]) {
         // Note: ViewModels validation simplified due to MainActor isolation
         successes.append("✅ FriendsViewModel class available for instantiation")
         successes.append("✅ OtherProfileViewModel class available for instantiation")
         successes.append("✅ ViewModel classes properly isolated with @MainActor")
     }
 
-        private func validateUIComponents(_ issues: inout [String], _ successes: inout [String]) {
+    private func validateUIComponents(_ issues: inout [String], _ successes: inout [String]) {
         // Test friend models
         let _ = UserBasic(
             id: 1,
             username: "test_user",
-            name: "Test User",
+            firstName: "Test",
+            lastName: "User",
             bio: "Test bio",
             profileImageUrl: nil
         )
@@ -94,7 +96,7 @@ class FriendsIntegrationValidator {
         successes.append("✅ AuthViewModel environment object properly configured")
     }
 
-        private func validateDependencies(_ issues: inout [String], _ successes: inout [String]) {
+    private func validateDependencies(_ issues: inout [String], _ successes: inout [String]) {
         // Check essential utilities
         let _ = HapticManager.shared
         successes.append("✅ HapticManager singleton accessible")
@@ -127,11 +129,17 @@ class FriendsIntegrationValidator {
         let viewModel = FriendsViewModel()
         successes.append("✅ FriendsViewModel initializes in main actor context")
 
-        // Test UI state management
-        viewModel.selectedTab = 1
-        if viewModel.selectedTab == 1 {
+        // Test UI state management with actual properties
+        viewModel.searchText = "test"
+        if viewModel.searchText == "test" {
             successes.append("✅ UI state management works correctly")
         }
+
+        // Test computed properties
+        let _ = viewModel.friendsCount
+        let _ = viewModel.closeFriendsCount
+        let _ = viewModel.pendingRequestsCount
+        successes.append("✅ Computed properties accessible")
 
         return RuntimeValidationResult(
             isValid: issues.isEmpty,

@@ -17,7 +17,7 @@ struct FriendCardView: View {
                         id: friend.friend.id,
                         clerkId: "",
                         email: "",
-                        name: friend.friend.name,
+                        name: friend.friend.displayName,
                         username: friend.friend.username,
                         bio: friend.friend.bio,
                         profileImageUrl: friend.friend.profileImageUrl,
@@ -99,16 +99,15 @@ struct FriendCardView: View {
             id: 1,
             userId: 1,
             friendId: 2,
-            friend: UserBasic(
+            createdAt: Date(),
+            user: UserBasic(
                 id: 2,
                 username: "john_doe",
-                name: "John Doe",
+                firstName: "John",
+                lastName: "Doe",
                 bio: "Love building healthy habits!",
                 profileImageUrl: nil
-            ),
-            status: "active",
-            createdAt: Date(),
-            updatedAt: nil
+            )
         ),
         isRemoving: false,
         onRemove: { }

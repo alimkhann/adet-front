@@ -2,28 +2,22 @@ import SwiftUI
 
 struct PrivacySelectionView: View {
     @Binding var selectedPrivacy: PostPrivacy
-    let onSelectionChanged: ((PostPrivacy) -> Void)?
-
-    init(selectedPrivacy: Binding<PostPrivacy>, onSelectionChanged: ((PostPrivacy) -> Void)? = nil) {
-        self._selectedPrivacy = selectedPrivacy
-        self.onSelectionChanged = onSelectionChanged
-    }
+    let onSelectionChanged: (PostPrivacy) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Share with")
+            Text("Privacy")
                 .font(.headline)
                 .fontWeight(.semibold)
 
             VStack(spacing: 8) {
-                ForEach(PostPrivacy.allCases) { privacy in
+                ForEach(PostPrivacy.allCases, id: \.self) { privacy in
                     PrivacyOptionRow(
                         privacy: privacy,
                         isSelected: selectedPrivacy == privacy,
                         onTap: {
                             selectedPrivacy = privacy
-                            onSelectionChanged?(privacy)
-                            HapticManager.shared.selectionFeedback()
+                            onSelectionChanged(privacy)
                         }
                     )
                 }
@@ -31,8 +25,6 @@ struct PrivacySelectionView: View {
         }
     }
 }
-
-// MARK: - Privacy Option Row
 
 struct PrivacyOptionRow: View {
     let privacy: PostPrivacy
@@ -42,13 +34,10 @@ struct PrivacyOptionRow: View {
     var body: some View {
         Button(action: onTap) {
             HStack(spacing: 12) {
-                // Icon
                 Image(systemName: privacy.icon)
-                    .font(.system(size: 20))
-                    .foregroundColor(iconColor)
-                    .frame(width: 24, height: 24)
+                    .foregroundColor(Color(privacy.privacyColor))
+                    .frame(width: 20)
 
-                // Title and description
                 VStack(alignment: .leading, spacing: 2) {
                     Text(privacy.displayName)
                         .font(.subheadline)
@@ -62,102 +51,67 @@ struct PrivacyOptionRow: View {
 
                 Spacer()
 
-                // Selection indicator
                 if isSelected {
                     Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 20))
-                        .foregroundColor(.accentColor)
-                } else {
-                    Image(systemName: "circle")
-                        .font(.system(size: 20))
-                        .foregroundColor(.gray.opacity(0.3))
+                        .foregroundColor(.blue)
                 }
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
+            .padding(12)
             .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(isSelected ? Color.accentColor.opacity(0.1) : Color(.systemBackground))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 12)
-                            .stroke(isSelected ? Color.accentColor.opacity(0.3) : Color.gray.opacity(0.2), lineWidth: 1)
-                    )
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(isSelected ? Color.blue.opacity(0.1) : Color(.systemGray6))
             )
         }
         .buttonStyle(PlainButtonStyle())
-        .animation(.easeInOut(duration: 0.2), value: isSelected)
-    }
-
-    private var iconColor: Color {
-        switch privacy {
-        case .private:
-            return .orange
-        case .friends:
-            return .blue
-        case .closeFriends:
-            return .red
-        }
     }
 }
 
-// MARK: - Compact Privacy Selector
-
 struct CompactPrivacySelector: View {
     @Binding var selectedPrivacy: PostPrivacy
-    let onSelectionChanged: ((PostPrivacy) -> Void)?
-
-    init(selectedPrivacy: Binding<PostPrivacy>, onSelectionChanged: ((PostPrivacy) -> Void)? = nil) {
-        self._selectedPrivacy = selectedPrivacy
-        self.onSelectionChanged = onSelectionChanged
-    }
+    let onSelectionChanged: (PostPrivacy) -> Void
 
     var body: some View {
         Menu {
-            ForEach(PostPrivacy.allCases) { privacy in
-                Button(action: {
+            ForEach(PostPrivacy.allCases, id: \.self) { privacy in
+                Button {
                     selectedPrivacy = privacy
-                    onSelectionChanged?(privacy)
-                    HapticManager.shared.selectionFeedback()
-                }) {
+                    onSelectionChanged(privacy)
+                } label: {
                     Label(privacy.displayName, systemImage: privacy.icon)
                 }
             }
         } label: {
             HStack(spacing: 8) {
                 Image(systemName: selectedPrivacy.icon)
-                    .font(.system(size: 16))
+                    .foregroundColor(Color(selectedPrivacy.privacyColor))
 
                 Text(selectedPrivacy.displayName)
                     .font(.subheadline)
                     .fontWeight(.medium)
 
                 Image(systemName: "chevron.down")
-                    .font(.system(size: 12))
+                    .font(.caption)
                     .foregroundColor(.secondary)
             }
-            .foregroundColor(.primary)
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
-            .background(
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(Color(.systemGray6))
-            )
+            .background(Color(.systemGray6))
+            .clipShape(RoundedRectangle(cornerRadius: 8))
         }
     }
 }
 
-#Preview("Full Privacy Selection") {
-    VStack {
-        PrivacySelectionView(selectedPrivacy: .constant(.friends))
-        Spacer()
-    }
-    .padding()
-}
+#Preview {
+    VStack(spacing: 20) {
+        PrivacySelectionView(
+            selectedPrivacy: .constant(.friends),
+            onSelectionChanged: { _ in }
+        )
 
-#Preview("Compact Privacy Selector") {
-    VStack {
-        CompactPrivacySelector(selectedPrivacy: .constant(.closeFriends))
-        Spacer()
+        CompactPrivacySelector(
+            selectedPrivacy: .constant(.closeFriends),
+            onSelectionChanged: { _ in }
+        )
     }
     .padding()
 }

@@ -16,7 +16,7 @@ struct ConversationCardView: View {
                             id: conversation.otherParticipant.id,
                             clerkId: "",
                             email: "",
-                            name: conversation.otherParticipant.name,
+                            name: conversation.otherParticipant.displayName,
                             username: conversation.otherParticipant.username,
                             bio: conversation.otherParticipant.bio,
                             profileImageUrl: conversation.otherParticipant.profileImageUrl,
@@ -150,7 +150,8 @@ struct ConversationCardView: View {
                 otherParticipant: UserBasic(
                     id: 2,
                     username: "sarah_wellness",
-                    name: "Sarah Johnson",
+                    firstName: "Sarah",
+                    lastName: "Johnson",
                     bio: nil,
                     profileImageUrl: nil
                 ),
@@ -164,7 +165,7 @@ struct ConversationCardView: View {
                     createdAt: Date().addingTimeInterval(-3600),
                     deliveredAt: Date().addingTimeInterval(-3590),
                     readAt: nil,
-                    sender: UserBasic(id: 2, username: "sarah_wellness", name: "Sarah Johnson", bio: nil, profileImageUrl: nil),
+                    sender: UserBasic(id: 2, username: "sarah_wellness", firstName: "Sarah", lastName: "Johnson", bio: nil, profileImageUrl: nil),
                     repliedToMessageId: nil
                 ),
                 unreadCount: 2,
@@ -186,7 +187,8 @@ struct ConversationCardView: View {
                 otherParticipant: UserBasic(
                     id: 3,
                     username: "mike_fitness",
-                    name: "Mike Chen",
+                    firstName: "Mike",
+                    lastName: "Chen",
                     bio: nil,
                     profileImageUrl: nil
                 ),
@@ -200,7 +202,7 @@ struct ConversationCardView: View {
                     createdAt: Date().addingTimeInterval(-7200),
                     deliveredAt: Date().addingTimeInterval(-7190),
                     readAt: Date().addingTimeInterval(-7180),
-                    sender: UserBasic(id: 1, username: "me", name: "Me", bio: nil, profileImageUrl: nil),
+                    sender: UserBasic(id: 1, username: "me", firstName: "Me", lastName: "", bio: nil, profileImageUrl: nil),
                     repliedToMessageId: nil
                 ),
                 unreadCount: 0,

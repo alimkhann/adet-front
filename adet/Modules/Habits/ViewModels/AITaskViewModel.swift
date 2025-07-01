@@ -24,7 +24,7 @@ class AITaskViewModel: ObservableObject {
 
     // MARK: - Proof Submission State
     @Published var isSubmittingProof = false
-    @Published var selectedProofType: ProofType = .text
+    @Published var selectedProofType: TaskProofType = .text
     @Published var proofContent = ""
     @Published var showProofSubmission = false
 

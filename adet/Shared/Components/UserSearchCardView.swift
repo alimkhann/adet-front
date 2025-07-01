@@ -17,7 +17,7 @@ struct UserSearchCardView: View {
                         id: user.id,
                         clerkId: "",
                         email: "",
-                        name: user.name,
+                        name: user.displayName,
                         username: user.username,
                         bio: user.bio,
                         profileImageUrl: user.profileImageUrl,
@@ -144,7 +144,7 @@ struct UserSearchCardView: View {
             do {
                 let response = try await FriendsAPIService.shared.getFriendshipStatus(userId: user.id)
                 await MainActor.run {
-                    friendshipStatus = FriendshipStatus(rawValue: response.friendshipStatus) ?? .none
+                    friendshipStatus = response
                     isLoading = false
                 }
             } catch {
@@ -163,7 +163,8 @@ struct UserSearchCardView: View {
             user: UserBasic(
                 id: 1,
                 username: "alex_runner",
-                name: "Alex Runner",
+                firstName: "Alex",
+                lastName: "Runner",
                 bio: "Marathon enthusiast and habit tracker 🏃‍♂️",
                 profileImageUrl: nil
             ),
@@ -174,7 +175,8 @@ struct UserSearchCardView: View {
             user: UserBasic(
                 id: 2,
                 username: "sara_yoga",
-                name: "Sara",
+                firstName: "Sara",
+                lastName: "",
                 bio: nil,
                 profileImageUrl: nil
             ),

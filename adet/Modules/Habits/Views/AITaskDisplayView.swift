@@ -256,7 +256,7 @@ struct AITaskDisplayView: View {
                         .font(.headline)
 
                     LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 2), spacing: 12) {
-                        ForEach(ProofType.allCases, id: \.self) { proofType in
+                                                    ForEach(TaskProofType.allCases, id: \.self) { proofType in
                             Button(action: {
                                 viewModel.selectedProofType = proofType
                             }) {

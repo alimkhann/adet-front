@@ -324,7 +324,8 @@ extension ChatsListViewModel {
                 otherParticipant: UserBasic(
                     id: 2,
                     username: "sarah_wellness",
-                    name: "Sarah Johnson",
+                    firstName: "Sarah",
+                    lastName: "Johnson",
                     bio: nil,
                     profileImageUrl: nil
                 ),
@@ -338,7 +339,7 @@ extension ChatsListViewModel {
                     createdAt: Date().addingTimeInterval(-3600),
                     deliveredAt: Date().addingTimeInterval(-3590),
                     readAt: Date().addingTimeInterval(-3580),
-                    sender: UserBasic(id: 2, username: "sarah_wellness", name: "Sarah Johnson", bio: nil, profileImageUrl: nil),
+                    sender: UserBasic(id: 2, username: "sarah_wellness", firstName: "Sarah", lastName: "Johnson", bio: nil, profileImageUrl: nil),
                     repliedToMessageId: nil
                 ),
                 unreadCount: 0,
@@ -355,7 +356,8 @@ extension ChatsListViewModel {
                 otherParticipant: UserBasic(
                     id: 3,
                     username: "mike_fitness",
-                    name: "Mike Chen",
+                    firstName: "Mike",
+                    lastName: "Chen",
                     bio: nil,
                     profileImageUrl: nil
                 ),
@@ -369,7 +371,7 @@ extension ChatsListViewModel {
                     createdAt: Date().addingTimeInterval(-7200),
                     deliveredAt: Date().addingTimeInterval(-7190),
                     readAt: nil,
-                    sender: UserBasic(id: 3, username: "mike_fitness", name: "Mike Chen", bio: nil, profileImageUrl: nil),
+                    sender: UserBasic(id: 3, username: "mike_fitness", firstName: "Mike", lastName: "Chen", bio: nil, profileImageUrl: nil),
                     repliedToMessageId: nil
                 ),
                 unreadCount: 1,

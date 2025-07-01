@@ -38,6 +38,15 @@ struct CommentsView: View {
             .task {
                 await commentsViewModel.loadComments(for: post.id)
             }
+            .alert("Error", isPresented: .constant(commentsViewModel.errorMessage != nil)) {
+                Button("OK") {
+                    commentsViewModel.clearError()
+                }
+            } message: {
+                if let errorMessage = commentsViewModel.errorMessage {
+                    Text(errorMessage)
+                }
+            }
         }
     }
 
@@ -72,6 +81,25 @@ struct CommentsView: View {
                 }
 
                 Spacer()
+
+                HStack(spacing: 16) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "heart.fill")
+                            .foregroundColor(.red)
+                            .font(.caption)
+                        Text("\(post.likesCount)")
+                            .font(.caption)
+                    }
+
+                    HStack(spacing: 4) {
+                        Image(systemName: "bubble.right.fill")
+                            .foregroundColor(.blue)
+                            .font(.caption)
+                        Text("\(post.commentsCount)")
+                            .font(.caption)
+                    }
+                }
+                .foregroundColor(.secondary)
             }
 
             if let description = post.description, !description.isEmpty {
@@ -129,6 +157,26 @@ struct CommentsView: View {
                             }
                         }
                     )
+
+                    // Load more when reaching the end
+                    if comment == commentsViewModel.comments.last {
+                        if commentsViewModel.isLoading {
+                            HStack {
+                                Spacer()
+                                ProgressView()
+                                    .scaleEffect(0.8)
+                                Spacer()
+                            }
+                            .padding()
+                        } else if commentsViewModel.hasMoreComments {
+                            Color.clear
+                                .onAppear {
+                                    Task {
+                                        await commentsViewModel.loadMoreComments()
+                                    }
+                                }
+                        }
+                    }
                 }
             }
         }
@@ -143,7 +191,7 @@ struct CommentsView: View {
             }
 
             HStack(spacing: 12) {
-                TextField(replyingTo != nil ? "Reply..." : "Add a comment...",
+                TextField(replyingTo != nil ? "Reply to \(replyingTo!.user.displayName)..." : "Add a comment...",
                          text: $newCommentText, axis: .vertical)
                     .textFieldStyle(.roundedBorder)
                     .lineLimit(1...4)
@@ -155,10 +203,10 @@ struct CommentsView: View {
                     }
                 } label: {
                     Image(systemName: "paperplane.fill")
-                        .foregroundColor(.blue)
+                        .foregroundColor(canSubmitComment ? .blue : .secondary)
                         .font(.title3)
                 }
-                .disabled(newCommentText.isEmpty)
+                .disabled(!canSubmitComment || commentsViewModel.isSubmitting)
             }
             .padding()
             .background(Color(.systemBackground))
@@ -186,10 +234,16 @@ struct CommentsView: View {
         .background(Color(.systemGray6))
     }
 
+    // MARK: - Helper Properties
+
+    private var canSubmitComment: Bool {
+        !newCommentText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
     // MARK: - Actions
 
     private func submitComment() async {
-        guard !newCommentText.isEmpty else { return }
+        guard canSubmitComment else { return }
 
         let trimmedText = newCommentText.trimmingCharacters(in: .whitespacesAndNewlines)
         let parentCommentId = replyingTo?.id
@@ -215,79 +269,148 @@ struct CommentRowView: View {
     let onReply: (PostComment) -> Void
     let onLike: (PostComment) -> Void
 
+    @State private var showReplies = false
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack(alignment: .top, spacing: 12) {
-                AsyncImage(url: URL(string: comment.user.profileImageUrl ?? "")) { image in
-                    image
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                } placeholder: {
-                    Circle()
-                        .fill(Color(.systemGray5))
-                        .overlay(
-                            Image(systemName: "person.fill")
-                                .foregroundColor(.secondary)
-                                .font(.caption)
-                        )
-                }
-                .frame(width: 28, height: 28)
-                .clipShape(Circle())
+            // Main comment
+            commentContent
 
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack {
-                        Text(comment.user.displayName)
-                            .font(.subheadline)
-                            .fontWeight(.semibold)
+            // Action buttons
+            commentActions
 
-                        Text(comment.timeAgo)
+            // Replies (if any)
+            if comment.repliesCount > 0 {
+                repliesSection
+            }
+
+            Divider()
+                .padding(.leading, 48)
+        }
+    }
+
+    private var commentContent: some View {
+        HStack(alignment: .top, spacing: 12) {
+            AsyncImage(url: URL(string: comment.user.profileImageUrl ?? "")) { image in
+                image
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+            } placeholder: {
+                Circle()
+                    .fill(Color(.systemGray5))
+                    .overlay(
+                        Image(systemName: "person.fill")
+                            .foregroundColor(.secondary)
                             .font(.caption)
+                    )
+            }
+            .frame(width: 28, height: 28)
+            .clipShape(Circle())
+
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    Text(comment.user.displayName)
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+
+                    Text(comment.timeAgo)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+
+                    Spacer()
+                }
+
+                Text(comment.content)
+                    .font(.body)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Spacer()
+        }
+        .padding(.horizontal)
+        .padding(.top, 12)
+    }
+
+    private var commentActions: some View {
+        HStack(spacing: 24) {
+            Spacer()
+                .frame(width: 40) // Align with content
+
+            Button {
+                onLike(comment)
+            } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: comment.isLikedByCurrentUser ? "heart.fill" : "heart")
+                        .foregroundColor(comment.isLikedByCurrentUser ? .red : .secondary)
+                        .font(.caption)
+
+                    if comment.likesCount > 0 {
+                        Text("\(comment.likesCount)")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+            }
+            .buttonStyle(PlainButtonStyle())
+
+            Button {
+                onReply(comment)
+            } label: {
+                Text("Reply")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            .buttonStyle(PlainButtonStyle())
+
+            Spacer()
+        }
+        .padding(.horizontal)
+        .padding(.top, 4)
+        .padding(.bottom, 8)
+    }
+
+    private var repliesSection: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Button {
+                showReplies.toggle()
+            } label: {
+                HStack {
+                    Spacer()
+                        .frame(width: 40)
+
+                    Text(showReplies ? "Hide replies" : "View \(comment.repliesCount) replies")
+                        .font(.caption)
+                        .foregroundColor(.blue)
+
+                    Image(systemName: showReplies ? "chevron.up" : "chevron.down")
+                        .font(.caption2)
+                        .foregroundColor(.blue)
+
+                    Spacer()
+                }
+            }
+            .buttonStyle(PlainButtonStyle())
+            .padding(.horizontal)
+            .padding(.bottom, 8)
+
+            if showReplies {
+                // TODO: Implement replies loading and display
+                ForEach(0..<min(comment.repliesCount, 3), id: \.self) { _ in
+                    // Placeholder for replies
+                    HStack {
+                        Spacer()
+                            .frame(width: 60)
+
+                        Text("Reply content placeholder...")
+                            .font(.body)
                             .foregroundColor(.secondary)
 
                         Spacer()
                     }
-
-                    Text(comment.content)
-                        .font(.body)
-                        .fixedSize(horizontal: false, vertical: true)
-
-                    HStack(spacing: 16) {
-                        Button {
-                            onLike(comment)
-                        } label: {
-                            HStack(spacing: 4) {
-                                Image(systemName: comment.isLikedByCurrentUser ? "heart.fill" : "heart")
-                                    .foregroundColor(comment.isLikedByCurrentUser ? .red : .secondary)
-                                    .font(.caption)
-
-                                if comment.likesCount > 0 {
-                                    Text("\(comment.likesCount)")
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
-                                }
-                            }
-                        }
-                        .buttonStyle(PlainButtonStyle())
-
-                        Button {
-                            onReply(comment)
-                        } label: {
-                            Text("Reply")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
-                        .buttonStyle(PlainButtonStyle())
-                    }
-                    .padding(.top, 4)
+                    .padding(.horizontal)
+                    .padding(.vertical, 4)
                 }
-
-                Spacer()
             }
-            .padding(.horizontal)
-            .padding(.vertical, 8)
-
-            Divider()
-                .padding(.leading, 52)
         }
     }
 }
@@ -303,11 +426,13 @@ class CommentsViewModel: ObservableObject {
     @Published var hasMoreComments = false
 
     private var nextCursor: String?
+    private var currentPostId: Int?
     private let postService = PostService.shared
 
     func loadComments(for postId: Int, refresh: Bool = false) async {
         guard !isLoading else { return }
 
+        self.currentPostId = postId
         isLoading = true
         errorMessage = nil
 
@@ -338,6 +463,11 @@ class CommentsViewModel: ObservableObject {
         isLoading = false
     }
 
+    func loadMoreComments() async {
+        guard hasMoreComments && !isLoading, let postId = currentPostId else { return }
+        await loadComments(for: postId, refresh: false)
+    }
+
     func createComment(postId: Int, content: String, parentCommentId: Int? = nil) async -> Bool {
         guard !isSubmitting else { return false }
 
@@ -354,6 +484,7 @@ class CommentsViewModel: ObservableObject {
             let response = try await postService.createComment(commentData)
 
             if response.success {
+                // Reload comments to get the updated list
                 await loadComments(for: postId, refresh: true)
                 isSubmitting = false
                 return true
@@ -424,8 +555,10 @@ extension PostComment: Equatable {
             username: "johndoe",
             firstName: "John",
             lastName: "Doe",
+            bio: nil,
             profileImageUrl: nil
         ),
+        habitStreak: 5,
         isLikedByCurrentUser: false,
         isViewedByCurrentUser: false
     )

@@ -20,14 +20,27 @@ struct EditProfileView: View {
 
                 // Profile Image
                 ZStack(alignment: .bottomTrailing) {
-                    ProfileImageView(
-                        user: authViewModel.user,
-                        size: 100,
-                        isEditable: false,
-                        onImageTap: nil,
-                        onDeleteTap: nil,
-                        jwtToken: authViewModel.jwtToken
-                    )
+                    if let user = authViewModel.user {
+                        ProfileImageView(
+                            user: user,
+                            size: 100,
+                            isEditable: false,
+                            onImageTap: nil,
+                            onDeleteTap: nil,
+                            jwtToken: authViewModel.jwtToken
+                        )
+                    } else {
+                        // Fallback when user is nil
+                        Circle()
+                            .fill(Color(.systemGray5))
+                            .frame(width: 100, height: 100)
+                            .overlay(
+                                Image(systemName: "person.fill")
+                                    .foregroundColor(.secondary)
+                                    .font(.system(size: 40))
+                            )
+                    }
+
                     Button(action: { viewModel.showEditImageActionSheet() }) {
                         Image(systemName: "pencil.circle.fill")
                             .font(.system(size: 24))

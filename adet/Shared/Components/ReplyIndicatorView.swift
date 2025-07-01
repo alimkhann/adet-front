@@ -60,7 +60,7 @@ struct ReplyIndicatorView: View {
             createdAt: Date(),
             deliveredAt: Date(),
             readAt: Date(),
-            sender: UserBasic(id: 2, username: "sarah", name: "Sarah Johnson", bio: nil, profileImageUrl: nil),
+            sender: UserBasic(id: 2, username: "sarah", firstName: "Sarah", lastName: "Johnson", bio: nil, profileImageUrl: nil),
             repliedToMessageId: nil
         ),
         onCancel: { }

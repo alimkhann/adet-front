@@ -24,7 +24,7 @@ struct ChatsListView: View {
         } else {
             return viewModel.conversations.filter { conversation in
                 conversation.otherParticipant.displayName.localizedCaseInsensitiveContains(searchText) ||
-                (conversation.otherParticipant.username?.localizedCaseInsensitiveContains(searchText) ?? false)
+                (conversation.otherParticipant.username.localizedCaseInsensitiveContains(searchText))
             }
         }
     }

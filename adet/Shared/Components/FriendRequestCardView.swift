@@ -31,7 +31,7 @@ struct FriendRequestCardView: View {
                         id: displayUser.id,
                         clerkId: "",
                         email: "",
-                        name: displayUser.name,
+                        name: displayUser.displayName,
                         username: displayUser.username,
                         bio: displayUser.bio,
                         profileImageUrl: displayUser.profileImageUrl,
@@ -145,27 +145,20 @@ struct FriendRequestCardView: View {
         FriendRequestCardView(
             request: FriendRequest(
                 id: 1,
-                senderId: 2,
-                receiverId: 1,
-                sender: UserBasic(
+                requesterId: 2,
+                requestedId: 1,
+                status: .pending,
+                createdAt: Date().addingTimeInterval(-3600),
+                expiresAt: nil,
+                user: UserBasic(
                     id: 2,
                     username: "jane_doe",
-                    name: "Jane Doe",
+                    firstName: "Jane",
+                    lastName: "Doe",
                     bio: "Fitness enthusiast",
                     profileImageUrl: nil
                 ),
-                receiver: UserBasic(
-                    id: 1,
-                    username: "current_user",
-                    name: "Current User",
-                    bio: nil,
-                    profileImageUrl: nil
-                ),
-                status: "pending",
-                message: "Let's motivate each other!",
-                createdAt: Date().addingTimeInterval(-3600),
-                updatedAt: nil,
-                expiresAt: nil
+                message: "Let's motivate each other!"
             ),
             isIncoming: true,
             isProcessing: false,
@@ -178,27 +171,20 @@ struct FriendRequestCardView: View {
         FriendRequestCardView(
             request: FriendRequest(
                 id: 2,
-                senderId: 1,
-                receiverId: 3,
-                sender: UserBasic(
-                    id: 1,
-                    username: "current_user",
-                    name: "Current User",
-                    bio: nil,
-                    profileImageUrl: nil
-                ),
-                receiver: UserBasic(
+                requesterId: 1,
+                requestedId: 3,
+                status: .pending,
+                createdAt: Date().addingTimeInterval(-7200),
+                expiresAt: nil,
+                user: UserBasic(
                     id: 3,
                     username: "bob_smith",
-                    name: "Bob Smith",
+                    firstName: "Bob",
+                    lastName: "Smith",
                     bio: "Running everyday",
                     profileImageUrl: nil
                 ),
-                status: "pending",
-                message: nil,
-                createdAt: Date().addingTimeInterval(-7200),
-                updatedAt: nil,
-                expiresAt: nil
+                message: nil
             ),
             isIncoming: false,
             isProcessing: false,

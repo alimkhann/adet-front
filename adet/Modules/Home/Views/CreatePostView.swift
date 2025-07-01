@@ -70,9 +70,9 @@ struct CreatePostView: View {
             .sheet(isPresented: $showingHabitPicker) {
                 HabitPickerView(selectedHabit: $selectedHabit)
             }
-            .onChange(of: selectedPhotos) { photos in
+            .onChange(of: selectedPhotos) { oldValue, newValue in
                 Task {
-                    await loadSelectedPhotos(photos)
+                    await loadSelectedPhotos(newValue)
                 }
             }
             .alert("Error", isPresented: .constant(postsViewModel.errorMessage != nil)) {
@@ -232,7 +232,7 @@ struct CreatePostView: View {
         } label: {
             HStack(spacing: 12) {
                 Image(systemName: privacy.icon)
-                    .foregroundColor(privacy.color)
+                    .foregroundColor(Color(privacy.privacyColor))
                     .frame(width: 20)
 
                 VStack(alignment: .leading, spacing: 2) {
@@ -370,46 +370,6 @@ struct CreatePostView: View {
     }
 }
 
-// MARK: - Camera View
-
-struct CameraView: UIViewControllerRepresentable {
-    let onImageCaptured: (UIImage) -> Void
-    @Environment(\.dismiss) private var dismiss
-
-    func makeUIViewController(context: Context) -> UIImagePickerController {
-        let picker = UIImagePickerController()
-        picker.delegate = context.coordinator
-        picker.sourceType = .camera
-        picker.allowsEditing = true
-        return picker
-    }
-
-    func updateUIViewController(_ uiViewController: UIImagePickerController, context: Context) {}
-
-    func makeCoordinator() -> Coordinator {
-        Coordinator(self)
-    }
-
-    class Coordinator: NSObject, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
-        let parent: CameraView
-
-        init(_ parent: CameraView) {
-            self.parent = parent
-        }
-
-        func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]) {
-            if let image = info[.editedImage] as? UIImage ?? info[.originalImage] as? UIImage {
-                parent.onImageCaptured(image)
-            }
-            parent.dismiss()
-        }
-
-        func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
-            parent.dismiss()
-        }
-    }
-}
-
 // MARK: - Habit Picker View
 
 struct HabitPickerView: View {
@@ -462,31 +422,6 @@ struct HabitPickerView: View {
                     }
                 }
             }
-        }
-    }
-}
-
-// MARK: - Extensions
-
-extension PostPrivacy: CaseIterable {
-    public static var allCases: [PostPrivacy] = [.friends, .closeFriends, .private]
-
-    var description: String {
-        switch self {
-        case .private:
-            return "Only you can see this post"
-        case .friends:
-            return "All your friends can see this post"
-        case .closeFriends:
-            return "Only your close friends can see this post"
-        }
-    }
-
-    var color: Color {
-        switch self {
-        case .private: return .orange
-        case .friends: return .blue
-        case .closeFriends: return .red
         }
     }
 }

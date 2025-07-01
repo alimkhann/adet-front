@@ -1,47 +1,5 @@
 import Foundation
 
-// MARK: - Post Privacy Levels
-enum PostPrivacy: String, CaseIterable, Identifiable {
-    case `private` = "private"
-    case friends = "friends"
-    case closeFriends = "close_friends"
-
-    var id: String { rawValue }
-
-    var displayName: String {
-        switch self {
-        case .private:
-            return "Only me"
-        case .friends:
-            return "Friends"
-        case .closeFriends:
-            return "Close friends"
-        }
-    }
-
-    var icon: String {
-        switch self {
-        case .private:
-            return "lock.fill"
-        case .friends:
-            return "person.2.fill"
-        case .closeFriends:
-            return "heart.fill"
-        }
-    }
-
-    var description: String {
-        switch self {
-        case .private:
-            return "Only visible to you"
-        case .friends:
-            return "Visible to all friends"
-        case .closeFriends:
-            return "Visible to close friends only"
-        }
-    }
-}
-
 // MARK: - Friend Models
 
 struct Friend: Identifiable, Codable {
@@ -60,6 +18,11 @@ struct Friend: Identifiable, Codable {
         case user
         case isCloseFriend = "is_close_friend"
     }
+
+    // Computed property for compatibility
+    var friend: UserBasic {
+        return user
+    }
 }
 
 struct FriendRequest: Identifiable, Codable {
@@ -70,6 +33,7 @@ struct FriendRequest: Identifiable, Codable {
     let createdAt: Date
     let expiresAt: Date?
     let user: UserBasic
+    let message: String?
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -79,34 +43,56 @@ struct FriendRequest: Identifiable, Codable {
         case createdAt = "created_at"
         case expiresAt = "expires_at"
         case user
+        case message
+    }
+
+    // Computed properties for compatibility
+    var sender: UserBasic {
+        return user
+    }
+
+    var receiver: UserBasic {
+        return user
     }
 }
 
 struct UserBasic: Codable, Identifiable, Hashable {
     let id: Int
-    let username: String?
-    let name: String?
+    let username: String
+    let firstName: String
+    let lastName: String
     let bio: String?
     let profileImageUrl: String?
 
     enum CodingKeys: String, CodingKey {
         case id
         case username
-        case name
+        case firstName = "first_name"
+        case lastName = "last_name"
         case bio
         case profileImageUrl = "profile_image_url"
     }
 
     // Computed properties for display
-    var displayName: String {
-        if let name = name, !name.isEmpty {
-            return name
+    var fullName: String {
+        if !firstName.isEmpty && !lastName.isEmpty {
+            return "\(firstName) \(lastName)"
+        } else if !firstName.isEmpty {
+            return firstName
+        } else if !username.isEmpty {
+            return username
+        } else {
+            return "User"
         }
-        return username ?? "Unknown User"
+    }
+
+    // Use fullName for display
+    var displayName: String {
+        return fullName
     }
 
     var displayUsername: String {
-        return username ?? "no_username"
+        return username.isEmpty ? "no_username" : username
     }
 
     // Hashable conformance
@@ -127,7 +113,7 @@ enum FriendRequestStatus: String, Codable, CaseIterable {
     case declined = "declined"
     case cancelled = "cancelled"
 
-    var displayName: String {
+    var statusDisplayName: String {
         switch self {
         case .pending:
             return "Pending"
@@ -149,7 +135,7 @@ enum FriendshipStatus: String, Codable {
     case requestSent = "request_sent"
     case requestReceived = "request_received"
 
-    var displayName: String {
+    var actionDisplayName: String {
         switch self {
         case .none:
             return "Add Friend"
