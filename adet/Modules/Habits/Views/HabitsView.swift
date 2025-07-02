@@ -16,7 +16,7 @@ struct HabitsView: View {
                         VStack(spacing: 16) {
                             Spacer()
                                 .frame(height: 300)
-                            
+
                             Text("No habits yet")
                                 .font(.title2)
                                 .fontWeight(.semibold)
@@ -117,11 +117,13 @@ struct HabitsView: View {
                             viewModel.selectHabit(habit)
                             state.showingHabitDetails = true
                         }
-                    }
+                    },
+                    width: 150,
+                    height: 100
                 )
             }
-            HStack(spacing: 15) {
-                ForEach(Array(habitCards.enumerated()), id: \.element.habit.id) { _, card in
+            HStack(spacing: 6) {
+                ForEach(Array(habitCards.enumerated()), id: \.offset) { index, card in
                     card
                 }
                 AddHabitCardView(onTap: {
@@ -129,6 +131,7 @@ struct HabitsView: View {
                         state.showingAddHabitSheet = true
                     }
                 })
+                .frame(width: 150, height: 100)
             }
         }
         .frame(height: 100)

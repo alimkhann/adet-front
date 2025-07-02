@@ -92,25 +92,3 @@ struct FriendCardView: View {
         }
     }
 }
-
-#Preview {
-    FriendCardView(
-        friend: Friend(
-            id: 1,
-            userId: 1,
-            friendId: 2,
-            createdAt: Date(),
-            user: UserBasic(
-                id: 2,
-                username: "john_doe",
-                name: "John Doe",
-                bio: "Love building healthy habits!",
-                profileImageUrl: nil
-            )
-        ),
-        isRemoving: false,
-        onRemove: { }
-    )
-    .environmentObject(AuthViewModel())
-    .padding()
-}

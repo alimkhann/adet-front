@@ -49,6 +49,10 @@ struct ProfileView: View {
                 // Update the ViewModel with the current AuthViewModel
                 viewModel.updateAuthViewModel(authViewModel)
                 loadUserPosts()
+                Task {
+                    await viewModel.loadFriendsCount()
+                    await viewModel.loadUserHabits()
+                }
                 logger.info("ProfileView appeared")
             }
             .overlay(loadingOverlay)
@@ -261,6 +265,7 @@ struct ProfileView: View {
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                 }
+                .frame(maxWidth: .infinity, alignment: .center)
                 .padding(.top, 40)
             } else if postsViewModel.myPosts.isEmpty {
                 VStack(spacing: 16) {
@@ -279,6 +284,7 @@ struct ProfileView: View {
                             .multilineTextAlignment(.center)
                     }
                 }
+                .frame(maxWidth: .infinity, alignment: .center)
                 .padding(.horizontal, 40)
                 .padding(.top, 60)
             } else {
@@ -309,6 +315,7 @@ struct ProfileView: View {
                         .padding(.horizontal, 0)
                     }
                 }
+                .frame(maxWidth: .infinity, alignment: .center)
             }
         }
     }
@@ -316,10 +323,51 @@ struct ProfileView: View {
     // MARK: - Habits Content View
     private var habitsContentView: some View {
         VStack(spacing: 16) {
-            Text("Habits view coming soon...")
-                .font(.subheadline)
-                .foregroundColor(.secondary)
+            if viewModel.isLoadingHabits {
+                HStack {
+                    ProgressView()
+                        .scaleEffect(0.8)
+                    Text("Loading habits...")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                }
+                .frame(maxWidth: .infinity, alignment: .center)
                 .padding(.top, 40)
+            } else if viewModel.userHabits.isEmpty {
+                VStack(spacing: 16) {
+                    Image(systemName: "target")
+                        .font(.system(size: 48))
+                        .foregroundColor(.secondary)
+
+                    VStack(spacing: 8) {
+                        Text("No habits yet")
+                            .font(.headline)
+                            .fontWeight(.semibold)
+
+                        Text("Create your first habit to start your journey!")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                            .multilineTextAlignment(.center)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .center)
+                .padding(.horizontal, 40)
+                .padding(.top, 60)
+            } else {
+                LazyVStack(spacing: 12) {
+                    ForEach(viewModel.userHabits, id: \.id) { habit in
+                        HabitCardView(
+                            habit: habit,
+                            isSelected: false,
+                            onTap: { },
+                            onLongPress: { },
+                            minHeight: 100
+                        )
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .center)
+                .padding(.horizontal, 16)
+            }
         }
     }
 

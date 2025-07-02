@@ -5,13 +5,32 @@ struct HabitCardView: View {
     let isSelected: Bool
     let onTap: () -> Void
     let onLongPress: () -> Void
+    let width: CGFloat?
+    let height: CGFloat?
+    let minHeight: CGFloat?
 
     @Environment(\.colorScheme) private var colorScheme
     @State private var isPressing = false
 
-    var scale: CGFloat { isPressing ? 0.95 : 1.0 }
+    var scale: CGFloat { isPressing ? 0.97 : 1.0 }
     var baseLineWidth: CGFloat { isSelected ? 3 : 0 }
     var lineWidth: CGFloat { baseLineWidth * scale }
+
+    init(habit: Habit,
+         isSelected: Bool,
+         onTap: @escaping () -> Void,
+         onLongPress: @escaping () -> Void,
+         width: CGFloat? = nil,
+         height: CGFloat? = nil,
+         minHeight: CGFloat? = nil) {
+        self.habit = habit
+        self.isSelected = isSelected
+        self.onTap = onTap
+        self.onLongPress = onLongPress
+        self.width = width
+        self.height = height
+        self.minHeight = minHeight
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -28,11 +47,20 @@ struct HabitCardView: View {
             }
         }
         .padding()
-        .frame(width: 150, height: 100)
+        .frame(
+            width: width,
+            height: height,
+            alignment: .center
+        )
+        .frame(
+            maxWidth: width == nil ? .infinity : width,
+            minHeight: minHeight,
+            alignment: .leading
+        )
         .background(colorScheme == .dark ? Color("Zinc900") : Color("Zinc100"))
         .cornerRadius(10)
         .scaleEffect(scale)
-        .animation(.easeInOut(duration: 0.2), value: isPressing)
+        .animation(.easeInOut(duration: 0.2), value: scale)
         .overlay(
             RoundedRectangle(cornerRadius: 10)
                 .strokeBorder(
@@ -52,7 +80,7 @@ struct HabitCardView: View {
                     lineWidth: lineWidth
                 )
                 .scaleEffect(scale)
-                .animation(.easeInOut(duration: 0.2), value: isPressing)
+                .animation(.easeInOut(duration: 0.2), value: scale)
                 .animation(.spring(response: 0.4, dampingFraction: 0.7), value: isSelected)
         )
         .onTapGesture {

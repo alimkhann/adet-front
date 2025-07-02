@@ -6,53 +6,81 @@ struct Friend: Identifiable, Codable {
     let id: Int
     let userId: Int
     let friendId: Int
-    let createdAt: Date
-    let user: UserBasic
-    var isCloseFriend: Bool = false // New field for close friends
+    let status: String
+    let friend: UserBasic  // Embedded friend user data
+    let createdAt: Date?  // Made optional for debugging
+    let updatedAt: Date?
+    var isCloseFriend: Bool = false  // Mutable property for close friend status
 
     enum CodingKeys: String, CodingKey {
         case id
         case userId = "user_id"
         case friendId = "friend_id"
+        case status
+        case friend
         case createdAt = "created_at"
-        case user
+        case updatedAt = "updated_at"
         case isCloseFriend = "is_close_friend"
     }
 
-    // Computed property for compatibility
-    var friend: UserBasic {
-        return user
+    // Custom decoder to handle optional isCloseFriend field and potential date issues
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+
+        id = try container.decode(Int.self, forKey: .id)
+        userId = try container.decode(Int.self, forKey: .userId)
+        friendId = try container.decode(Int.self, forKey: .friendId)
+        status = try container.decode(String.self, forKey: .status)
+        friend = try container.decode(UserBasic.self, forKey: .friend)
+
+        // Try to decode dates, but make them optional for debugging
+        createdAt = try container.decodeIfPresent(Date.self, forKey: .createdAt)
+        updatedAt = try container.decodeIfPresent(Date.self, forKey: .updatedAt)
+
+        // Default to false if not present in JSON
+        isCloseFriend = try container.decodeIfPresent(Bool.self, forKey: .isCloseFriend) ?? false
+    }
+
+    // Computed property for the user data
+    var user: UserBasic {
+        return friend
     }
 }
 
 struct FriendRequest: Identifiable, Codable {
     let id: Int
-    let requesterId: Int
-    let requestedId: Int
+    let senderId: Int
+    let receiverId: Int
     let status: FriendRequestStatus
     let createdAt: Date
     let expiresAt: Date?
-    let user: UserBasic
+    let sender: UserBasic
+    let receiver: UserBasic
     let message: String?
 
     enum CodingKeys: String, CodingKey {
         case id
-        case requesterId = "requester_id"
-        case requestedId = "requested_id"
+        case senderId = "sender_id"
+        case receiverId = "receiver_id"
         case status
         case createdAt = "created_at"
         case expiresAt = "expires_at"
-        case user
+        case sender
+        case receiver
         case message
     }
 
     // Computed properties for compatibility
-    var sender: UserBasic {
-        return user
+    var requesterId: Int {
+        return senderId
     }
 
-    var receiver: UserBasic {
-        return user
+    var requestedId: Int {
+        return receiverId
+    }
+
+    var user: UserBasic {
+        return sender
     }
 }
 

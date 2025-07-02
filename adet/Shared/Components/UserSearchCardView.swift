@@ -86,10 +86,10 @@ struct UserSearchCardView: View {
                             .font(.caption)
                             .fontWeight(.medium)
                     }
-                    .foregroundColor(.white)
+                    .foregroundColor(.primary)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 6)
-                    .background(Color.accentColor)
+                    .background(Color.primary.opacity(0.1))
                     .cornerRadius(8)
                 }
 
@@ -101,10 +101,10 @@ struct UserSearchCardView: View {
                         .font(.caption)
                         .fontWeight(.medium)
                 }
-                .foregroundColor(.green)
+                .foregroundColor(.primary)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 6)
-                .background(Color.green.opacity(0.1))
+                .background(Color.primary.opacity(0.1))
                 .cornerRadius(8)
 
             case .requestSent:
@@ -115,10 +115,10 @@ struct UserSearchCardView: View {
                         .font(.caption)
                         .fontWeight(.medium)
                 }
-                .foregroundColor(.orange)
+                .foregroundColor(.primary)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 6)
-                .background(Color.orange.opacity(0.1))
+                .background(Color.primary.opacity(0.1))
                 .cornerRadius(8)
 
             case .requestReceived:
@@ -129,10 +129,10 @@ struct UserSearchCardView: View {
                         .font(.caption)
                         .fontWeight(.medium)
                 }
-                .foregroundColor(.blue)
+                .foregroundColor(.primary)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 6)
-                .background(Color.blue.opacity(0.1))
+                .background(Color.primary.opacity(0.1))
                 .cornerRadius(8)
             }
         }

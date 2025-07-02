@@ -107,7 +107,7 @@ struct FriendsView: View {
             HStack(spacing: 0) {
                 TabButton(
                     title: "Friends",
-                    count: viewModel.friendsCount,
+                    count: 0,
                     isSelected: viewModel.selectedTab == 0
                 ) {
                     HapticManager.shared.selection()
@@ -148,34 +148,51 @@ struct FriendsView: View {
     // MARK: - Friends List
 
     private var friendsListView: some View {
-        Group {
-            if viewModel.isLoadingFriends {
-                ShimmerFriendsListView()
-            } else if viewModel.hasAnyFriends {
-                ScrollView {
-                    LazyVStack(spacing: 12) {
-                        ForEach(Array(viewModel.friends.enumerated()), id: \.element.id) { index, friend in
-                            FriendCardView(
-                                friend: friend,
-                                isRemoving: viewModel.isRemovingFriend(friend.friendId),
-                                onRemove: {
-                                    Task {
-                                        await viewModel.removeFriend(friend)
-                                    }
-                                }
-                            )
-                            .transition(.asymmetric(
-                                insertion: .move(edge: .trailing).combined(with: .opacity),
-                                removal: .move(edge: .leading).combined(with: .opacity)
-                            ))
-                            .animation(.easeInOut(duration: 0.3).delay(Double(index) * 0.05), value: viewModel.friends.count)
-                        }
-                    }
-                    .padding(.horizontal)
-                    .padding(.top, 16)
+        VStack(spacing: 0) {
+            // Friend count text
+            if !viewModel.isLoadingFriends {
+                HStack {
+                    Text(friendCountText)
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                        .padding(.horizontal)
+                        .padding(.top, 16)
+                        .padding(.bottom, 8)
+
+                    Spacer()
                 }
-            } else {
-                EmptyFriendsView()
+            }
+
+            // Friends content
+            Group {
+                if viewModel.isLoadingFriends {
+                    ShimmerFriendsListView()
+                } else if viewModel.hasAnyFriends {
+                    ScrollView {
+                        LazyVStack(spacing: 12) {
+                            ForEach(Array(viewModel.friends.enumerated()), id: \.element.id) { index, friend in
+                                FriendCardView(
+                                    friend: friend,
+                                    isRemoving: viewModel.isRemovingFriend(friend.friendId),
+                                    onRemove: {
+                                        Task {
+                                            await viewModel.removeFriend(friend)
+                                        }
+                                    }
+                                )
+                                .transition(.asymmetric(
+                                    insertion: .move(edge: .trailing).combined(with: .opacity),
+                                    removal: .move(edge: .leading).combined(with: .opacity)
+                                ))
+                                .animation(.easeInOut(duration: 0.3).delay(Double(index) * 0.05), value: viewModel.friends.count)
+                            }
+                        }
+                        .padding(.horizontal)
+                        .padding(.bottom, 16)
+                    }
+                } else {
+                    EmptyFriendsView()
+                }
             }
         }
     }
@@ -300,6 +317,13 @@ struct FriendsView: View {
                 EmptySearchView(query: "")
             }
         }
+    }
+
+    // MARK: - Helper Properties
+
+    private var friendCountText: String {
+        let count = viewModel.friendsCount
+        return count == 1 ? "1 friend" : "\(count) friends"
     }
 }
 

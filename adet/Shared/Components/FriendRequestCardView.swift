@@ -74,7 +74,7 @@ struct FriendRequestCardView: View {
                 // Time ago
                 Text(timeAgoString)
                     .font(.caption2)
-                                            .foregroundColor(Color(.tertiaryLabel))
+                    .foregroundColor(Color(.tertiaryLabel))
             }
 
             Spacer()
@@ -137,60 +137,4 @@ struct FriendRequestCardView: View {
         formatter.dateTimeStyle = .named
         return formatter.localizedString(for: request.createdAt, relativeTo: Date())
     }
-}
-
-#Preview {
-    VStack(spacing: 16) {
-        // Incoming request
-        FriendRequestCardView(
-            request: FriendRequest(
-                id: 1,
-                requesterId: 2,
-                requestedId: 1,
-                status: .pending,
-                createdAt: Date().addingTimeInterval(-3600),
-                expiresAt: nil,
-                user: UserBasic(
-                    id: 2,
-                    username: "jane_doe",
-                    name: "Jane Doe",
-                    bio: "Fitness enthusiast",
-                    profileImageUrl: nil
-                ),
-                message: "Let's motivate each other!"
-            ),
-            isIncoming: true,
-            isProcessing: false,
-            onAccept: { },
-            onDecline: { },
-            onCancel: { }
-        )
-
-        // Outgoing request
-        FriendRequestCardView(
-            request: FriendRequest(
-                id: 2,
-                requesterId: 1,
-                requestedId: 3,
-                status: .pending,
-                createdAt: Date().addingTimeInterval(-7200),
-                expiresAt: nil,
-                user: UserBasic(
-                    id: 3,
-                    username: "bob_smith",
-                    name: "Bob Smith",
-                    bio: "Running everyday",
-                    profileImageUrl: nil
-                ),
-                message: nil
-            ),
-            isIncoming: false,
-            isProcessing: false,
-            onAccept: { },
-            onDecline: { },
-            onCancel: { }
-        )
-    }
-    .environmentObject(AuthViewModel())
-    .padding()
 }

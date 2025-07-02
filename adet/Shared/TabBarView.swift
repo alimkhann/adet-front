@@ -41,6 +41,14 @@ struct TabBarView: View {
         }
         .tint(.primary)
         .onAppear {
+            // Configure tab bar appearance
+            let appearance = UITabBarAppearance()
+            appearance.configureWithOpaqueBackground()
+            appearance.backgroundColor = UIColor.systemBackground
+            appearance.shadowColor = UIColor.separator
+
+            UITabBar.appearance().standardAppearance = appearance
+            UITabBar.appearance().scrollEdgeAppearance = appearance
             Task { @MainActor in
                 await authViewModel.fetchUser()
                 await updateFriendRequestCount()

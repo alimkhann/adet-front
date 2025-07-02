@@ -5,30 +5,25 @@ struct AddHabitCardView: View {
     @Environment(\.colorScheme) private var colorScheme
     @State private var isPressing = false
 
+    var scale: CGFloat { isPressing ? 0.97 : 1.0 }
+
     var body: some View {
-        Button(action: onTap) {
-            VStack {
-                Image(systemName: "plus")
-                    .font(.largeTitle)
-                    .foregroundColor(.secondary)
-            }
-            .padding()
-            .frame(width: 150, height: 100)
-            .background(colorScheme == .dark ? Color("Zinc900").opacity(0.5) : Color("Zinc100").opacity(0.8))
-            .cornerRadius(10)
+        VStack {
+            Image(systemName: "plus")
+                .font(.largeTitle)
+                .foregroundColor(.secondary)
         }
-        .scaleEffect(isPressing ? 0.95 : 1.0)
-        .animation(.easeInOut(duration: 0.2), value: isPressing)
+        .padding()
+        .frame(width: 150, height: 100)
+        .background(colorScheme == .dark ? Color("Zinc900").opacity(0.5) : Color("Zinc100").opacity(0.8))
+        .cornerRadius(10)
+        .scaleEffect(scale)
+        .animation(.easeInOut(duration: 0.2), value: scale)
         .onTapGesture {
-            withAnimation(.easeInOut(duration: 0.1)) {
-                isPressing = true
-            }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                withAnimation(.easeInOut(duration: 0.1)) {
-                    isPressing = false
-                }
-            }
             onTap()
         }
+        .onLongPressGesture(minimumDuration: 0.0, pressing: { pressing in
+            self.isPressing = pressing
+        }, perform: {})
     }
 }

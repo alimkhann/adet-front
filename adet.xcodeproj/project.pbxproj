@@ -67,6 +67,7 @@
 				Modules/Friends/Views/CloseFriendsManagementView.swift,
 				Modules/Friends/Views/FriendsView.swift,
 				Modules/Friends/Views/OtherUserProfileView.swift,
+				Modules/Friends/Views/ReportUserView.swift,
 				Modules/Habits/ViewModels/AITaskViewModel.swift,
 				Modules/Habits/ViewModels/HabitStateManager.swift,
 				Modules/Habits/ViewModels/HabitsViewLogic.swift,

@@ -80,8 +80,10 @@ class FriendsViewModel: ObservableObject {
         let success = await friendsService.sendFriendRequest(to: user.id)
         if success {
             showSuccessMessage("Friend request sent to \(user.displayName)")
+            // Refresh friend requests to update UI
+            await loadFriendRequests()
         } else {
-            showErrorMessage("Failed to send friend request")
+            showErrorMessage("Could not send friend request. Please try again.")
         }
     }
 
@@ -89,10 +91,14 @@ class FriendsViewModel: ObservableObject {
         removingFriends.insert(friend.friendId)
         defer { removingFriends.remove(friend.friendId) }
 
-        // This would need to be implemented in FriendsAPIService
-        // For now, we'll just remove from local array
-        friends.removeAll { $0.id == friend.id }
-        showSuccessMessage("Removed \(friend.user.displayName) from friends")
+        let success = await friendsService.removeFriend(friendUserId: friend.user.id)
+        if success {
+            friends.removeAll { $0.id == friend.id }
+            closeFriends.removeAll { $0.id == friend.user.id }
+            showSuccessMessage("Removed \(friend.user.displayName) from friends")
+        } else {
+            showErrorMessage("Failed to remove \(friend.user.displayName) from friends")
+        }
     }
 
     func updateCloseFriend(_ friend: Friend, isClose: Bool) async {
@@ -166,40 +172,52 @@ class FriendsViewModel: ObservableObject {
         processingRequests.insert(request.id)
         defer { processingRequests.remove(request.id) }
 
-        // TODO: Implement accept friend request API call
-        // For now, just remove from incoming requests
-        incomingRequests.removeAll { $0.id == request.id }
-        showSuccessMessage("Friend request accepted")
+        let success = await friendsService.acceptFriendRequest(requestId: request.id)
+        if success {
+            incomingRequests.removeAll { $0.id == request.id }
+            showSuccessMessage("Friend request accepted")
+            // Refresh friends list to show the new friend
+            await loadFriends()
+        } else {
+            showErrorMessage("Failed to accept friend request")
+        }
     }
 
     func declineFriendRequest(_ request: FriendRequest) async {
         processingRequests.insert(request.id)
         defer { processingRequests.remove(request.id) }
 
-        // TODO: Implement decline friend request API call
-        // For now, just remove from incoming requests
-        incomingRequests.removeAll { $0.id == request.id }
-        showSuccessMessage("Friend request declined")
+        let success = await friendsService.declineFriendRequest(requestId: request.id)
+        if success {
+            incomingRequests.removeAll { $0.id == request.id }
+            showSuccessMessage("Friend request declined")
+        } else {
+            showErrorMessage("Failed to decline friend request")
+        }
     }
 
     func cancelFriendRequest(_ request: FriendRequest) async {
         processingRequests.insert(request.id)
         defer { processingRequests.remove(request.id) }
 
-        // TODO: Implement cancel friend request API call
-        // For now, just remove from outgoing requests
-        outgoingRequests.removeAll { $0.id == request.id }
-        showSuccessMessage("Friend request cancelled")
+        let success = await friendsService.cancelFriendRequest(requestId: request.id)
+        if success {
+            outgoingRequests.removeAll { $0.id == request.id }
+            showSuccessMessage("Friend request cancelled")
+        } else {
+            showErrorMessage("Failed to cancel friend request")
+        }
     }
 
     // MARK: - Helper Methods
 
     private func showSuccessMessage(_ message: String) {
-        // For now, just log - you can implement a toast system later
+        ToastManager.shared.showSuccess(message)
         logger.info("Success: \(message)")
     }
 
     private func showErrorMessage(_ message: String) {
+        ToastManager.shared.showError(message)
         errorMessage = message
         showError = true
         logger.error("Error: \(message)")

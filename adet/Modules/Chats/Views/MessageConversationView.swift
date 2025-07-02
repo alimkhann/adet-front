@@ -46,10 +46,13 @@ struct MessageConversationView: View {
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 40)
 
-                    Button("Try Again") {
+                    Button {
                         Task {
                             await loadOrCreateConversation()
                         }
+                    } label: {
+                        Text("Try Again")
+                            .frame(minHeight: 48)
                     }
                     .buttonStyle(PrimaryButtonStyle())
                     .padding(.horizontal, 40)

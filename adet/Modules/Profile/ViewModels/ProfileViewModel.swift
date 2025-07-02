@@ -20,9 +20,14 @@ class ProfileViewModel: ObservableObject {
     @Published var editFormBio: String = ""
     @Published var isSavingProfile = false
     @Published var showImageActionSheet = false
+    @Published var friendsCount = 0
+    @Published var userHabits: [Habit] = []
+    @Published var isLoadingHabits = false
 
     // MARK: - Dependencies
     private var authViewModel: AuthViewModel
+    private let friendsAPI = FriendsAPIService.shared
+    private let apiService = APIService.shared
 
     // MARK: - Computed Properties
     var displayName: String {
@@ -112,12 +117,32 @@ class ProfileViewModel: ObservableObject {
 
     // MARK: - Profile Statistics
     func getProfileStats() -> [ProfileStat] {
-        // TODO: Implement actual stats fetching from backend
         return [
             ProfileStat(title: "Posts", value: "0"),
-            ProfileStat(title: "Friends", value: "0"),
-            ProfileStat(title: "Max Streak", value: "0")
+            ProfileStat(title: "Friends", value: "\(friendsCount)"),
+            ProfileStat(title: "Habits", value: "\(userHabits.count)")
         ]
+    }
+
+    func loadFriendsCount() async {
+        guard let userId = authViewModel.user?.id else { return }
+
+        let response = await friendsAPI.getUserFriendsCount(userId: userId)
+        self.friendsCount = response
+        logger.info("Loaded friends count: \(response)")
+    }
+
+    func loadUserHabits() async {
+        isLoadingHabits = true
+        defer { isLoadingHabits = false }
+
+        do {
+            userHabits = try await apiService.fetchHabits()
+            logger.info("Loaded \(self.userHabits.count) habits")
+        } catch {
+            logger.error("Failed to load habits: \(error.localizedDescription)")
+            userHabits = []
+        }
     }
 
     // MARK: - Navigation Actions
@@ -191,9 +216,12 @@ class ProfileViewModel: ObservableObject {
     }
 
     func hasUnsavedChanges() -> Bool {
-        let currentUser = authViewModel.user
-        return editFormUsername != (currentUser?.username ?? "") ||
-               editFormName != (currentUser?.name ?? "") ||
-               editFormBio != (currentUser?.bio ?? "")
+        let currentUsername = authViewModel.user?.username ?? ""
+        let currentName = authViewModel.user?.name ?? ""
+        let currentBio = authViewModel.user?.bio ?? ""
+
+        return editFormUsername != currentUsername ||
+               editFormName != currentName ||
+               editFormBio != currentBio
     }
 }
