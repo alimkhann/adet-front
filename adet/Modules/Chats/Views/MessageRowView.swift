@@ -19,7 +19,9 @@ struct MessageRowView: View {
                 showSenderName: false, // No sender names in 1-on-1 chat
                 showTimestamp: false, // We're using date headers instead
                 showTimeBelow: viewModel.shouldShowTimeBelow(for: message, at: index),
-                viewModel: viewModel
+                viewModel: viewModel,
+                previousMessage: index > 0 ? viewModel.messages[index - 1] : nil,
+                nextMessage: index < viewModel.messages.count - 1 ? viewModel.messages[index + 1] : nil
             )
         }
         .id(message.id)

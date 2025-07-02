@@ -59,7 +59,6 @@ struct MessageConversationView: View {
                 }
             }
         }
-        .navigationBarHidden(conversation != nil) // Hide navigation bar when showing chat
         .task {
             await loadOrCreateConversation()
         }

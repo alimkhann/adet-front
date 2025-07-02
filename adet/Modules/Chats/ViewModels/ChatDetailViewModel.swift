@@ -9,7 +9,7 @@ class ChatDetailViewModel: ObservableObject {
 
     // Published properties for UI
     @Published var conversation: Conversation?
-    @Published var messages: [Message] = []
+    @Published private var _messages: [Message] = []
     @Published var messageText: String = ""
     @Published var isLoading = false
     @Published var isLoadingMessages = false
@@ -26,6 +26,9 @@ class ChatDetailViewModel: ObservableObject {
     // Reply state
     @Published var replyingToMessage: Message?
 
+    // Edit state
+    @Published var editingMessage: Message?
+
     // Typing timer
     private var typingTimer: Timer?
     private let typingTimeout: TimeInterval = 3.0
@@ -36,6 +39,32 @@ class ChatDetailViewModel: ObservableObject {
 
     // Current user ID (for message ownership)
     private var currentUserId: Int?
+
+    // Selection and editing state
+    @Published var selectedMessages: Set<Int> = []
+    @Published var isSelectionMode = false
+
+    // Computed property to filter out messages deleted for everyone
+    var messages: [Message] {
+        _messages.filter { message in
+            // Don't hide any messages - let them show with their deleted state
+            true
+        }
+    }
+
+    // Online status text for UI
+    var onlineStatusText: String {
+        switch connectionState {
+        case .connected:
+            return isOtherUserOnline ? "Online" : "Offline"
+        case .connecting, .reconnecting:
+            return "Connecting..."
+        case .disconnected:
+            return "Offline"
+        case .failed:
+            return "Connection failed"
+        }
+    }
 
     init() {
         setupRealTimeUpdates()
@@ -81,7 +110,7 @@ class ChatDetailViewModel: ObservableObject {
 
             await MainActor.run {
                 self.conversation = updatedConversation
-                self.messages = messageResponse.messages
+                self._messages = messageResponse.messages
                 self.hasMoreMessages = messageResponse.hasMore
                 self.isLoading = false
                 self.errorMessage = nil
@@ -118,7 +147,7 @@ class ChatDetailViewModel: ObservableObject {
 
             await MainActor.run {
                 // Prepend older messages
-                self.messages.insert(contentsOf: messageResponse.messages, at: 0)
+                self._messages.insert(contentsOf: messageResponse.messages, at: 0)
                 self.hasMoreMessages = messageResponse.hasMore
                 self.isLoadingMessages = false
             }
@@ -133,6 +162,12 @@ class ChatDetailViewModel: ObservableObject {
 
     /// Sends a message
     func sendMessage() async {
+        // Check if we're in editing mode
+        if editingMessage != nil {
+            await saveEdit()
+            return
+        }
+
         let content = messageText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !content.isEmpty,
               let conversationId = conversation?.id,
@@ -162,7 +197,7 @@ class ChatDetailViewModel: ObservableObject {
             // If REST was used (WebSocket not connected), add message to UI
             if let message = sentMessage {
                 await MainActor.run {
-                    self.messages.append(message)
+                    self._messages.append(message)
                 }
             }
 
@@ -182,7 +217,7 @@ class ChatDetailViewModel: ObservableObject {
                 self.isSendingMessage = false
                 // Restore reply state on error
                 if let replyId = replyToMessageId {
-                    self.replyingToMessage = self.messages.first { $0.id == replyId }
+                    self.replyingToMessage = self._messages.first { $0.id == replyId }
                 }
             }
 
@@ -308,8 +343,8 @@ class ChatDetailViewModel: ObservableObject {
         logger.debug("Received message: \(message.content)")
 
         // Add message if not already present
-        if !messages.contains(where: { $0.id == message.id }) {
-            messages.append(message)
+        if !_messages.contains(where: { $0.id == message.id }) {
+            _messages.append(message)
 
             // Mark as read if from other user
             if message.senderId != currentUserId {
@@ -345,8 +380,8 @@ class ChatDetailViewModel: ObservableObject {
         logger.debug("Message status event: \(event.status) for message \(event.messageId)")
 
         // Update message status
-        if let index = messages.firstIndex(where: { $0.id == event.messageId }) {
-            var updatedMessage = messages[index]
+        if let index = _messages.firstIndex(where: { $0.id == event.messageId }) {
+            var updatedMessage = _messages[index]
             let newStatus = MessageStatus(rawValue: event.status) ?? updatedMessage.status
 
             updatedMessage = Message(
@@ -363,7 +398,7 @@ class ChatDetailViewModel: ObservableObject {
                 repliedToMessageId: updatedMessage.repliedToMessageId
             )
 
-            messages[index] = updatedMessage
+            _messages[index] = updatedMessage
         }
     }
 
@@ -429,7 +464,7 @@ class ChatDetailViewModel: ObservableObject {
 
     func getRepliedMessage(for message: Message) -> Message? {
         guard let repliedToMessageId = message.repliedToMessageId else { return nil }
-        return messages.first { $0.id == repliedToMessageId }
+        return _messages.first { $0.id == repliedToMessageId }
     }
 
     func shouldShowTimestamp(for message: Message, at index: Int) -> Bool {
@@ -528,16 +563,8 @@ class ChatDetailViewModel: ObservableObject {
         !messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !isSendingMessage
     }
 
-    var onlineStatusText: String {
-        if isOtherUserOnline {
-            return "Online"
-        } else if let lastSeen = otherUserLastSeen {
-            let formatter = RelativeDateTimeFormatter()
-            formatter.unitsStyle = .abbreviated
-            return "Last seen \(formatter.localizedString(for: lastSeen, relativeTo: Date()))"
-        } else {
-            return "Offline"
-        }
+    var canSaveEdit: Bool {
+        editingMessage != nil && !messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !isSendingMessage
     }
 
     var typingIndicatorText: String {
@@ -550,6 +577,11 @@ class ChatDetailViewModel: ObservableObject {
     func canEditMessage(_ message: Message) -> Bool {
         guard isMyMessage(message) else { return false }
 
+        // Cannot edit deleted messages
+        if message.content == "Message deleted" || message.content == "Deleted for me" {
+            return false
+        }
+
         // Can edit if message is less than 30 minutes old
         let timeElapsed = Date().timeIntervalSince(message.createdAt)
         return timeElapsed < 1800 // 30 minutes
@@ -558,124 +590,215 @@ class ChatDetailViewModel: ObservableObject {
     func canDeleteForEveryone(_ message: Message) -> Bool {
         guard isMyMessage(message) else { return false }
 
-        // Can delete for everyone if message is less than 30 minutes old
+        // Can delete for everyone if message is less than 30 minutes old (even if already deleted)
+        // OR if message is already deleted (for removal)
         let timeElapsed = Date().timeIntervalSince(message.createdAt)
-        return timeElapsed < 1800 // 30 minutes
+        let withinTimeLimit = timeElapsed < 1800 // 30 minutes
+        let isAlreadyDeleted = message.content == "Message deleted"
+
+        return withinTimeLimit || isAlreadyDeleted
     }
 
     func canDeleteForMe(_ message: Message) -> Bool {
-        // Can always delete for yourself
+        // Can always delete for yourself (even if already deleted to remove completely)
+        // This includes both "Deleted for me" and "Message deleted" messages
         return true
     }
 
     func canReplyToMessage(_ message: Message) -> Bool {
-        // Can reply to any message, including your own
+        // Cannot reply to deleted messages
+        if message.content == "Message deleted" || message.content == "Deleted for me" {
+            return false
+        }
         return true
     }
 
-    // MARK: - Message Action Handlers
+    // MARK: - Bulk Selection
 
-    func editMessage(_ message: Message, newContent: String) async {
-        guard let conversationId = conversation?.id else {
-            logger.error("No conversation ID available for editing message")
-            return
-        }
-
-        do {
-            logger.info("Edit message \(message.id) with new content: \(newContent)")
-
-            let updatedMessage = try await ChatAPIService.shared.editMessage(
-                conversationId: conversationId,
-                messageId: message.id,
-                newContent: newContent
-            )
-
-            await MainActor.run {
-                // Update the message in our local array
-                if let index = self.messages.firstIndex(where: { $0.id == message.id }) {
-                    self.messages[index] = updatedMessage
-                }
-            }
-
-            logger.info("Message edited successfully")
-        } catch {
-            logger.error("Failed to edit message: \(error)")
-            await MainActor.run {
-                self.errorMessage = "Failed to edit message"
-            }
+    func toggleSelectionMode() {
+        isSelectionMode.toggle()
+        if !isSelectionMode {
+            clearSelection()
         }
     }
 
-    func deleteMessageForMe(_ message: Message) async {
-        guard let conversationId = conversation?.id else {
-            logger.error("No conversation ID available for deleting message")
-            return
+    func toggleMessageSelection(_ messageId: Int) {
+        if selectedMessages.contains(messageId) {
+            selectedMessages.remove(messageId)
+        } else {
+            selectedMessages.insert(messageId)
         }
 
-        do {
-            logger.info("Delete message \(message.id) for me")
-
-            try await ChatAPIService.shared.deleteMessage(
-                conversationId: conversationId,
-                messageId: message.id,
-                deleteForEveryone: false
-            )
-
-            await MainActor.run {
-                // Remove the message from our local array (delete for me)
-                self.messages.removeAll { $0.id == message.id }
-            }
-
-            logger.info("Message deleted for me successfully")
-        } catch {
-            logger.error("Failed to delete message for me: \(error)")
-            await MainActor.run {
-                self.errorMessage = "Failed to delete message"
-            }
+        // Exit selection mode if no messages selected
+        if selectedMessages.isEmpty {
+            isSelectionMode = false
         }
     }
 
-    func deleteMessageForEveryone(_ message: Message) async {
-        guard let conversationId = conversation?.id else {
-            logger.error("No conversation ID available for deleting message")
-            return
+    func clearSelection() {
+        selectedMessages.removeAll()
+    }
+
+    func selectAllMyMessages() {
+        selectedMessages = Set(_messages.compactMap { message in
+            // Allow selection of all messages including deleted ones
+            isMyMessage(message) ? message.id : nil
+        })
+    }
+
+    // MARK: - Bulk Delete
+
+    @Published var showingBulkDeleteConfirmation = false
+
+    func bulkDeleteSelectedMessages() async {
+        guard !selectedMessages.isEmpty else { return }
+
+        // Show confirmation dialog
+        await MainActor.run {
+            showingBulkDeleteConfirmation = true
+        }
+    }
+
+    func confirmBulkDelete() async {
+        guard !selectedMessages.isEmpty else { return }
+
+        let messagesToDelete = _messages.filter { selectedMessages.contains($0.id) }
+
+        // Clear selection immediately for better UX
+        await MainActor.run {
+            clearSelection()
+            isSelectionMode = false
+            showingBulkDeleteConfirmation = false
         }
 
-        do {
-            logger.info("Delete message \(message.id) for everyone")
+        // Group messages by delete strategy
+        var deleteForEveryoneIds: [Int] = []
+        var deleteForMeIds: [Int] = []
+        var removeCompletelyIds: [Int] = []
 
-            try await ChatAPIService.shared.deleteMessage(
-                conversationId: conversationId,
-                messageId: message.id,
-                deleteForEveryone: true
-            )
+        for message in messagesToDelete {
+            if message.content == "Deleted for me" || message.content == "Message deleted" {
+                // Already deleted messages should be removed completely
+                removeCompletelyIds.append(message.id)
+            } else if canDeleteForEveryone(message) && shouldDeleteForEveryone(message) {
+                deleteForEveryoneIds.append(message.id)
+            } else {
+                deleteForMeIds.append(message.id)
+            }
+        }
 
-            await MainActor.run {
-                // Update the message content to show it was deleted
-                if let index = self.messages.firstIndex(where: { $0.id == message.id }) {
-                    var deletedMessage = self.messages[index]
-                    deletedMessage = Message(
-                        id: deletedMessage.id,
-                        conversationId: deletedMessage.conversationId,
-                        senderId: deletedMessage.senderId,
-                        content: "[Message deleted]",
+        // Execute bulk deletes
+        await performBulkDelete(
+            deleteForEveryoneIds: deleteForEveryoneIds,
+            deleteForMeIds: deleteForMeIds,
+            removeCompletelyIds: removeCompletelyIds
+        )
+    }
+
+    private func shouldDeleteForEveryone(_ message: Message) -> Bool {
+        // Smart logic: delete for everyone if message is recent and not already deleted for me
+        let isRecent = Date().timeIntervalSince(message.createdAt) < 1800 // 30 minutes
+        let isNotDeletedForMe = message.content != "Deleted for me"
+        let isMyMessage = isMyMessage(message)
+
+        return isMyMessage && isRecent && isNotDeletedForMe
+    }
+
+    private func performBulkDelete(deleteForEveryoneIds: [Int], deleteForMeIds: [Int], removeCompletelyIds: [Int]) async {
+        guard let conversationId = conversation?.id else { return }
+
+        // Optimistic UI updates
+        await MainActor.run {
+            // Handle delete for everyone
+            for messageId in deleteForEveryoneIds {
+                if let index = _messages.firstIndex(where: { $0.id == messageId }) {
+                    var updatedMessage = _messages[index]
+                    updatedMessage = Message(
+                        id: updatedMessage.id,
+                        conversationId: updatedMessage.conversationId,
+                        senderId: updatedMessage.senderId,
+                        content: "Message deleted",
                         messageType: "system",
-                        status: deletedMessage.status,
-                        createdAt: deletedMessage.createdAt,
-                        deliveredAt: deletedMessage.deliveredAt,
-                        readAt: deletedMessage.readAt,
-                        sender: deletedMessage.sender,
-                        repliedToMessageId: deletedMessage.repliedToMessageId
+                        status: updatedMessage.status,
+                        createdAt: updatedMessage.createdAt,
+                        deliveredAt: updatedMessage.deliveredAt,
+                        readAt: updatedMessage.readAt,
+                        sender: updatedMessage.sender,
+                        repliedToMessageId: updatedMessage.repliedToMessageId
                     )
-                    self.messages[index] = deletedMessage
+                    _messages[index] = updatedMessage
                 }
             }
 
-            logger.info("Message deleted for everyone successfully")
-        } catch {
-            logger.error("Failed to delete message for everyone: \(error)")
-            await MainActor.run {
-                self.errorMessage = "Failed to delete message"
+            // Handle delete for me
+            for messageId in deleteForMeIds {
+                if let index = _messages.firstIndex(where: { $0.id == messageId }) {
+                    var updatedMessage = _messages[index]
+                    updatedMessage = Message(
+                        id: updatedMessage.id,
+                        conversationId: updatedMessage.conversationId,
+                        senderId: updatedMessage.senderId,
+                        content: "Deleted for me",
+                        messageType: "system",
+                        status: updatedMessage.status,
+                        createdAt: updatedMessage.createdAt,
+                        deliveredAt: updatedMessage.deliveredAt,
+                        readAt: updatedMessage.readAt,
+                        sender: updatedMessage.sender,
+                        repliedToMessageId: updatedMessage.repliedToMessageId
+                    )
+                    _messages[index] = updatedMessage
+                }
+            }
+
+            // Handle complete removal
+            for messageId in removeCompletelyIds {
+                _messages.removeAll { $0.id == messageId }
+            }
+        }
+
+        // Sync with server
+        let chatService = ChatAPIService.shared
+
+        // Delete for everyone
+        for messageId in deleteForEveryoneIds {
+            do {
+                try await chatService.deleteMessage(
+                    conversationId: conversationId,
+                    messageId: messageId,
+                    deleteForEveryone: true
+                )
+                logger.info("Bulk deleted message \(messageId) for everyone")
+            } catch {
+                logger.error("Failed to bulk delete message \(messageId) for everyone: \(error)")
+            }
+        }
+
+        // Delete for me
+        for messageId in deleteForMeIds {
+            do {
+                try await chatService.deleteMessage(
+                    conversationId: conversationId,
+                    messageId: messageId,
+                    deleteForEveryone: false
+                )
+                logger.info("Bulk deleted message \(messageId) for me")
+            } catch {
+                logger.error("Failed to bulk delete message \(messageId) for me: \(error)")
+            }
+        }
+
+        // Remove completely
+        for messageId in removeCompletelyIds {
+            do {
+                try await chatService.deleteMessage(
+                    conversationId: conversationId,
+                    messageId: messageId,
+                    deleteForEveryone: true // Use delete for everyone to trigger complete removal
+                )
+                logger.info("Bulk removed message \(messageId) completely")
+            } catch {
+                logger.error("Failed to bulk remove message \(messageId) completely: \(error)")
             }
         }
     }
@@ -690,6 +813,297 @@ class ChatDetailViewModel: ObservableObject {
     func cancelReply() {
         replyingToMessage = nil
     }
+
+    func startEditingMessage(_ message: Message) async {
+        await MainActor.run {
+            self.editingMessage = message
+            self.messageText = message.content
+        }
+        logger.info("Start editing message \(message.id): \(message.content)")
+    }
+
+    func cancelEditing() {
+        editingMessage = nil
+        messageText = ""
+    }
+
+    func saveEdit() async {
+        guard let message = editingMessage else { return }
+        let newContent = messageText.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard !newContent.isEmpty else {
+            await MainActor.run {
+                self.messageText = message.content // Restore original text
+            }
+            return
+        }
+
+        // Clear edit state immediately for better UX
+        await MainActor.run {
+            self.editingMessage = nil
+            self.messageText = ""
+        }
+
+        // Then perform the edit operation
+        await editMessage(message, newContent: newContent)
+    }
+
+    /// Refreshes messages from the server to ensure consistency
+    func refreshMessages() async {
+        guard let conversationId = conversation?.id else { return }
+
+        do {
+            let chatService = ChatAPIService.shared
+            let messageResponse = try await chatService.getMessages(
+                conversationId: conversationId,
+                limit: _messages.count > messagesPerPage ? _messages.count : messagesPerPage
+            )
+
+            await MainActor.run {
+                self._messages = messageResponse.messages
+            }
+
+            logger.info("Messages refreshed successfully")
+        } catch {
+            logger.error("Failed to refresh messages: \(error)")
+        }
+    }
+
+    // MARK: - Individual Message Actions
+
+    func editMessage(_ message: Message, newContent: String) async {
+        guard let conversationId = conversation?.id else {
+            logger.error("No conversation ID available for editing message")
+            return
+        }
+
+        // First, update locally for immediate UI feedback
+        await MainActor.run {
+            if let index = self._messages.firstIndex(where: { $0.id == message.id }) {
+                var updatedMessage = self._messages[index]
+                updatedMessage = Message(
+                    id: updatedMessage.id,
+                    conversationId: updatedMessage.conversationId,
+                    senderId: updatedMessage.senderId,
+                    content: newContent,
+                    messageType: updatedMessage.messageType,
+                    status: updatedMessage.status,
+                    createdAt: updatedMessage.createdAt,
+                    deliveredAt: updatedMessage.deliveredAt,
+                    readAt: updatedMessage.readAt,
+                    sender: updatedMessage.sender,
+                    repliedToMessageId: updatedMessage.repliedToMessageId
+                )
+                self._messages[index] = updatedMessage
+            }
+        }
+
+        // Then sync with server
+        do {
+            logger.info("Edit message \(message.id) with new content: \(newContent)")
+
+            let serverUpdatedMessage = try await ChatAPIService.shared.editMessage(
+                conversationId: conversationId,
+                messageId: message.id,
+                newContent: newContent
+            )
+
+            // Update with server response to ensure consistency
+            await MainActor.run {
+                if let index = self._messages.firstIndex(where: { $0.id == message.id }) {
+                    self._messages[index] = serverUpdatedMessage
+                }
+            }
+
+            logger.info("Message edited successfully")
+        } catch {
+            logger.error("Failed to edit message: \(error)")
+
+            // Revert local changes on error
+            await MainActor.run {
+                if let index = self._messages.firstIndex(where: { $0.id == message.id }) {
+                    var revertedMessage = self._messages[index]
+                    revertedMessage = Message(
+                        id: revertedMessage.id,
+                        conversationId: revertedMessage.conversationId,
+                        senderId: revertedMessage.senderId,
+                        content: message.content, // Revert to original content
+                        messageType: revertedMessage.messageType,
+                        status: revertedMessage.status,
+                        createdAt: revertedMessage.createdAt,
+                        deliveredAt: revertedMessage.deliveredAt,
+                        readAt: revertedMessage.readAt,
+                        sender: revertedMessage.sender,
+                        repliedToMessageId: revertedMessage.repliedToMessageId
+                    )
+                    self._messages[index] = revertedMessage
+                }
+                self.errorMessage = "Failed to edit message"
+            }
+        }
+    }
+
+    func deleteMessageForMe(_ message: Message) async {
+        guard let conversationId = conversation?.id else {
+            logger.error("No conversation ID available for deleting message")
+            return
+        }
+
+        // Store original message for potential revert
+        let originalMessage = message
+
+        // If message is already "Deleted for me", remove it completely
+        if message.content == "Deleted for me" || message.content == "Message deleted" {
+            await MainActor.run {
+                self._messages.removeAll { $0.id == message.id }
+            }
+
+            // Also sync removal with server (this ensures persistence)
+            do {
+                logger.info("Remove message \(message.id) completely")
+                try await ChatAPIService.shared.deleteMessage(
+                    conversationId: conversationId,
+                    messageId: message.id,
+                    deleteForEveryone: true // This will actually remove it from server
+                )
+                logger.info("Message removed completely from server")
+            } catch {
+                logger.error("Failed to remove message completely: \(error)")
+                // Revert - add the message back
+                await MainActor.run {
+                    let insertIndex = self._messages.firstIndex { $0.createdAt > originalMessage.createdAt } ?? self._messages.count
+                    self._messages.insert(originalMessage, at: insertIndex)
+                }
+            }
+            return
+        }
+
+        // First, update UI immediately to show "Deleted for me"
+        await MainActor.run {
+            if let index = self._messages.firstIndex(where: { $0.id == message.id }) {
+                var deletedMessage = self._messages[index]
+                deletedMessage = Message(
+                    id: deletedMessage.id,
+                    conversationId: deletedMessage.conversationId,
+                    senderId: deletedMessage.senderId,
+                    content: "Deleted for me",
+                    messageType: "system",
+                    status: deletedMessage.status,
+                    createdAt: deletedMessage.createdAt,
+                    deliveredAt: deletedMessage.deliveredAt,
+                    readAt: deletedMessage.readAt,
+                    sender: deletedMessage.sender,
+                    repliedToMessageId: deletedMessage.repliedToMessageId
+                )
+                self._messages[index] = deletedMessage
+            }
+        }
+
+        // Then sync with server
+        do {
+            logger.info("Delete message \(message.id) for me")
+
+            try await ChatAPIService.shared.deleteMessage(
+                conversationId: conversationId,
+                messageId: message.id,
+                deleteForEveryone: false
+            )
+
+            logger.info("Message deleted for me successfully")
+        } catch {
+            logger.error("Failed to delete message for me: \(error)")
+
+            // Revert to original message on error
+            await MainActor.run {
+                if let index = self._messages.firstIndex(where: { $0.id == message.id }) {
+                    self._messages[index] = originalMessage
+                }
+                self.errorMessage = "Failed to delete message"
+            }
+        }
+    }
+
+    func deleteMessageForEveryone(_ message: Message) async {
+        guard let conversationId = conversation?.id else {
+            logger.error("No conversation ID available for deleting message")
+            return
+        }
+
+        // Store original message for potential revert
+        let originalMessage = message
+
+        // If message is already deleted for everyone, remove it completely
+        if message.content == "Message deleted" {
+            await MainActor.run {
+                self._messages.removeAll { $0.id == message.id }
+            }
+
+            // Sync removal with server
+            do {
+                logger.info("Remove message \(message.id) completely from server")
+                try await ChatAPIService.shared.deleteMessage(
+                    conversationId: conversationId,
+                    messageId: message.id,
+                    deleteForEveryone: true // This will actually delete from DB
+                )
+                logger.info("Message removed completely from server")
+            } catch {
+                logger.error("Failed to remove message completely: \(error)")
+                // Revert - add the message back
+                await MainActor.run {
+                    let insertIndex = self._messages.firstIndex { $0.createdAt > originalMessage.createdAt } ?? self._messages.count
+                    self._messages.insert(originalMessage, at: insertIndex)
+                }
+            }
+            return
+        }
+
+        // First, update UI immediately to show "Deleted for everyone"
+        await MainActor.run {
+            if let index = self._messages.firstIndex(where: { $0.id == message.id }) {
+                var deletedMessage = self._messages[index]
+                deletedMessage = Message(
+                    id: deletedMessage.id,
+                    conversationId: deletedMessage.conversationId,
+                    senderId: deletedMessage.senderId,
+                    content: "Message deleted",
+                    messageType: "system",
+                    status: deletedMessage.status,
+                    createdAt: deletedMessage.createdAt,
+                    deliveredAt: deletedMessage.deliveredAt,
+                    readAt: deletedMessage.readAt,
+                    sender: deletedMessage.sender,
+                    repliedToMessageId: deletedMessage.repliedToMessageId
+                )
+                self._messages[index] = deletedMessage
+            }
+        }
+
+        // Then sync with server
+        do {
+            logger.info("Delete message \(message.id) for everyone")
+
+            try await ChatAPIService.shared.deleteMessage(
+                conversationId: conversationId,
+                messageId: message.id,
+                deleteForEveryone: true
+            )
+
+            logger.info("Message deleted for everyone successfully")
+        } catch {
+            logger.error("Failed to delete message for everyone: \(error)")
+
+            // Revert - restore original message on error
+            await MainActor.run {
+                if let index = self._messages.firstIndex(where: { $0.id == message.id }) {
+                    self._messages[index] = originalMessage
+                }
+                self.errorMessage = "Failed to delete message"
+            }
+        }
+    }
+
+    // MARK: - Reply Actions
 }
 
 // MARK: - Development Helpers
@@ -721,7 +1135,7 @@ extension ChatDetailViewModel {
         conversation = mockConversation
         currentUserId = 1
 
-        messages = [
+        _messages = [
             Message(
                 id: 1,
                 conversationId: 1,

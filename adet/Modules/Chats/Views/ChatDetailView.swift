@@ -26,7 +26,10 @@ struct ChatDetailView: View {
             } else {
                 // Messages list
                 messagesScrollView
+            }
 
+            // Show message input only when not in selection mode
+            if !viewModel.isSelectionMode {
                 // Typing indicator
                 if viewModel.otherUserTyping {
                     typingIndicatorView
@@ -43,22 +46,7 @@ struct ChatDetailView: View {
                     .transition(.move(edge: .bottom))
                 }
 
-                // Message input
-                MessageInputView(
-                    messageText: $viewModel.messageText,
-                    isSendingMessage: viewModel.isSendingMessage,
-                    canSendMessage: viewModel.canSendMessage,
-                    onSendMessage: {
-                        Task {
-                            await viewModel.sendMessage()
-                        }
-                    },
-                    onTypingChanged: { isTyping in
-                        Task {
-                            await viewModel.setTyping(isTyping)
-                        }
-                    }
-                )
+                messageInputSection
             }
         }
         .navigationTitle("")
@@ -66,23 +54,60 @@ struct ChatDetailView: View {
         .toolbar(.hidden, for: .tabBar)
         .toolbar(content: {
             ToolbarItem(placement: .principal) {
-                NavigationLink(destination: OtherUserProfileView(userId: conversation.otherParticipant.id).environmentObject(authViewModel)) {
-                    VStack(spacing: 2) {
-                        Text(conversation.otherParticipant.displayName)
-                            .font(.headline)
-                            .foregroundColor(.primary)
+                if viewModel.isSelectionMode {
+                    // Show user info even in selection mode
+                    NavigationLink(destination: OtherUserProfileView(userId: conversation.otherParticipant.id).environmentObject(authViewModel)) {
+                        VStack(spacing: 2) {
+                            Text(conversation.otherParticipant.displayName)
+                                .font(.headline)
+                                .foregroundColor(.primary)
 
-                        HStack(spacing: 4) {
-                            connectionStatusIndicator
-                            Text(viewModel.onlineStatusText)
-                                .font(.caption2)
-                                .foregroundColor(.secondary)
+                            HStack(spacing: 4) {
+                                connectionStatusIndicator
+                                Text(viewModel.onlineStatusText)
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                            }
                         }
                     }
+                    .buttonStyle(PlainButtonStyle())
+                } else {
+                    // Normal chat header with user info
+                    NavigationLink(destination: OtherUserProfileView(userId: conversation.otherParticipant.id).environmentObject(authViewModel)) {
+                        VStack(spacing: 2) {
+                            Text(conversation.otherParticipant.displayName)
+                                .font(.headline)
+                                .foregroundColor(.primary)
+
+                            HStack(spacing: 4) {
+                                connectionStatusIndicator
+                                Text(viewModel.onlineStatusText)
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                    }
+                    .buttonStyle(PlainButtonStyle())
                 }
-                .buttonStyle(PlainButtonStyle())
+            }
+
+            ToolbarItem(placement: .navigationBarTrailing) {
+                if viewModel.isSelectionMode {
+                    // Cancel selection button only
+                    Button("Cancel") {
+                        viewModel.toggleSelectionMode()
+                    }
+                    .foregroundColor(.primary)
+                }
+                // No button when not in selection mode
             }
         })
+        .safeAreaInset(edge: .bottom) {
+            // Bottom selection toolbar
+            if viewModel.isSelectionMode && !viewModel.selectedMessages.isEmpty {
+                selectionToolbar
+            }
+        }
         .task {
             #if DEBUG
             // For development, load mock data first
@@ -101,13 +126,23 @@ struct ChatDetailView: View {
             }
             Button("Retry") {
                 Task {
-                    await viewModel.initialize(with: conversation)
+                    await viewModel.refreshMessages()
                 }
             }
         } message: {
-            if let error = viewModel.errorMessage {
-                Text(error)
+            Text(viewModel.errorMessage ?? "")
+        }
+        .confirmationDialog("Delete Messages", isPresented: $viewModel.showingBulkDeleteConfirmation) {
+            Button("Delete", role: .destructive) {
+                Task {
+                    await viewModel.confirmBulkDelete()
+                }
             }
+            Button("Cancel", role: .cancel) {
+                viewModel.showingBulkDeleteConfirmation = false
+            }
+        } message: {
+            Text("Are you sure you want to delete the selected messages? This action cannot be undone.")
         }
     }
 
@@ -164,40 +199,29 @@ struct ChatDetailView: View {
         }
     }
 
-    // MARK: - Typing Indicator
+    // MARK: - Message Input Section
 
-    private var typingIndicatorView: some View {
-        HStack {
-            HStack(spacing: 4) {
-                ForEach(0..<3) { index in
-                    Circle()
-                        .fill(Color.secondary)
-                        .frame(width: 6, height: 6)
-                        .scaleEffect(typingAnimation ? 1.0 : 0.5)
-                        .animation(
-                            Animation
-                                .easeInOut(duration: 0.6)
-                                .repeatForever()
-                                .delay(Double(index) * 0.2),
-                            value: typingAnimation
-                        )
+    private var messageInputSection: some View {
+        MessageInputView(
+            messageText: $viewModel.messageText,
+            isSendingMessage: viewModel.isSendingMessage,
+            canSendMessage: viewModel.editingMessage != nil ? viewModel.canSaveEdit : viewModel.canSendMessage,
+            onSendMessage: {
+                Task {
+                    await viewModel.sendMessage()
                 }
+            },
+            onTypingChanged: { isTyping in
+                Task {
+                    await viewModel.setTyping(isTyping)
+                }
+            },
+            isEditMode: viewModel.editingMessage != nil,
+            onCancelEdit: {
+                viewModel.cancelEditing()
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
-            .background(Color(.systemGray5))
-            .cornerRadius(18)
-
-            Spacer()
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 8)
-        .onAppear {
-            typingAnimation = true
-        }
+        )
     }
-
-    @State private var typingAnimation = false
 
     // MARK: - Connection Status Indicator
 
@@ -206,7 +230,7 @@ struct ChatDetailView: View {
         switch viewModel.connectionState {
         case .connected:
             Image(systemName: "circle.fill")
-                .foregroundColor(.green)
+                .foregroundColor(viewModel.isOtherUserOnline ? .green : .gray)
                 .font(.system(size: 8))
         case .connecting, .reconnecting:
             ProgressView()
@@ -220,6 +244,44 @@ struct ChatDetailView: View {
                 .foregroundColor(.red)
                 .font(.system(size: 8))
         }
+    }
+
+    // MARK: - Selection Toolbar
+
+    private var selectionToolbar: some View {
+        HStack {
+            Text("\(viewModel.selectedMessages.count) selected")
+                .foregroundColor(.primary)
+                .font(.headline)
+                .fontWeight(.medium)
+
+            Spacer()
+
+            Button {
+                viewModel.showingBulkDeleteConfirmation = true
+            } label: {
+                Image(systemName: "trash")
+                    .foregroundColor(.red)
+                    .font(.title2)
+            }
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 16)
+        .background(Color(.systemBackground))
+        .overlay(
+            Rectangle()
+                .frame(height: 0.5)
+                .foregroundColor(Color(.separator)),
+            alignment: .top
+        )
+    }
+
+    // MARK: - Typing Indicator View
+
+    private var typingIndicatorView: some View {
+        Text("Typing...")
+            .font(.caption)
+            .foregroundColor(.secondary)
     }
 }
 

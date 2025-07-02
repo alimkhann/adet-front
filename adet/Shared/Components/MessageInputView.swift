@@ -7,16 +7,62 @@ struct MessageInputView: View {
     let onSendMessage: () -> Void
     let onTypingChanged: (Bool) -> Void
 
+    // Edit mode support
+    let isEditMode: Bool
+    let onCancelEdit: (() -> Void)?
+
+    init(
+        messageText: Binding<String>,
+        isSendingMessage: Bool,
+        canSendMessage: Bool,
+        onSendMessage: @escaping () -> Void,
+        onTypingChanged: @escaping (Bool) -> Void,
+        isEditMode: Bool = false,
+        onCancelEdit: (() -> Void)? = nil
+    ) {
+        self._messageText = messageText
+        self.isSendingMessage = isSendingMessage
+        self.canSendMessage = canSendMessage
+        self.onSendMessage = onSendMessage
+        self.onTypingChanged = onTypingChanged
+        self.isEditMode = isEditMode
+        self.onCancelEdit = onCancelEdit
+    }
+
     @FocusState private var isTextFieldFocused: Bool
     @State private var isTyping = false
 
     var body: some View {
         VStack(spacing: 0) {
+            // Edit mode indicator
+            if isEditMode {
+                HStack {
+                    Image(systemName: "pencil")
+                        .font(.caption)
+                        .foregroundColor(.primary)
+
+                    Text("Editing message")
+                        .font(.caption)
+                        .foregroundColor(.primary)
+
+                    Spacer()
+
+                    Button("Cancel") {
+                        onCancelEdit?()
+                    }
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+                .background(Color(.systemGray6))
+            }
+
             Divider()
 
             HStack(alignment: .bottom, spacing: 12) {
                 // Message Text Field
-                TextField("Type a message...", text: $messageText, axis: .vertical)
+                TextField(isEditMode ? "Edit message..." : "Type a message...", text: $messageText, axis: .vertical)
                     .textFieldStyle(PlainTextFieldStyle())
                     .padding(.horizontal, 16)
                     .padding(.vertical, 10)
@@ -33,19 +79,19 @@ struct MessageInputView: View {
                         }
                     }
 
-                // Send Button
+                // Send/Save Button
                 Button(action: onSendMessage) {
                     if isSendingMessage {
                         ProgressView()
                             .scaleEffect(0.8)
                             .tint(.white)
                     } else {
-                        Image(systemName: "arrow.up")
+                        Image(systemName: isEditMode ? "checkmark" : "arrow.up")
                             .font(.system(size: 16, weight: .bold))
                             .foregroundColor(.white)
                     }
                 }
-                .frame(width: 36, height: 36)
+                .frame(width: 40, height: 40)
                 .background(canSendMessage ? Color.accentColor : Color(.systemGray4))
                 .cornerRadius(18)
                 .disabled(!canSendMessage || isSendingMessage)
