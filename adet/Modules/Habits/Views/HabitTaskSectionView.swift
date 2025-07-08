@@ -401,15 +401,41 @@ struct NotTodayView: View {
     let nextTaskDate: Date
     var body: some View {
         VStack(spacing: 12) {
+            Spacer()
+
             Text("Task is Not Today").font(.title2).fontWeight(.semibold)
+
             Image(systemName: "clock")
                 .font(.system(size: 48))
                 .foregroundColor(.secondary)
-            Text("Come back tomorrow for the task!")
+
+            Text(nextTaskMessage(for: nextTaskDate))
                 .font(.body)
                 .foregroundColor(.secondary)
+
+            Spacer()
         }
         .frame(maxWidth: .infinity, alignment: .top)
+    }
+}
+
+private func nextTaskMessage(for date: Date) -> String {
+    let calendar = Calendar.current
+    let today = calendar.startOfDay(for: Date())
+    let next = calendar.startOfDay(for: date)
+    let diff = calendar.dateComponents([.day], from: today, to: next).day ?? 0
+    let formatter = DateFormatter()
+    formatter.locale = Locale.current
+    formatter.dateFormat = "EEEE, d MMMM"
+    switch diff {
+    case 1:
+        return "Come back tomorrow for the task!"
+    case 2:
+        return "Come back the day after tomorrow!"
+    case let d where d > 2:
+        return "Come back on \(formatter.string(from: date))!"
+    default:
+        return "Come back soon!"
     }
 }
 
@@ -820,7 +846,7 @@ struct MissedTaskView: View {
                 .font(.system(size: 48))
                 .foregroundColor(.red)
 
-            Text("Come back tomorrow for the next task!")
+            Text(nextTaskMessage(for: nextTaskDate))
 
             Spacer()
         }
@@ -871,8 +897,8 @@ struct FailedNoAttemptsView: View {
 
             Text("You've got 0 attempts left.")
 
-            Text("Come back tomorrow for the next task!")
-
+            Text(nextTaskMessage(for: nextTaskDate))
+            
             Spacer()
         }
         .frame(maxWidth: .infinity, alignment: .top)

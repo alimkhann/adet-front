@@ -451,9 +451,58 @@ public class HabitViewModel: ObservableObject {
 
     // Helper: Find next scheduled date for a habit
     func nextScheduledDate(for habit: Habit) -> Date {
-        // Implement logic to find the next date this habit is scheduled for
-        // For now, just return tomorrow
-        return Calendar.current.date(byAdding: .day, value: 1, to: Date()) ?? Date()
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        let frequency = habit.frequency.lowercased()
+        let weekdaySymbols = calendar.weekdaySymbols // Sunday = 1
+        let shortWeekdaySymbols = calendar.shortWeekdaySymbols // e.g. "Mon"
+        let todayIndex = calendar.component(.weekday, from: today) // 1 = Sunday
+
+        // Every day
+        if frequency == "every day" || frequency == "daily" {
+            return calendar.date(byAdding: .day, value: 1, to: today) ?? today
+        }
+        // Weekdays
+        if frequency == "weekdays" {
+            var next = today
+            for i in 1...7 {
+                let candidate = calendar.date(byAdding: .day, value: i, to: today)!
+                let candidateIndex = calendar.component(.weekday, from: candidate)
+                if candidateIndex >= 2 && candidateIndex <= 6 { // Mon-Fri
+                    return candidate
+                }
+            }
+        }
+        // Weekends
+        if frequency == "weekends" {
+            var next = today
+            for i in 1...7 {
+                let candidate = calendar.date(byAdding: .day, value: i, to: today)!
+                let candidateIndex = calendar.component(.weekday, from: candidate)
+                if candidateIndex == 1 || candidateIndex == 7 { // Sun/Sat
+                    return candidate
+                }
+            }
+        }
+        // Comma-separated days (e.g. "Mon, Wed, Fri")
+        let days = frequency.components(separatedBy: ",").map { $0.trimmingCharacters(in: .whitespaces) }
+        let validShorts = Set(shortWeekdaySymbols.map { $0.lowercased() })
+        let selectedDays = days.compactMap { d in
+            let lower = d.prefix(3).lowercased()
+            return validShorts.contains(lower) ? lower : nil
+        }
+        if !selectedDays.isEmpty {
+            for i in 1...7 {
+                let candidate = calendar.date(byAdding: .day, value: i, to: today)!
+                let candidateIndex = calendar.component(.weekday, from: candidate) - 1 // 0 = Sunday
+                let candidateShort = shortWeekdaySymbols[candidateIndex].lowercased()
+                if selectedDays.contains(candidateShort) {
+                    return candidate
+                }
+            }
+        }
+        // Fallback: tomorrow
+        return calendar.date(byAdding: .day, value: 1, to: today) ?? today
     }
 
     // Helper: Parse validation time string to Date
