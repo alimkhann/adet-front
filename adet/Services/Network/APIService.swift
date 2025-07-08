@@ -155,9 +155,13 @@ actor APIService {
         )
     }
 
-    func getTodayMotivationEntry(habitId: Int) async throws -> MotivationEntryResponse {
+    func getTodayMotivationEntry(habitId: Int, userDate: String? = nil) async throws -> MotivationEntryResponse {
+        var endpoint = "/api/v1/habits/\(habitId)/motivation/today"
+        if let userDate = userDate {
+            endpoint += "?user_date=\(userDate)"
+        }
         return try await networkService.makeAuthenticatedRequest(
-            endpoint: "/api/v1/habits/\(habitId)/motivation/today",
+            endpoint: endpoint,
             method: "GET",
             body: (nil as String?)
         )
@@ -172,9 +176,13 @@ actor APIService {
         )
     }
 
-    func getTodayAbilityEntry(habitId: Int) async throws -> AbilityEntryResponse {
+    func getTodayAbilityEntry(habitId: Int, userDate: String? = nil) async throws -> AbilityEntryResponse {
+        var endpoint = "/api/v1/habits/\(habitId)/ability/today"
+        if let userDate = userDate {
+            endpoint += "?user_date=\(userDate)"
+        }
         return try await networkService.makeAuthenticatedRequest(
-            endpoint: "/api/v1/habits/\(habitId)/ability/today",
+            endpoint: endpoint,
             method: "GET",
             body: (nil as String?)
         )

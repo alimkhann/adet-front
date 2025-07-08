@@ -180,7 +180,11 @@ public class HabitViewModel: ObservableObject {
     // MARK: - Motivation & Ability Tracking
     func getTodayMotivationEntry(for habitId: Int) async -> MotivationEntryResponse? {
         do {
-            let entry = try await apiService.getTodayMotivationEntry(habitId: habitId)
+            let formatter = DateFormatter()
+            formatter.dateFormat = "yyyy-MM-dd"
+            formatter.timeZone = .current
+            let userDate = formatter.string(from: Date())
+            let entry = try await apiService.getTodayMotivationEntry(habitId: habitId, userDate: userDate)
             todayMotivation = entry
             return entry
         } catch {
@@ -190,14 +194,17 @@ public class HabitViewModel: ObservableObject {
     }
 
     func submitMotivationEntry(for habitId: Int, level: String) async -> Bool {
-        let today = ISO8601DateFormatter().string(from: Date()).prefix(10) // yyyy-MM-dd
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        formatter.timeZone = .current
+        let today = formatter.string(from: Date())
         do {
-            _ = try await apiService.submitMotivationEntry(habitId: habitId, date: String(today), level: level)
+            _ = try await apiService.submitMotivationEntry(habitId: habitId, date: today, level: level)
             return true
         } catch let error as NSError {
             if error.localizedDescription.contains("already exists") {
-                // Already exists, treat as success
-                return true
+                // Already exists, treat as failure so updateMotivationEntry will be called
+                return false
             }
             ToastManager.shared.showError(error.localizedDescription)
             return false
@@ -205,9 +212,12 @@ public class HabitViewModel: ObservableObject {
     }
 
     func updateMotivationEntry(for habitId: Int, level: String) async -> Bool {
-        let today = ISO8601DateFormatter().string(from: Date()).prefix(10) // yyyy-MM-dd
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        formatter.timeZone = .current
+        let today = formatter.string(from: Date())
         do {
-            _ = try await apiService.updateMotivationEntry(habitId: habitId, date: String(today), level: level)
+            _ = try await apiService.updateMotivationEntry(habitId: habitId, date: today, level: level)
             return true
         } catch {
             ToastManager.shared.showError(error.localizedDescription)
@@ -217,7 +227,11 @@ public class HabitViewModel: ObservableObject {
 
     func getTodayAbilityEntry(for habitId: Int) async -> AbilityEntryResponse? {
         do {
-            let entry = try await apiService.getTodayAbilityEntry(habitId: habitId)
+            let formatter = DateFormatter()
+            formatter.dateFormat = "yyyy-MM-dd"
+            formatter.timeZone = .current
+            let userDate = formatter.string(from: Date())
+            let entry = try await apiService.getTodayAbilityEntry(habitId: habitId, userDate: userDate)
             todayAbility = entry
             return entry
         } catch {
@@ -227,9 +241,12 @@ public class HabitViewModel: ObservableObject {
     }
 
     func submitAbilityEntry(for habitId: Int, level: String) async -> Bool {
-        let today = ISO8601DateFormatter().string(from: Date()).prefix(10) // yyyy-MM-dd
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        formatter.timeZone = .current
+        let today = formatter.string(from: Date())
         do {
-            _ = try await apiService.submitAbilityEntry(habitId: habitId, date: String(today), level: level)
+            _ = try await apiService.submitAbilityEntry(habitId: habitId, date: today, level: level)
             return true
         } catch {
             return false
@@ -237,9 +254,12 @@ public class HabitViewModel: ObservableObject {
     }
 
     func updateAbilityEntry(for habitId: Int, level: String) async -> Bool {
-        let today = ISO8601DateFormatter().string(from: Date()).prefix(10) // yyyy-MM-dd
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        formatter.timeZone = .current
+        let today = formatter.string(from: Date())
         do {
-            _ = try await apiService.updateAbilityEntry(habitId: habitId, date: String(today), level: level)
+            _ = try await apiService.updateAbilityEntry(habitId: habitId, date: today, level: level)
             return true
         } catch {
             ToastManager.shared.showError(error.localizedDescription)
@@ -286,6 +306,9 @@ public class HabitViewModel: ObservableObject {
                 self.todayTask = task
                 self.updateTypingTextProofKey()
             }
+            // Always fetch motivation and ability entries for today from backend
+            _ = await getTodayMotivationEntry(for: habit.id)
+            _ = await getTodayAbilityEntry(for: habit.id)
             // Fallback: check for expiry after fetching today's task
             await handleTaskExpired()
         } catch {
@@ -293,6 +316,9 @@ public class HabitViewModel: ObservableObject {
                 self.todayTask = nil
                 self.updateTypingTextProofKey()
             }
+            // Always clear motivation/ability if no task
+            _ = await getTodayMotivationEntry(for: habit.id)
+            _ = await getTodayAbilityEntry(for: habit.id)
         }
     }
 
@@ -458,8 +484,13 @@ public class HabitViewModel: ObservableObject {
 
     // MARK: - Actions (called by the view)
     func setMotivation(_ level: String) async {
-        _ = await submitMotivationEntry(for: selectedHabit?.id ?? 0, level: level)
-        // Fetch the latest motivation entry so state machine can advance
+        let habitId = selectedHabit?.id ?? 0
+        let didSubmit = await submitMotivationEntry(for: habitId, level: level)
+        if !didSubmit {
+            // Try update if submit failed (likely already exists)
+            _ = await updateMotivationEntry(for: habitId, level: level)
+        }
+        // Always fetch the latest motivation entry so state machine can advance
         if let habitId = selectedHabit?.id {
             _ = await getTodayMotivationEntry(for: habitId)
         }
@@ -537,7 +568,13 @@ public class HabitViewModel: ObservableObject {
         typingTextProofKey = "proof-\(habitId)-\(proofReq)"
     }
 
-    // New helper: After generating, never allow .readyToGenerateTask again for today
+    // After completing a task, reset motivation and ability for the next day
+    private func resetMotivationAndAbility() {
+        todayMotivation = nil
+        todayAbility = nil
+    }
+
+    // Update in updateTaskStateAfterGeneration and after proof submission
     private func updateTaskStateAfterGeneration() {
         guard let task = todayTask else { return }
         // If the task is pending, always show the task
@@ -545,6 +582,7 @@ public class HabitViewModel: ObservableObject {
             self.currentTaskState = .showTask(task: makeTaskDetails(), proof: proofState)
         } else {
             self.updateTaskState()
+            self.resetMotivationAndAbility()
         }
     }
 
@@ -597,6 +635,7 @@ public class HabitViewModel: ObservableObject {
                 self.isSubmittingProof = false
                 self.todayTask = updatedTask
                 self.updateTaskState()
+                self.resetMotivationAndAbility()
             }
         } catch {
             await MainActor.run {
