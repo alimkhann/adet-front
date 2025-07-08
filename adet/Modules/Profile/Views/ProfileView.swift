@@ -14,13 +14,11 @@ struct ProfileView: View {
     enum ProfileTab: String, CaseIterable {
         case posts = "Posts"
         case habits = "Habits"
-        case analytics = "Analytics"
 
         var systemImage: String {
             switch self {
             case .posts: return "square.grid.3x3"
             case .habits: return "target"
-            case .analytics: return "chart.bar"
             }
         }
     }
@@ -32,17 +30,15 @@ struct ProfileView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 0) {
-                    // Header Section
-                    profileHeaderSection
+            VStack(alignment: .leading, spacing: 0) {
+                // Header Section
+                profileHeaderSection
 
-                    // Tab Selector
-                    tabSelectorSection
+                // Tab Selector
+                tabSelectorSection
 
-                    // Content based on selected tab
-                    contentSection
-                }
+                // Content based on selected tab
+                contentSection
             }
             .background(Color(.systemBackground))
             .onAppear {
@@ -247,137 +243,131 @@ struct ProfileView: View {
                 postsContentView
             case .habits:
                 habitsContentView
-            case .analytics:
-                analyticsContentView
             }
         }
+        .frame(maxHeight: .infinity)
         .padding(.top, 20)
+        .background(Color(.systemGray6))
     }
 
     // MARK: - Posts Content View
     private var postsContentView: some View {
-        VStack(spacing: 16) {
-            if postsViewModel.isLoadingMyPosts {
-                HStack {
-                    ProgressView()
-                        .scaleEffect(0.8)
-                    Text("Loading posts...")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                }
-                .frame(maxWidth: .infinity, alignment: .center)
-                .padding(.top, 40)
-            } else if postsViewModel.myPosts.isEmpty {
-                VStack(spacing: 16) {
-                    Image(systemName: "photo.on.rectangle.angled")
-                        .font(.system(size: 48))
-                        .foregroundColor(.secondary)
-
-                    VStack(spacing: 8) {
-                        Text("No posts yet")
-                            .font(.headline)
-                            .fontWeight(.semibold)
-
-                        Text("Share your habit progress to start building your story!")
+        ScrollView {
+            VStack(spacing: 16) {
+                if postsViewModel.isLoadingMyPosts {
+                    HStack {
+                        ProgressView()
+                            .scaleEffect(0.8)
+                        Text("Loading posts...")
                             .font(.subheadline)
                             .foregroundColor(.secondary)
-                            .multilineTextAlignment(.center)
                     }
-                }
-                .frame(maxWidth: .infinity, alignment: .center)
-                .padding(.horizontal, 40)
-                .padding(.top, 60)
-            } else {
-                LazyVStack(spacing: 0) {
-                    ForEach(postsViewModel.myPosts) { post in
-                        PostCardView(
-                            post: post,
-                            onLike: {
-                                Task {
-                                    await postsViewModel.toggleLike(for: post)
-                                }
-                            },
-                            onComment: {
-                                // Navigate to comments
-                            },
-                            onView: {
-                                Task {
-                                    await postsViewModel.markPostAsViewed(post)
-                                }
-                            },
-                            onShare: {
-                                SharingHelper.shared.sharePost(post)
-                            },
-                            onUserTap: {
-                                // User tapped their own profile - no action needed
-                            }
-                        )
-                        .padding(.horizontal, 0)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.top, 40)
+                } else if postsViewModel.myPosts.isEmpty {
+                    VStack(spacing: 16) {
+                        Image(systemName: "photo.on.rectangle.angled")
+                            .font(.system(size: 48))
+                            .foregroundColor(.secondary)
+                        
+                        VStack(spacing: 8) {
+                            Text("No posts yet")
+                                .font(.headline)
+                                .fontWeight(.semibold)
+                            
+                            Text("Share your habit progress to start building your story!")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                                .multilineTextAlignment(.center)
+                        }
                     }
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.horizontal, 40)
+                    .padding(.top, 60)
+                } else {
+                    LazyVStack(spacing: 0) {
+                        ForEach(postsViewModel.myPosts) { post in
+                            PostCardView(
+                                post: post,
+                                onLike: {
+                                    Task {
+                                        await postsViewModel.toggleLike(for: post)
+                                    }
+                                },
+                                onComment: {
+                                    // Navigate to comments
+                                },
+                                onView: {
+                                    Task {
+                                        await postsViewModel.markPostAsViewed(post)
+                                    }
+                                },
+                                onShare: {
+                                    SharingHelper.shared.sharePost(post)
+                                },
+                                onUserTap: {
+                                    // User tapped their own profile - no action needed
+                                }
+                            )
+                            .padding(.horizontal, 0)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .center)
                 }
-                .frame(maxWidth: .infinity, alignment: .center)
             }
         }
     }
 
     // MARK: - Habits Content View
     private var habitsContentView: some View {
-        VStack(spacing: 16) {
-            if viewModel.isLoadingHabits {
-                HStack {
-                    ProgressView()
-                        .scaleEffect(0.8)
-                    Text("Loading habits...")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                }
-                .frame(maxWidth: .infinity, alignment: .center)
-                .padding(.top, 40)
-            } else if viewModel.userHabits.isEmpty {
-                VStack(spacing: 16) {
-                    Image(systemName: "target")
-                        .font(.system(size: 48))
-                        .foregroundColor(.secondary)
-
-                    VStack(spacing: 8) {
-                        Text("No habits yet")
-                            .font(.headline)
-                            .fontWeight(.semibold)
-
-                        Text("Create your first habit to start your journey!")
+        ScrollView {
+            VStack(spacing: 16) {
+                if viewModel.isLoadingHabits {
+                    HStack {
+                        ProgressView()
+                            .scaleEffect(0.8)
+                        Text("Loading habits...")
                             .font(.subheadline)
                             .foregroundColor(.secondary)
-                            .multilineTextAlignment(.center)
                     }
-                }
-                .frame(maxWidth: .infinity, alignment: .center)
-                .padding(.horizontal, 40)
-                .padding(.top, 60)
-            } else {
-                LazyVStack(spacing: 12) {
-                    ForEach(viewModel.userHabits, id: \.id) { habit in
-                        HabitCardView(
-                            habit: habit,
-                            isSelected: false,
-                            onTap: { },
-                            onLongPress: { },
-                            minHeight: 100
-                        )
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.top, 40)
+                } else if viewModel.userHabits.isEmpty {
+                    VStack(spacing: 16) {
+                        Image(systemName: "target")
+                            .font(.system(size: 48))
+                            .foregroundColor(.secondary)
+                        
+                        VStack(spacing: 8) {
+                            Text("No habits yet")
+                                .font(.headline)
+                                .fontWeight(.semibold)
+                            
+                            Text("Create your first habit to start your journey!")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                                .multilineTextAlignment(.center)
+                        }
                     }
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.horizontal, 40)
+                    .padding(.top, 60)
+                } else {
+                    LazyVStack(spacing: 12) {
+                        ForEach(viewModel.userHabits, id: \.id) { habit in
+                            HabitCardView(
+                                habit: habit,
+                                isSelected: false,
+                                onTap: { },
+                                onLongPress: { },
+                                minHeight: 100
+                            )
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.horizontal, 16)
                 }
-                .frame(maxWidth: .infinity, alignment: .center)
-                .padding(.horizontal, 16)
             }
-        }
-    }
-
-    // MARK: - Analytics Content View
-    private var analyticsContentView: some View {
-        VStack(spacing: 16) {
-            Text("Analytics view coming soon...")
-                .font(.subheadline)
-                .foregroundColor(.secondary)
-                .padding(.top, 40)
         }
     }
 
