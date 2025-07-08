@@ -40,8 +40,8 @@ struct TypingText: View {
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + typingSpeed) {
             let safeIndex = text.index(text.startIndex, offsetBy: min(currentIndex, text.count))
-            let substring = text[..<safeIndex]
-            displayedText = String(text[..<safeIndex])
+            _ = text[..<safeIndex]
+            displayedText = String(text.prefix(currentIndex))
             currentIndex += 1
             typeNextChar()
         }
