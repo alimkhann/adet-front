@@ -39,9 +39,8 @@ struct TypingText: View {
             return
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + typingSpeed) {
-            let safeIndex = text.index(text.startIndex, offsetBy: min(currentIndex, text.count))
-            _ = text[..<safeIndex]
-            displayedText = String(text.prefix(currentIndex))
+            _ = text.index(text.startIndex, offsetBy: min(currentIndex + 1, text.count))
+            displayedText = String(text.prefix(currentIndex + 1))
             currentIndex += 1
             typeNextChar()
         }

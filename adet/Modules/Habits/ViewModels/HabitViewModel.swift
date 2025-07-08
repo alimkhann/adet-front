@@ -454,9 +454,9 @@ public class HabitViewModel: ObservableObject {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
         let frequency = habit.frequency.lowercased()
-        let weekdaySymbols = calendar.weekdaySymbols // Sunday = 1
+        _ = calendar.weekdaySymbols // Sunday = 1
         let shortWeekdaySymbols = calendar.shortWeekdaySymbols // e.g. "Mon"
-        let todayIndex = calendar.component(.weekday, from: today) // 1 = Sunday
+        _ = calendar.component(.weekday, from: today) // 1 = Sunday
 
         // Every day
         if frequency == "every day" || frequency == "daily" {
@@ -464,7 +464,7 @@ public class HabitViewModel: ObservableObject {
         }
         // Weekdays
         if frequency == "weekdays" {
-            var next = today
+            _ = today
             for i in 1...7 {
                 let candidate = calendar.date(byAdding: .day, value: i, to: today)!
                 let candidateIndex = calendar.component(.weekday, from: candidate)
@@ -475,7 +475,7 @@ public class HabitViewModel: ObservableObject {
         }
         // Weekends
         if frequency == "weekends" {
-            var next = today
+            _ = today
             for i in 1...7 {
                 let candidate = calendar.date(byAdding: .day, value: i, to: today)!
                 let candidateIndex = calendar.component(.weekday, from: candidate)
