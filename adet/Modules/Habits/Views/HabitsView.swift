@@ -6,6 +6,7 @@ struct HabitsView: View {
     @State private var showingAddHabitSheet = false
     @State private var showingHabitDetails = false
     @State private var editingHabit: Habit? = nil
+    @State private var lastDateChecked: Date = Calendar.current.startOfDay(for: Date())
 
     var body: some View {
         NavigationStack {
@@ -70,6 +71,28 @@ struct HabitsView: View {
                         _ = await viewModel.getTodayAbilityEntry(for: habit.id)
                         viewModel.updateTaskState()
                     }
+                    lastDateChecked = Calendar.current.startOfDay(for: Date())
+                }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
+                Task {
+                    if let habit = viewModel.selectedHabit {
+                        await viewModel.fetchTodayTask(for: habit)
+                        viewModel.updateTaskState()
+                    }
+                    lastDateChecked = Calendar.current.startOfDay(for: Date())
+                }
+            }
+            .onReceive(Timer.publish(every: 60, on: .main, in: .common).autoconnect()) { _ in
+                let currentDate = Calendar.current.startOfDay(for: Date())
+                if currentDate != lastDateChecked {
+                    Task {
+                        if let habit = viewModel.selectedHabit {
+                            await viewModel.fetchTodayTask(for: habit)
+                            viewModel.updateTaskState()
+                        }
+                        lastDateChecked = currentDate
+                    }
                 }
             }
             .alert(isPresented: Binding<Bool>(
@@ -114,7 +137,12 @@ struct HabitsView: View {
                         onTap: {
                             if !viewModel.isTaskInProgress {
                                 viewModel.selectHabit(habit)
-                                Task { await viewModel.fetchTodayTask(for: habit); viewModel.updateTaskState() }
+                                Task {
+                                    await viewModel.fetchTodayTask(for: habit)
+                                    _ = await viewModel.getTodayMotivationEntry(for: habit.id)
+                                    _ = await viewModel.getTodayAbilityEntry(for: habit.id)
+                                    viewModel.updateTaskState()
+                                }
                             }
                         },
                         onLongPress: {

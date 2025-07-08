@@ -208,9 +208,13 @@ actor APIService {
         )
     }
 
-    func getTodayTask(habitId: Int) async throws -> TaskEntry {
+    func getTodayTask(habitId: Int, userDate: String? = nil) async throws -> TaskEntry {
+        var endpoint = "/api/v1/habits/\(habitId)/today-task"
+        if let userDate = userDate {
+            endpoint += "?user_date=\(userDate)"
+        }
         return try await networkService.makeAuthenticatedRequest(
-            endpoint: "/api/v1/habits/\(habitId)/today-task",
+            endpoint: endpoint,
             method: "GET",
             body: (nil as String?)
         )

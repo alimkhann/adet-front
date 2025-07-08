@@ -984,60 +984,6 @@ struct ProofWindowTimerView: View {
     }
 }
 
-//#Preview {
-//    HabitTaskSectionView(
-//        state: .successShare(
-//            task:
-//                HabitTaskDetails(
-//                    description: "crazy habit",
-//                    easierAlternative: "easy",
-//                    harderAlternative: "hard",
-//                    motivation: "high",
-//                    ability: "easy",
-//                    timeLeft: TimeInterval(0)
-//                ),
-//            proof:
-//                .submitted
-//        ),
-//        isTaskInProgress: false,
-//        onSetMotivation: { _ in },
-//        onSetAbility: { _ in },
-//        onGenerateTask: { },
-//        onSubmitProof: { _, _, _ in },
-//        onRetry: { },
-//        onShowMotivationStep: { },
-//        viewModel: HabitViewModel()
-//    )
-//}
-
-//#Preview("Generating Task") {
-//    HabitTaskSectionView(
-//        state: .successDone,
-//        isTaskInProgress: false,
-//        onSetMotivation: { _ in },
-//        onSetAbility: { _ in },
-//        onGenerateTask: { },
-//        onSubmitProof: { _, _, _ in },
-//        onRetry: { },
-//        onShowMotivationStep: { },
-//        viewModel: HabitViewModel()
-//    )
-//}
-
-#Preview("Generating Task") {
-    HabitTaskSectionView(
-        state: .generatingTask,
-        isTaskInProgress: false,
-        onSetMotivation: { _ in },
-        onSetAbility: { _ in },
-        onGenerateTask: { },
-        onSubmitProof: { _, _, _ in },
-        onRetry: { },
-        onShowMotivationStep: { },
-        viewModel: HabitViewModel()
-    )
-}
-
 // Add HabitTaskState extension for isShowTask
 extension HabitTaskState {
     var isShowTask: Bool {
@@ -1096,4 +1042,58 @@ struct DismissableFailedNoAttemptsView: View {
         }
         .padding()
     }
+}
+
+//#Preview {
+//    HabitTaskSectionView(
+//        state: .successShare(
+//            task:
+//                HabitTaskDetails(
+//                    description: "crazy habit",
+//                    easierAlternative: "easy",
+//                    harderAlternative: "hard",
+//                    motivation: "high",
+//                    ability: "easy",
+//                    timeLeft: TimeInterval(0)
+//                ),
+//            proof:
+//                .submitted
+//        ),
+//        isTaskInProgress: false,
+//        onSetMotivation: { _ in },
+//        onSetAbility: { _ in },
+//        onGenerateTask: { },
+//        onSubmitProof: { _, _, _ in },
+//        onRetry: { },
+//        onShowMotivationStep: { },
+//        viewModel: HabitViewModel()
+//    )
+//}
+
+//#Preview("Generating Task") {
+//    HabitTaskSectionView(
+//        state: .successDone,
+//        isTaskInProgress: false,
+//        onSetMotivation: { _ in },
+//        onSetAbility: { _ in },
+//        onGenerateTask: { },
+//        onSubmitProof: { _, _, _ in },
+//        onRetry: { },
+//        onShowMotivationStep: { },
+//        viewModel: HabitViewModel()
+//    )
+//}
+
+#Preview("Generating Task") {
+    HabitTaskSectionView(
+        state: .generatingTask,
+        isTaskInProgress: false,
+        onSetMotivation: { _ in },
+        onSetAbility: { _ in },
+        onGenerateTask: { },
+        onSubmitProof: { _, _, _ in },
+        onRetry: { },
+        onShowMotivationStep: { },
+        viewModel: HabitViewModel()
+    )
 }

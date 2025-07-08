@@ -277,7 +277,11 @@ public class HabitViewModel: ObservableObject {
     // MARK: - Fetch Today's Task
     func fetchTodayTask(for habit: Habit) async {
         do {
-            let task = try await apiService.getTodayTask(habitId: habit.id)
+            let formatter = DateFormatter()
+            formatter.dateFormat = "yyyy-MM-dd"
+            formatter.timeZone = .current
+            let userDate = formatter.string(from: Date())
+            let task = try await apiService.getTodayTask(habitId: habit.id, userDate: String(userDate))
             await MainActor.run {
                 self.todayTask = task
                 self.updateTypingTextProofKey()
@@ -319,47 +323,43 @@ public class HabitViewModel: ObservableObject {
         if let task = todayTask, let status = TaskStatus(rawValue: task.status) {
             let today = Calendar.current.startOfDay(for: Date())
             let assignedDate = ISO8601DateFormatter().date(from: task.assignedDateString) ?? today // assignedDateString is a helper for assigned_date as string
-            let isPreviousDay = assignedDate < today
-            switch status {
-            case .missed:
-                Task {
-                    let nextDate = nextScheduledDate(for: habit)
-                    await fetchStreakFreezers()
-                    await MainActor.run {
-                        if isPreviousDay {
-                            self.currentTaskState = .dismissableMissed(nextTaskDate: nextDate)
-                        } else {
-                            self.currentTaskState = .missed(nextTaskDate: nextDate)
-                        }
-                    }
-                }
-                return
-            case .failed:
-                let attemptsLeft = todayTask?.attemptsLeft ?? 1
-                if attemptsLeft > 0 {
-                    currentTaskState = .failed(attemptsLeft: attemptsLeft)
-                } else {
+            let isToday = assignedDate == today
+            if isToday {
+                switch status {
+                case .missed:
                     Task {
                         let nextDate = nextScheduledDate(for: habit)
                         await fetchStreakFreezers()
                         await MainActor.run {
-                            if isPreviousDay {
-                                self.currentTaskState = .dismissableFailedNoAttempts(nextTaskDate: nextDate)
-                            } else {
+                            self.currentTaskState = .missed(nextTaskDate: nextDate)
+                        }
+                    }
+                    return
+                case .failed:
+                    let attemptsLeft = todayTask?.attemptsLeft ?? 1
+                    if attemptsLeft > 0 {
+                        currentTaskState = .failed(attemptsLeft: attemptsLeft)
+                    } else {
+                        Task {
+                            let nextDate = nextScheduledDate(for: habit)
+                            await fetchStreakFreezers()
+                            await MainActor.run {
                                 self.currentTaskState = .failedNoAttempts(nextTaskDate: nextDate)
                             }
                         }
                     }
+                    return
+                case .completed:
+                    currentTaskState = .successShare(task: makeTaskDetails(), proof: proofState)
+                    return
+                case .pending:
+                    currentTaskState = .showTask(task: makeTaskDetails(), proof: proofState)
+                    return
+                default:
+                    break
                 }
-                return
-            case .completed:
-                currentTaskState = .successShare(task: makeTaskDetails(), proof: proofState)
-                return
-            case .pending:
-                currentTaskState = .showTask(task: makeTaskDetails(), proof: proofState)
-                return
-            default:
-                break
+            } else {
+                todayTask = nil
             }
         }
 
