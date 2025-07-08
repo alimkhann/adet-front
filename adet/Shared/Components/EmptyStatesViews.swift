@@ -123,24 +123,46 @@ struct EmptyChatsView: View {
     }
 }
 
-// MARK: - Previews
+// MARK: - Empty Habits View
 
-#Preview("Empty Friends") {
-    EmptyFriendsView()
+struct EmptyHabitsView: View {
+    let onAddHabit: () -> Void
+    var body: some View {
+        VStack(spacing: 16) {
+            Text("No Habits Found")
+                .font(.title2)
+                .fontWeight(.semibold)
+            Button(action: onAddHabit) {
+                Text("Create Habit")
+                    .font(.headline)
+                    .frame(minHeight: 48)
+            }
+            .buttonStyle(PrimaryButtonStyle())
+        }
+        .padding()
+    }
 }
 
-#Preview("Empty Requests") {
-    EmptyRequestsView()
-}
+//#Preview("Empty Friends") {
+//    EmptyFriendsView()
+//}
+//
+//#Preview("Empty Requests") {
+//    EmptyRequestsView()
+//}
+//
+//#Preview("Empty Search - No Query") {
+//    EmptySearchView(query: "")
+//}
+//
+//#Preview("Empty Search - With Query") {
+//    EmptySearchView(query: "johndoe")
+//}
+//
+//#Preview("Empty Chats") {
+//    EmptyChatsView()
+//}
 
-#Preview("Empty Search - No Query") {
-    EmptySearchView(query: "")
-}
-
-#Preview("Empty Search - With Query") {
-    EmptySearchView(query: "johndoe")
-}
-
-#Preview("Empty Chats") {
-    EmptyChatsView()
+#Preview("Empty Habits") {
+    EmptyHabitsView(onAddHabit: {})
 }

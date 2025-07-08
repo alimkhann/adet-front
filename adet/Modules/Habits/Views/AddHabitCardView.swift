@@ -15,7 +15,7 @@ struct AddHabitCardView: View {
         }
         .padding()
         .frame(width: 150, height: 100)
-        .background(colorScheme == .dark ? Color("Zinc900").opacity(0.5) : Color("Zinc100").opacity(0.8))
+        .background(colorScheme == .dark ? .blue : .white)
         .cornerRadius(10)
         .scaleEffect(scale)
         .animation(.easeInOut(duration: 0.2), value: scale)

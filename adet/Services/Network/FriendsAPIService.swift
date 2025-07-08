@@ -4,7 +4,7 @@ import OSLog
 class FriendsAPIService: ObservableObject {
     static let shared = FriendsAPIService()
 
-    private let baseURL = "http://localhost:8000/api/v1"
+    private let baseURL = APIConfig.apiBaseURL
     private let session = URLSession.shared
     private let logger = Logger(subsystem: "com.adet.friends", category: "FriendsAPIService")
 
@@ -537,6 +537,70 @@ class FriendsAPIService: ObservableObject {
         }
     }
 
+    // MARK: - Block User
+
+    func blockUser(userId: Int, reason: String?) async -> Bool {
+        do {
+            let url = URL(string: "\(baseURL)/friends/block/\(userId)")!
+            var request = URLRequest(url: url)
+            request.httpMethod = "POST"
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+            if let token = await AuthService.shared.getValidToken() {
+                request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+            }
+
+            let requestBody = BlockUserRequest(reason: reason)
+            request.httpBody = try JSONEncoder().encode(requestBody)
+
+            let (_, response) = try await session.data(for: request)
+
+            guard let httpResponse = response as? HTTPURLResponse,
+                  httpResponse.statusCode == 200 else {
+                logger.error("Failed to block user - HTTP \(((response as? HTTPURLResponse)?.statusCode ?? 0))")
+                return false
+            }
+
+            logger.info("Successfully blocked user \(userId)")
+            return true
+        } catch {
+            logger.error("Failed to block user: \(error.localizedDescription)")
+            return false
+        }
+    }
+
+    // MARK: - Report User
+
+    func reportUser(userId: Int, category: String, description: String?) async -> Bool {
+        do {
+            let url = URL(string: "\(baseURL)/friends/report/\(userId)")!
+            var request = URLRequest(url: url)
+            request.httpMethod = "POST"
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+            if let token = await AuthService.shared.getValidToken() {
+                request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+            }
+
+            let requestBody = ReportUserRequest(category: category, description: description)
+            request.httpBody = try JSONEncoder().encode(requestBody)
+
+            let (_, response) = try await session.data(for: request)
+
+            guard let httpResponse = response as? HTTPURLResponse,
+                  httpResponse.statusCode == 200 else {
+                logger.error("Failed to report user - HTTP \(((response as? HTTPURLResponse)?.statusCode ?? 0))")
+                return false
+            }
+
+            logger.info("Successfully reported user \(userId)")
+            return true
+        } catch {
+            logger.error("Failed to report user: \(error.localizedDescription)")
+            return false
+        }
+    }
+
     // MARK: - Helper Methods
 
     private func createJSONDecoder() -> JSONDecoder {
@@ -635,6 +699,17 @@ enum FriendsAPIError: Error {
             return "A previous request still exists. Please try again in a moment."
         }
     }
+}
+
+// MARK: - Request Models
+
+struct BlockUserRequest: Codable {
+    let reason: String?
+}
+
+struct ReportUserRequest: Codable {
+    let category: String
+    let description: String?
 }
 
 // MARK: - Helper Functions

@@ -300,6 +300,29 @@ class PostsViewModel: ObservableObject {
         }
     }
 
+    func updatePostPrivacy(postId: Int, privacy: PostPrivacy) async -> Bool {
+        do {
+            let response = try await postService.updatePostPrivacy(postId: postId, privacy: privacy)
+
+            if response.success {
+                updatePostInCollections(postId: postId) { updatedPost in
+                    updatedPost.privacy = privacy
+                }
+
+                logger.info("Successfully updated post \(postId) privacy to \(privacy.rawValue)")
+                return true
+            } else {
+                errorMessage = response.message
+                return false
+            }
+
+        } catch {
+            logger.error("Failed to update post privacy: \(error.localizedDescription)")
+            errorMessage = "Failed to update post privacy. Please try again."
+            return false
+        }
+    }
+
     // MARK: - Helper Methods
 
     private func updatePostInCollections(postId: Int, update: (inout Post) -> Void) {
@@ -421,7 +444,7 @@ extension Post {
 
     var privacyDisplayText: String {
         switch privacy {
-        case .private:
+        case .onlyMe:
             return "Private"
         case .friends:
             return "Friends"
@@ -429,8 +452,6 @@ extension Post {
             return "Close Friends"
         }
     }
-
-
 
     var engagementCount: Int {
         return likesCount + commentsCount

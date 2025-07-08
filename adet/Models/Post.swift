@@ -2,7 +2,7 @@ import Foundation
 
 // MARK: - Post Privacy Levels
 enum PostPrivacy: String, CaseIterable, Identifiable, Codable {
-    case `private` = "private"
+    case onlyMe = "only_me"
     case friends = "friends"
     case closeFriends = "close_friends"
 
@@ -10,7 +10,7 @@ enum PostPrivacy: String, CaseIterable, Identifiable, Codable {
 
     var displayName: String {
         switch self {
-        case .private:
+        case .onlyMe:
             return "Only me"
         case .friends:
             return "Friends"
@@ -21,7 +21,7 @@ enum PostPrivacy: String, CaseIterable, Identifiable, Codable {
 
     var icon: String {
         switch self {
-        case .private:
+        case .onlyMe:
             return "lock.fill"
         case .friends:
             return "person.2.fill"
@@ -32,7 +32,7 @@ enum PostPrivacy: String, CaseIterable, Identifiable, Codable {
 
     var description: String {
         switch self {
-        case .private:
+        case .onlyMe:
             return "Only visible to you"
         case .friends:
             return "Visible to all friends"
@@ -43,7 +43,7 @@ enum PostPrivacy: String, CaseIterable, Identifiable, Codable {
 
     var privacyColor: String {
         switch self {
-        case .private:
+        case .onlyMe:
             return "orange"
         case .friends:
             return "blue"

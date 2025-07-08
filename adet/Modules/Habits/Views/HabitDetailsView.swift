@@ -2,6 +2,7 @@ import SwiftUI
 
 struct HabitDetailsView: View {
     @State var habit: Habit
+    let canEdit: Bool
     @State private var isEditing = false
     @State private var showingDeleteAlert = false
     @Environment(\.dismiss) private var dismiss
@@ -106,7 +107,7 @@ struct HabitDetailsView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .navigationBarLeading) {
-                if isEditing {
+                if isEditing && !habitViewModel.isTaskInProgress {
                     Button("Cancel") {
                         // TODO: Reset changes if any
                         isEditing = false
@@ -114,13 +115,13 @@ struct HabitDetailsView: View {
                 }
             }
             ToolbarItem(placement: .navigationBarTrailing) {
-                if isEditing {
+                if isEditing && canEdit {
                     Button("Save") {
                         Task {
                             await saveHabit()
                         }
                     }
-                } else {
+                } else if !isEditing && canEdit {
                     Button {
                         isEditing = true
                     } label: {
@@ -129,7 +130,7 @@ struct HabitDetailsView: View {
                 }
             }
             ToolbarItem(placement: .navigationBarTrailing) {
-                if !isEditing {
+                if !isEditing && !habitViewModel.isTaskInProgress {
                     Button {
                         showingDeleteAlert = true
                     } label: {

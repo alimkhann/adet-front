@@ -5,7 +5,7 @@ import OSLog
 // MARK: - NetworkService Actor
 actor NetworkService {
     static let shared = NetworkService()
-    private let baseURL = URL(string: "http://localhost:8000")!
+    private let baseURL = URL(string: APIConfig.baseURL)!
     private let logger = Logger(subsystem: "com.adet.network", category: "NetworkService")
 
     // Configuration for retry logic

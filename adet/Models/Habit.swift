@@ -1,15 +1,15 @@
 import Foundation
 
-struct Habit: Codable, Identifiable {
-    let id: Int
-    let userId: Int
-    var name: String
-    var description: String
-    var frequency: String
-    var validationTime: String
-    var difficulty: String
-    var proofStyle: String
-    let streak: Int
+public struct Habit: Codable, Identifiable {
+    public let id: Int
+    public let userId: Int
+    public var name: String
+    public var description: String
+    public var frequency: String
+    public var validationTime: String
+    public var difficulty: String
+    public var proofStyle: String
+    public var streak: Int
 
     enum CodingKeys: String, CodingKey {
         case id

@@ -57,12 +57,6 @@ struct ChatsListView: View {
                 await viewModel.refreshConversations()
             }
             .task {
-                #if DEBUG
-                // For development, load mock data first
-                if viewModel.conversations.isEmpty {
-                    viewModel.loadMockConversations()
-                }
-                #endif
                 await viewModel.loadConversations()
             }
             .alert("Error", isPresented: showingError) {

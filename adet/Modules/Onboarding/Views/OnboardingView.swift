@@ -66,9 +66,6 @@ struct OnboardingView: View {
                 .padding(.horizontal, 24)
             }
             .foregroundStyle(.white)
-            .background(
-                GradientBackgroundView()
-            )
             .navigationDestination(isPresented: $isFinished) {
                 SignUpView(onboardingAnswers: answers)
             }

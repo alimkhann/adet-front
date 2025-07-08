@@ -279,4 +279,97 @@ actor APIService {
             body: (nil as String?)
         )
     }
+
+    // MARK: - Post API Operations
+
+    func createPost(taskDescription: String, proof: HabitProofState, description: String, visibility: String, habitId: Int? = nil, proofInputType: ProofInputType? = nil, textProof: String? = nil) async throws {
+        // Map visibility to PostPrivacy
+        let privacy: PostPrivacy
+        switch visibility.lowercased() {
+        case "friends": privacy = .friends
+        case "close friends": privacy = .closeFriends
+        default: privacy = .onlyMe
+        }
+
+        var proofType: ProofType = .image
+        var proofUrls: [String] = []
+        var postDescription = description.isEmpty ? taskDescription : description
+
+        // Handle all proof types
+        if let inputType = proofInputType {
+            switch inputType {
+            case .photo:
+                if case let .readyToSubmit(imageData) = proof, let data = imageData {
+                    let url = try await uploadProofFile(data: data, fileName: "proof.jpg", mimeType: "image/jpeg")
+                    proofType = .image
+                    proofUrls = [url]
+                }
+            case .video:
+                if case let .readyToSubmit(videoData) = proof, let data = videoData {
+                    let url = try await uploadProofFile(data: data, fileName: "proof.mov", mimeType: "video/quicktime")
+                    proofType = .video
+                    proofUrls = [url]
+                }
+            case .audio:
+                if case let .readyToSubmit(audioData) = proof, let data = audioData {
+                    let url = try await uploadProofFile(data: data, fileName: "proof.m4a", mimeType: "audio/mp4")
+                    proofType = .audio
+                    proofUrls = [url]
+                }
+            case .text:
+                proofType = .text
+                proofUrls = []
+                if let text = textProof, !text.isEmpty {
+                    postDescription = text
+                }
+            }
+        } else {
+            // Fallback: treat as photo if possible
+            if case let .readyToSubmit(imageData) = proof, let data = imageData {
+                let url = try await uploadProofFile(data: data, fileName: "proof.jpg", mimeType: "image/jpeg")
+                proofType = .image
+                proofUrls = [url]
+            }
+        }
+
+        let postData = PostCreate(
+            habitId: habitId,
+            proofUrls: proofUrls,
+            proofType: proofType,
+            description: postDescription,
+            privacy: privacy
+        )
+        _ = try await PostService.shared.createPost(postData)
+    }
+
+    // MARK: - Proof File Upload
+
+    func uploadProofFile(data: Data, fileName: String, mimeType: String) async throws -> String {
+        // Endpoint for proof file upload (adjust as needed)
+        let url = URL(string: "\(APIConfig.apiBaseURL)/api/v1/proofs/upload")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        let boundary = UUID().uuidString
+        request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+        if let token = await AuthService.shared.getValidToken() {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        var body = Data()
+        body.append("--\(boundary)\r\n".data(using: .utf8)!)
+        body.append("Content-Disposition: form-data; name=\"file\"; filename=\"\(fileName)\"\r\n".data(using: .utf8)!)
+        body.append("Content-Type: \(mimeType)\r\n\r\n".data(using: .utf8)!)
+        body.append(data)
+        body.append("\r\n--\(boundary)--\r\n".data(using: .utf8)!)
+        request.httpBody = body
+        let (responseData, response) = try await URLSession.shared.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            throw NetworkError.requestFailed(statusCode: (response as? HTTPURLResponse)?.statusCode ?? 0, body: nil)
+        }
+        // Assume response is { "url": "..." }
+        let result = try JSONDecoder().decode([String: String].self, from: responseData)
+        guard let urlString = result["url"] else {
+            throw NetworkError.requestFailed(statusCode: 0, body: "Invalid upload response")
+        }
+        return urlString
+    }
 }

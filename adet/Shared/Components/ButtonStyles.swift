@@ -23,7 +23,7 @@ struct SecondaryButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .frame(maxWidth: .infinity)
-            .background(colorScheme == .dark ? Color("Zinc900") : Color("Zinc100"))
+            .background(colorScheme == .dark ? .black : .white)
             .foregroundColor(.primary)
             .cornerRadius(12)
             .scaleEffect(configuration.isPressed ? 0.97 : 1)

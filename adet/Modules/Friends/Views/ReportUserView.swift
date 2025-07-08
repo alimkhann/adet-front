@@ -90,16 +90,16 @@ struct ReportUserView: View {
         isSubmitting = true
         defer { isSubmitting = false }
 
-        // TODO: Implement actual API call
-        logger.info("Submitting report for user \(userId): \(reason.rawValue)")
-        if !customReason.isEmpty {
-            logger.info("Custom reason: \(customReason)")
+        let viewModel = FriendsViewModel()
+        let success = await viewModel.reportUser(
+            userId: userId,
+            category: reason.rawValue,
+            description: customReason.isEmpty ? nil : customReason
+        )
+
+        if success {
+            showSuccessAlert = true
         }
-
-        // Simulate API delay
-        try? await Task.sleep(nanoseconds: 1_000_000_000)
-
-        showSuccessAlert = true
     }
 }
 

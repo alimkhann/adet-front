@@ -283,7 +283,7 @@ class OtherProfileViewModel: ObservableObject {
         do {
             guard let token = await AuthService.shared.getValidToken() else { return false }
 
-            let url = URL(string: "http://localhost:8000/api/v1/friends/request/\(requestId)/accept")!
+            let url = URL(string: "\(APIConfig.apiBaseURL)/friends/request/\(requestId)/accept")!
             var request = URLRequest(url: url)
             request.httpMethod = "POST"
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -309,7 +309,7 @@ class OtherProfileViewModel: ObservableObject {
         do {
             guard let token = await AuthService.shared.getValidToken() else { return false }
 
-            let url = URL(string: "http://localhost:8000/api/v1/friends/request/\(requestId)/decline")!
+            let url = URL(string: "\(APIConfig.apiBaseURL)/friends/request/\(requestId)/decline")!
             var request = URLRequest(url: url)
             request.httpMethod = "POST"
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")

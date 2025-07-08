@@ -8,6 +8,7 @@ struct HabitCardView: View {
     let width: CGFloat?
     let height: CGFloat?
     let minHeight: CGFloat?
+    let isTaskInProgress: Bool
 
     @Environment(\.colorScheme) private var colorScheme
     @State private var isPressing = false
@@ -22,7 +23,8 @@ struct HabitCardView: View {
          onLongPress: @escaping () -> Void,
          width: CGFloat? = nil,
          height: CGFloat? = nil,
-         minHeight: CGFloat? = nil) {
+         minHeight: CGFloat? = nil,
+         isTaskInProgress: Bool = false) {
         self.habit = habit
         self.isSelected = isSelected
         self.onTap = onTap
@@ -30,6 +32,7 @@ struct HabitCardView: View {
         self.width = width
         self.height = height
         self.minHeight = minHeight
+        self.isTaskInProgress = isTaskInProgress
     }
 
     var body: some View {
@@ -57,7 +60,7 @@ struct HabitCardView: View {
             minHeight: minHeight,
             alignment: .leading
         )
-        .background(colorScheme == .dark ? Color("Zinc900") : Color("Zinc100"))
+        .background(colorScheme == .dark ? .black : .white)
         .cornerRadius(10)
         .scaleEffect(scale)
         .animation(.easeInOut(duration: 0.2), value: scale)
@@ -89,7 +92,9 @@ struct HabitCardView: View {
         .onLongPressGesture(minimumDuration: 0.5, pressing: { pressing in
             self.isPressing = pressing
         }, perform: {
-            onLongPress()
+            if !isTaskInProgress {
+                onLongPress()
+            }
         })
     }
 }

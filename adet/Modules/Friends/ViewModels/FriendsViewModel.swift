@@ -1,6 +1,7 @@
 import Foundation
 import SwiftUI
 import OSLog
+import Combine
 
 @MainActor
 class FriendsViewModel: ObservableObject {
@@ -261,12 +262,31 @@ class FriendsViewModel: ObservableObject {
         return incomingRequests.count
     }
 
+    // MARK: - Block and Report Actions
+
+    func blockUser(userId: Int, reason: String?) async -> Bool {
+        let success = await friendsService.blockUser(userId: userId, reason: reason)
+        if success {
+            showSuccessMessage("User blocked successfully")
+        } else {
+            showErrorMessage("Failed to block user")
+        }
+        return success
+    }
+
+    func reportUser(userId: Int, category: String, description: String?) async -> Bool {
+        let success = await friendsService.reportUser(userId: userId, category: category, description: description)
+        if success {
+            showSuccessMessage("User reported successfully")
+        } else {
+            showErrorMessage("Failed to report user")
+        }
+        return success
+    }
+
     // MARK: - Public Interface
 
     func refresh() async {
         await loadAllData()
     }
 }
-
-// MARK: - Combine Import
-import Combine

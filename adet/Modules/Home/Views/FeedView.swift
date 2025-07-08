@@ -2,7 +2,6 @@ import SwiftUI
 
 struct FeedView: View {
     @StateObject private var postsViewModel = PostsViewModel()
-    @State private var showingCreatePost = false
     @State private var refreshTrigger = false
 
     var body: some View {
@@ -16,23 +15,10 @@ struct FeedView: View {
                     feedContent
                 }
             }
-            .navigationTitle("Feed")
-            .navigationBarTitleDisplayMode(.large)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button {
-                        showingCreatePost = true
-                    } label: {
-                        Image(systemName: "plus.circle.fill")
-                            .font(.title2)
-                    }
-                }
-            }
+            .navigationTitle("ädet")
+            .navigationBarTitleDisplayMode(.inline)
             .refreshable {
                 await refreshFeed()
-            }
-            .sheet(isPresented: $showingCreatePost) {
-                CreatePostView()
             }
             .onAppear {
                 Task {
@@ -120,17 +106,6 @@ struct FeedView: View {
                     .font(.subheadline)
                     .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)
-            }
-
-            Button {
-                showingCreatePost = true
-            } label: {
-                Label("Create Post", systemImage: "plus.circle.fill")
-                    .font(.headline)
-                    .foregroundColor(.white)
-                    .padding()
-                    .background(Color.blue)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
             }
         }
         .padding()

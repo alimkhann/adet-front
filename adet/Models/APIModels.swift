@@ -70,14 +70,14 @@ struct AbilityEntryRequest: Codable {
     let level: String
 }
 
-struct MotivationEntryResponse: Codable {
+public struct MotivationEntryResponse: Codable {
     let id: Int
     let habit_id: Int
     let date: String
     let level: String
 }
 
-struct AbilityEntryResponse: Codable {
+public struct AbilityEntryResponse: Codable {
     let id: Int
     let habit_id: Int
     let date: String
@@ -134,6 +134,46 @@ struct TaskSubmissionResponse: Codable {
     let success: Bool
     let task: TaskEntry
     let message: String
+    let fileUrl: String?
+    let validation: TaskValidationResult?
+    let autoCreatedPost: AutoCreatedPost?
+
+    enum CodingKeys: String, CodingKey {
+        case success
+        case task
+        case message
+        case fileUrl = "file_url"
+        case validation
+        case autoCreatedPost = "auto_created_post"
+    }
+}
+
+struct AutoCreatedPost: Codable {
+    let id: Int
+    let privacy: String
+    let description: String
+    let createdAt: String
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case privacy
+        case description
+        case createdAt = "created_at"
+    }
+}
+
+struct TaskValidationResult: Codable {
+    let isValid: Bool
+    let confidence: Double
+    let feedback: String
+    let suggestions: [String]
+
+    enum CodingKeys: String, CodingKey {
+        case isValid = "is_valid"
+        case confidence
+        case feedback
+        case suggestions
+    }
 }
 
 struct TaskStatusUpdateRequest: Codable {

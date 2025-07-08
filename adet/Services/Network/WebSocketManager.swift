@@ -56,7 +56,7 @@ class WebSocketManager: ObservableObject {
 
     private init() {
         // TODO: Get this from environment/config
-        self.baseURL = "ws://localhost:8000" // Will be updated with proper config
+        self.baseURL = APIConfig.wsBaseURL
 
         // Listen for app lifecycle events
         NotificationCenter.default.addObserver(

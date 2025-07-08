@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		476019562E1D1F5100B2BD50 /* Lottie in Frameworks */ = {isa = PBXBuildFile; productRef = 476019552E1D1F5100B2BD50 /* Lottie */; };
 		47992D052E0BBD9200D0756A /* Kingfisher in Frameworks */ = {isa = PBXBuildFile; productRef = 47992D042E0BBD9200D0756A /* Kingfisher */; };
 		47A725F22E03D2B700616FE2 /* Clerk in Frameworks */ = {isa = PBXBuildFile; productRef = 47A725F12E03D2B700616FE2 /* Clerk */; };
 /* End PBXBuildFile section */
@@ -64,29 +65,22 @@
 				Modules/Friends/ViewModels/CloseFriendsViewModel.swift,
 				Modules/Friends/ViewModels/FriendsViewModel.swift,
 				Modules/Friends/ViewModels/OtherProfileViewModel.swift,
+				Modules/Friends/Views/BlockUserView.swift,
 				Modules/Friends/Views/CloseFriendsManagementView.swift,
 				Modules/Friends/Views/FriendsView.swift,
 				Modules/Friends/Views/OtherUserProfileView.swift,
 				Modules/Friends/Views/ReportUserView.swift,
-				Modules/Habits/ViewModels/AITaskViewModel.swift,
-				Modules/Habits/ViewModels/HabitStateManager.swift,
-				Modules/Habits/ViewModels/HabitsViewLogic.swift,
-				Modules/Habits/ViewModels/HabitsViewState.swift,
+				Modules/Habits/ViewModels/HabitTaskState.swift,
 				Modules/Habits/ViewModels/HabitViewModel.swift,
 				Modules/Habits/Views/AddHabitCardView.swift,
 				Modules/Habits/Views/AddHabitView.swift,
-				Modules/Habits/Views/AITaskDisplayView.swift,
-				Modules/Habits/Views/AITaskGenerationView.swift,
 				Modules/Habits/Views/HabitCardView.swift,
 				Modules/Habits/Views/HabitDetailsView.swift,
 				Modules/Habits/Views/HabitsView.swift,
-				Modules/Habits/Views/HabitsViewHelpers.swift,
-				Modules/Habits/Views/MotivationAbilityModal.swift,
-				Modules/Habits/Views/ProofSubmissionModal.swift,
-				Modules/Habits/Views/TaskGenerationSection.swift,
-				Modules/Habits/Views/UploadProofSection.swift,
+				Modules/Habits/Views/HabitTaskSectionView.swift,
+				Modules/Habits/Views/ShareProofModalView.swift,
+				Modules/Habits/Views/SubmitProofModalView.swift,
 				Modules/Home/ViewModels/PostsViewModel.swift,
-				Modules/Home/Views/CreatePostView.swift,
 				Modules/Home/Views/FeedView.swift,
 				Modules/Home/Views/HomeView.swift,
 				Modules/Onboarding/Views/OnboardingView.swift,
@@ -113,39 +107,44 @@
 				Services/Network/NetworkError.swift,
 				Services/Network/NetworkService.swift,
 				Services/Network/PostService.swift,
+				Services/Network/SupportService.swift,
 				Services/Network/WebSocketManager.swift,
 				Shared/Components/ButtonStyles.swift,
 				Shared/Components/CameraView.swift,
-				Shared/Components/CommentsView.swift,
-				Shared/Components/ConversationCardView.swift,
-				Shared/Components/DateHeaderView.swift,
+				Shared/Components/Chats/ConversationCardView.swift,
+				Shared/Components/Chats/MessageBubbleView.swift,
+				Shared/Components/Chats/MessageInputView.swift,
+				Shared/Components/Chats/ReplyIndicatorView.swift,
 				Shared/Components/EmptyStatesViews.swift,
-				Shared/Components/FriendCardView.swift,
-				Shared/Components/FriendRequestCardView.swift,
-				Shared/Components/GradientBackgroundView.swift,
+				Shared/Components/Friends/FriendCardView.swift,
+				Shared/Components/Friends/FriendRequestCardView.swift,
+				Shared/Components/Friends/UserSearchCardView.swift,
 				Shared/Components/GradientOverlay.swift,
 				Shared/Components/HabitDetailPickers.swift,
 				Shared/Components/ImagePicker.swift,
 				Shared/Components/LoadingButton.swift,
-				Shared/Components/MessageBubbleView.swift,
-				Shared/Components/MessageInputView.swift,
-				Shared/Components/PostCardView.swift,
-				Shared/Components/PrivacySelectionView.swift,
+				Shared/Components/Posts/CommentsView.swift,
+				Shared/Components/Posts/DateHeaderView.swift,
+				Shared/Components/Posts/PostCardView.swift,
+				Shared/Components/Posts/PrivacySelectionView.swift,
 				Shared/Components/ProfileImageView.swift,
-				Shared/Components/ReplyIndicatorView.swift,
 				Shared/Components/ShimmerEffect.swift,
+				Shared/Components/SuccessToast.swift,
 				Shared/Components/TextFieldStyles.swift,
 				Shared/Components/TextStyles.swift,
 				Shared/Components/ToastManager.swift,
 				Shared/Components/ToastView.swift,
-				Shared/Components/UserSearchCardView.swift,
+				Shared/Components/TypingText.swift,
+				Shared/Components/VideoPicker.swift,
 				Shared/Extensions/Colors.swift,
 				Shared/Extensions/CombineExtensions.swift,
 				Shared/RootView.swift,
 				Shared/TabBarView.swift,
+				Shared/Utilities/APIConfig.swift,
 				Shared/Utilities/ContentLimits.swift,
-				Shared/Utilities/FriendsIntegrationValidator.swift,
 				Shared/Utilities/HapticManager.swift,
+				Shared/Utilities/NotificationManager.swift,
+				Shared/Utilities/PermissionManager.swift,
 				Shared/Utilities/SharingHelper.swift,
 				Shared/Utilities/Translations.swift,
 			);
@@ -181,6 +180,7 @@
 			files = (
 				47992D052E0BBD9200D0756A /* Kingfisher in Frameworks */,
 				47A725F22E03D2B700616FE2 /* Clerk in Frameworks */,
+				476019562E1D1F5100B2BD50 /* Lottie in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -240,6 +240,7 @@
 			packageProductDependencies = (
 				47A725F12E03D2B700616FE2 /* Clerk */,
 				47992D042E0BBD9200D0756A /* Kingfisher */,
+				476019552E1D1F5100B2BD50 /* Lottie */,
 			);
 			productName = adet;
 			productReference = 47C504042DF69FE700D30B0B /* adet.app */;
@@ -326,6 +327,7 @@
 			packageReferences = (
 				47A725F02E03D2B700616FE2 /* XCRemoteSwiftPackageReference "clerk-ios" */,
 				47992D032E0BBD9200D0756A /* XCRemoteSwiftPackageReference "Kingfisher" */,
+				476019542E1D1F5100B2BD50 /* XCRemoteSwiftPackageReference "lottie-spm" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 47C504052DF69FE700D30B0B /* Products */;
@@ -704,6 +706,14 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
+		476019542E1D1F5100B2BD50 /* XCRemoteSwiftPackageReference "lottie-spm" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/airbnb/lottie-spm.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 4.5.2;
+			};
+		};
 		47992D032E0BBD9200D0756A /* XCRemoteSwiftPackageReference "Kingfisher" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/onevcat/Kingfisher.git";
@@ -723,6 +733,11 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		476019552E1D1F5100B2BD50 /* Lottie */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 476019542E1D1F5100B2BD50 /* XCRemoteSwiftPackageReference "lottie-spm" */;
+			productName = Lottie;
+		};
 		47992D042E0BBD9200D0756A /* Kingfisher */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 47992D032E0BBD9200D0756A /* XCRemoteSwiftPackageReference "Kingfisher" */;

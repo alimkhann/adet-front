@@ -5,37 +5,38 @@ struct TabBarView: View {
     @EnvironmentObject var authViewModel: AuthViewModel
     @State private var selectedTab = 0
     @State private var friendRequestCount = 0
+    @AppStorage("appLanguage") var appLanguage: String = Locale.current.language.languageCode?.identifier ?? "en"
 
     var body: some View {
         TabView(selection: $selectedTab) {
             HomeView()
                 .tabItem {
-                    Label("Home", systemImage: "house")
+                    Label("home".t(appLanguage), systemImage: "house")
                 }
                 .tag(0)
 
             FriendsView()
                 .tabItem {
-                    Label("Friends", systemImage: "person.crop.circle")
+                    Label("friends".t(appLanguage), systemImage: "person.2.fill")
                 }
                 .tag(1)
                 .badge(friendsTabBadge)
 
             HabitsView()
                 .tabItem {
-                    Label("Habits", systemImage: "book.fill")
+                    Label("habits".t(appLanguage), systemImage: "book.fill")
                 }
                 .tag(2)
 
             ChatsView()
                 .tabItem {
-                    Label("Chats", systemImage: "message")
+                    Label("chats".t(appLanguage), systemImage: "message")
                 }
                 .tag(3)
 
             ProfileView()
                 .tabItem {
-                    Label("Profile", systemImage: "person")
+                    Label("profile".t(appLanguage), systemImage: "person")
                 }
                 .tag(4)
         }

@@ -66,23 +66,6 @@ class AITaskService: ObservableObject {
         let endpoint = "/api/v1/habits/\(habitId)/improvement-suggestions"
         return try await networkService.makeAuthenticatedRequest(endpoint: endpoint, method: "GET", body: nil as String?)
     }
-
-    // MARK: - Quick Task Generation (Fallback)
-
-    func generateQuickTask(
-        for habitId: Int,
-        baseDifficulty: String,
-        proofStyle: String,
-        userLanguage: String = "en"
-    ) async throws -> TaskGenerationResponse {
-        let endpoint = "/api/v1/habits/\(habitId)/generate-quick-task"
-        let request = [
-            "base_difficulty": baseDifficulty,
-            "proof_style": proofStyle,
-            "user_language": userLanguage
-        ]
-        return try await networkService.makeAuthenticatedRequest(endpoint: endpoint, method: "POST", body: request)
-    }
 }
 
 // MARK: - Convenience Extensions
