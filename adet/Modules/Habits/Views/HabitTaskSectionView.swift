@@ -364,6 +364,23 @@ struct HabitTaskSectionView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                     .padding(.vertical)
 
+            case .dismissableMissed(let nextTaskDate):
+                TaskCardContainer {
+                    DismissableMissedTaskView(nextTaskDate: nextTaskDate, onDismiss: {
+                        viewModel.handleDismissedMissedOrFailed()
+                    })
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                .padding(.vertical)
+            case .dismissableFailedNoAttempts(let nextTaskDate):
+                TaskCardContainer {
+                    DismissableFailedNoAttemptsView(nextTaskDate: nextTaskDate, onDismiss: {
+                        viewModel.handleDismissedMissedOrFailed()
+                    })
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                .padding(.vertical)
+
             case .error(let message):
                 TaskCardContainer { ErrorView(message: message, onRetry: onRetry) }
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
@@ -1026,5 +1043,57 @@ extension HabitTaskState {
     var isShowTask: Bool {
         if case .showTask = self { return true }
         return false
+    }
+}
+
+struct DismissableMissedTaskView: View {
+    let nextTaskDate: Date
+    let onDismiss: () -> Void
+    var body: some View {
+        VStack {
+            HStack {
+                Spacer()
+                Button(action: onDismiss) {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.title)
+                        .foregroundColor(.secondary)
+                }
+            }
+            Spacer()
+            MissedTaskView(nextTaskDate: nextTaskDate)
+            Spacer()
+            Button(action: onDismiss) {
+                Text("Next")
+                    .frame(maxWidth: .infinity, minHeight: 44)
+            }
+            .buttonStyle(PrimaryButtonStyle())
+        }
+        .padding()
+    }
+}
+
+struct DismissableFailedNoAttemptsView: View {
+    let nextTaskDate: Date
+    let onDismiss: () -> Void
+    var body: some View {
+        VStack {
+            HStack {
+                Spacer()
+                Button(action: onDismiss) {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.title)
+                        .foregroundColor(.secondary)
+                }
+            }
+            Spacer()
+            FailedNoAttemptsView(nextTaskDate: nextTaskDate)
+            Spacer()
+            Button(action: onDismiss) {
+                Text("Next")
+                    .frame(maxWidth: .infinity, minHeight: 44)
+            }
+            .buttonStyle(PrimaryButtonStyle())
+        }
+        .padding()
     }
 }

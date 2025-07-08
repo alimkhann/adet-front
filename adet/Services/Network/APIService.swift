@@ -272,6 +272,12 @@ actor APIService {
         )
     }
 
+    struct ExpiredTasksResponse: Codable {
+        let success: Bool
+        let expired_tasks: [TaskEntry]?
+        let count: Int
+    }
+
     func checkAndMarkExpiredTasks() async throws -> ExpiredTasksResponse {
         return try await networkService.makeAuthenticatedRequest(
             endpoint: "/api/v1/habits/tasks/check-expired",
@@ -371,5 +377,35 @@ actor APIService {
             throw NetworkError.requestFailed(statusCode: 0, body: "Invalid upload response")
         }
         return urlString
+    }
+
+    // MARK: - Streak Freezer API Operations
+
+    struct UserStreakFreezersResponse: Codable {
+        let streak_freezers: Int
+    }
+
+    func getUserStreakFreezers() async throws -> UserStreakFreezersResponse {
+        return try await networkService.makeAuthenticatedRequest(
+            endpoint: "/api/v1/habits/user/streak-freezers",
+            method: "GET",
+            body: (nil as String?)
+        )
+    }
+
+    func useUserStreakFreezer() async throws -> UserStreakFreezersResponse {
+        return try await networkService.makeAuthenticatedRequest(
+            endpoint: "/api/v1/habits/user/use-streak-freezer",
+            method: "POST",
+            body: (nil as String?)
+        )
+    }
+
+    func awardUserStreakFreezer() async throws -> UserStreakFreezersResponse {
+        return try await networkService.makeAuthenticatedRequest(
+            endpoint: "/api/v1/habits/user/award-streak-freezer",
+            method: "POST",
+            body: (nil as String?)
+        )
     }
 }

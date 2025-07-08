@@ -67,6 +67,7 @@ struct TaskEntry: Codable, Identifiable {
     let calibrationMetadata: String?
     let createdAt: String
     let updatedAt: String?
+    let attemptsLeft: Int
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -93,6 +94,7 @@ struct TaskEntry: Codable, Identifiable {
         case calibrationMetadata = "calibration_metadata"
         case createdAt = "created_at"
         case updatedAt = "updated_at"
+        case attemptsLeft = "attempts_left"
     }
 }
 

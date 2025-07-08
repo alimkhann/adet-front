@@ -33,7 +33,7 @@ struct FriendsView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     NavigationLink(destination: CloseFriendsManagementView().environmentObject(authViewModel)) {
-                        Image(systemName: "person.2.circle")
+                        Image(systemName: "star.circle")
                             .font(.system(size: 18, weight: .medium))
                     }
                 }

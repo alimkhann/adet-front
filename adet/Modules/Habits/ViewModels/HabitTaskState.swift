@@ -32,10 +32,16 @@ enum HabitTaskState: Equatable {
     // Task missed (expired)
     case missed(nextTaskDate: Date)
 
+    // Dismissable missed state (for previous day)
+    case dismissableMissed(nextTaskDate: Date)
+
     // Task failed, attempts left
     case failed(attemptsLeft: Int)
     // Task failed, no attempts left
     case failedNoAttempts(nextTaskDate: Date)
+
+    // Dismissable failedNoAttempts state (for previous day)
+    case dismissableFailedNoAttempts(nextTaskDate: Date)
 
     // Task success, show share option
     case successShare(task: HabitTaskDetails, proof: HabitProofState)

@@ -44,7 +44,9 @@ struct HabitsView: View {
                     Text("ädet")
                         .font(.headline)
                         .foregroundColor(.primary)
+                        .padding(.leading)
                 }
+
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button(action: { showStreakFreezerInfo() }) {
                         HStack(spacing: 4) {
@@ -57,10 +59,11 @@ struct HabitsView: View {
                     }
                 }
             }
-            .navigationBarHidden(true)
+            .navigationBarBackButtonHidden(true)
             .onAppear {
                 Task { @MainActor in
                     await viewModel.fetchHabits()
+                    await viewModel.fetchStreakFreezers()
                     if let habit = viewModel.selectedHabit {
                         await viewModel.fetchTodayTask(for: habit)
                         _ = await viewModel.getTodayMotivationEntry(for: habit.id)

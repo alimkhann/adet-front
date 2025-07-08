@@ -23,12 +23,37 @@ public class HabitViewModel: ObservableObject {
         isGeneratingTask || isSubmittingProof || (TaskStatus(rawValue: todayTask?.status ?? "") == .pending)
     }
 
-    @Published var streakFreezers: Int = 2 // Default max 2
+    @Published var streakFreezers: Int = 0 // Always backend-driven
 
     @Published var typingTextProofKey: String = ""
     private var pollingTask: Task<Void, Never>? = nil
 
     private let apiService = APIService.shared
+
+    // Remove expiryTimer and foregroundObserver
+    // Remove startExpiryTimer and deinit observer logic
+
+    // Remove checkForTaskExpiry and all timer logic
+
+    /// Called by the UI when the timer hits 0
+    func handleTaskExpired() async {
+        guard let habit = selectedHabit, let task = todayTask, task.status.lowercased() == "pending" else { return }
+        do {
+            // Mark as missed in backend
+            _ = try await apiService.checkAndMarkExpiredTasks()
+            // Refetch today's task and update state
+            await fetchTodayTask(for: habit)
+            await MainActor.run {
+                self.updateTaskState()
+            }
+        } catch {
+            print("Failed to mark task as missed: \(error.localizedDescription)")
+        }
+    }
+
+    public init() {
+        // No longer needed
+    }
 
     func fetchHabits() async {
         isLoading = true
@@ -42,6 +67,8 @@ public class HabitViewModel: ObservableObject {
             if selectedHabit == nil && !habits.isEmpty {
                 selectedHabit = habits.first
             }
+            // Fallback: check for expiry after fetching habits
+            await handleTaskExpired()
         } catch {
             errorMessage = "Failed to fetch habits: \(error.localizedDescription)"
             print(errorMessage ?? "Unknown error")
@@ -255,6 +282,8 @@ public class HabitViewModel: ObservableObject {
                 self.todayTask = task
                 self.updateTypingTextProofKey()
             }
+            // Fallback: check for expiry after fetching today's task
+            await handleTaskExpired()
         } catch {
             await MainActor.run {
                 self.todayTask = nil
@@ -288,35 +317,43 @@ public class HabitViewModel: ObservableObject {
 
         // Check today's task status
         if let task = todayTask, let status = TaskStatus(rawValue: task.status) {
+            let today = Calendar.current.startOfDay(for: Date())
+            let assignedDate = ISO8601DateFormatter().date(from: task.assignedDateString) ?? today // assignedDateString is a helper for assigned_date as string
+            let isPreviousDay = assignedDate < today
             switch status {
             case .missed:
-                let usedFreezer = useStreakFreezerIfAvailable()
-                let nextDate = nextScheduledDate(for: habit)
-                if !usedFreezer {
-                    selectedHabit?.streak = 0
+                Task {
+                    let nextDate = nextScheduledDate(for: habit)
+                    await fetchStreakFreezers()
+                    await MainActor.run {
+                        if isPreviousDay {
+                            self.currentTaskState = .dismissableMissed(nextTaskDate: nextDate)
+                        } else {
+                            self.currentTaskState = .missed(nextTaskDate: nextDate)
+                        }
+                    }
                 }
-                currentTaskState = .missed(nextTaskDate: nextDate)
                 return
             case .failed:
-                let attemptsLeft = 1
+                let attemptsLeft = todayTask?.attemptsLeft ?? 1
                 if attemptsLeft > 0 {
                     currentTaskState = .failed(attemptsLeft: attemptsLeft)
                 } else {
-                    let usedFreezer = useStreakFreezerIfAvailable()
-                    let nextDate = nextScheduledDate(for: habit)
-                    if !usedFreezer {
-                        selectedHabit?.streak = 0
+                    Task {
+                        let nextDate = nextScheduledDate(for: habit)
+                        await fetchStreakFreezers()
+                        await MainActor.run {
+                            if isPreviousDay {
+                                self.currentTaskState = .dismissableFailedNoAttempts(nextTaskDate: nextDate)
+                            } else {
+                                self.currentTaskState = .failedNoAttempts(nextTaskDate: nextDate)
+                            }
+                        }
                     }
-                    currentTaskState = .failedNoAttempts(nextTaskDate: nextDate)
                 }
                 return
             case .completed:
-                let isShared = false
-                if !isShared {
-                    currentTaskState = .successShare(task: makeTaskDetails(), proof: proofState)
-                } else {
-                    currentTaskState = .successDone
-                }
+                currentTaskState = .successShare(task: makeTaskDetails(), proof: proofState)
                 return
             case .pending:
                 currentTaskState = .showTask(task: makeTaskDetails(), proof: proofState)
@@ -372,7 +409,9 @@ public class HabitViewModel: ObservableObject {
         }
         // Parse dueDate string to Date and calculate timeLeft
         let formatter = ISO8601DateFormatter()
-        let dueDate = formatter.date(from: task.dueDate)
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let isoDueDate = task.dueDate.hasSuffix("Z") ? task.dueDate : task.dueDate + "Z"
+        let dueDate = formatter.date(from: isoDueDate)
         let timeLeft = dueDate.map { $0.timeIntervalSince(Date()) }
         return HabitTaskDetails(
             description: task.taskDescription,
@@ -575,23 +614,43 @@ public class HabitViewModel: ObservableObject {
         }
     }
 
-    // Call this when a task is failed or missed
-    func useStreakFreezerIfAvailable() -> Bool {
-        if streakFreezers > 0 {
-            streakFreezers -= 1
-            // Streak is preserved
-            return true
+    // MARK: - Streak Freezer Logic (Backend-Driven)
+    /// Fetch the user's current streak freezer count from the backend
+    func fetchStreakFreezers() async {
+        do {
+            let response = try await apiService.getUserStreakFreezers()
+            await MainActor.run {
+                self.streakFreezers = response.streak_freezers
+            }
+        } catch {
+            // Optionally show error, but don't block UI
+            print("Failed to fetch streak freezers: \(error.localizedDescription)")
         }
-        return false
     }
 
-    // Call this when a streak milestone is reached (e.g., every 10 days)
-    func earnStreakFreezerIfMilestone(streak: Int) {
-        if streak > 0 && streak % 10 == 0 {
-            streakFreezers += 1
+    /// Use a streak freezer (if available) via backend
+    func useStreakFreezer() async -> Bool {
+        do {
+            let response = try await apiService.useUserStreakFreezer()
+            await MainActor.run {
+                self.streakFreezers = response.streak_freezers
+            }
+            return true
+        } catch {
+            print("Failed to use streak freezer: \(error.localizedDescription)")
+            return false
         }
-        if streakFreezers > 2 {
-            streakFreezers = 2 // Cap at 2 unless milestone
+    }
+
+    /// Award a streak freezer (for milestone, if needed) via backend
+    func awardStreakFreezer() async {
+        do {
+            let response = try await apiService.awardUserStreakFreezer()
+            await MainActor.run {
+                self.streakFreezers = response.streak_freezers
+            }
+        } catch {
+            print("Failed to award streak freezer: \(error.localizedDescription)")
         }
     }
 
@@ -613,13 +672,36 @@ public class HabitViewModel: ObservableObject {
                 let newStreak = habit.streak + 1
                 await MainActor.run {
                     selectedHabit?.streak = newStreak
-                    earnStreakFreezerIfMilestone(streak: newStreak)
                 }
+                // Award streak freezer is now backend-driven and handled automatically
+                await fetchStreakFreezers()
             }
         } catch {
             await MainActor.run {
                 ToastManager.shared.showError("Failed to share proof: \(error.localizedDescription)")
             }
         }
+    }
+
+    // Add this helper for assigned_date string parsing
+    private var isoFormatter: ISO8601DateFormatter {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withFullDate, .withDashSeparatorInDate]
+        return f
+    }
+}
+
+// Add this extension to TaskEntry
+extension TaskEntry {
+    var assignedDateString: String {
+        return assignedDate
+    }
+}
+
+// Add this to HabitViewModel
+extension HabitViewModel {
+    func handleDismissedMissedOrFailed() {
+        // After dismiss, update to the correct state for today
+        updateTaskState()
     }
 }
