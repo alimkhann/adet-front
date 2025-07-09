@@ -104,6 +104,7 @@ struct AITaskGenerationRequest: Codable {
     let proof_style: String
     let user_language: String?
     let user_timezone: String?
+    let user_date: String
 
     enum CodingKeys: String, CodingKey {
         case base_difficulty = "base_difficulty"
@@ -112,6 +113,7 @@ struct AITaskGenerationRequest: Codable {
         case proof_style = "proof_style"
         case user_language = "user_language"
         case user_timezone = "user_timezone"
+        case user_date = "user_date"
     }
 }
 

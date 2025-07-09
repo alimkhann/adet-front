@@ -74,7 +74,8 @@ extension AITaskService {
     func generateTaskForHabit(
         _ habit: Habit,
         motivationLevel: String,
-        abilityLevel: String
+        abilityLevel: String,
+        userDate: String
     ) async throws -> TaskCreationResponse {
         let request = AITaskGenerationRequest(
             base_difficulty: habit.difficulty.lowercased(),
@@ -82,7 +83,8 @@ extension AITaskService {
             ability_level: abilityLevel,
             proof_style: habit.proofStyle.lowercased(),
             user_language: "en", // TODO: Get from user preferences
-            user_timezone: TimeZone.current.identifier
+            user_timezone: TimeZone.current.identifier,
+            user_date: userDate
         )
 
         return try await generateAndCreateTask(for: habit.id, request: request)

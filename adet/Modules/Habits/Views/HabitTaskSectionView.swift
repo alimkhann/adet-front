@@ -116,47 +116,55 @@ struct HabitTaskSectionView: View {
 
             case .readyToGenerateTask:
                 TaskCardContainer {
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Today's Task")
-                            .font(.headline)
-
-                        Text("Ready to generate your task.")
-                            .foregroundStyle(.secondary)
-
-                        HStack(spacing: 16) {
-                            CapsuleChip(
-                                label: "Motivation:",
-                                value: viewModel.todayMotivation != nil ? (viewModel.todayMotivation?.level.capitalized ?? "") : "Not set",
-                                color: chipColor(for: viewModel.todayMotivation?.level, isMotivation: true),
-                                textColor: chipTextColor(for: viewModel.todayMotivation?.level)
-                            )
-                            .frame(maxWidth: .infinity)
-
-                            CapsuleChip(
-                                label: "Ability:",
-                                value: viewModel.todayAbility != nil ? (viewModel.todayAbility?.level.capitalized ?? "") : "Not set",
-                                color: chipColor(for: viewModel.todayAbility?.level, isMotivation: false),
-                                textColor: chipTextColor(for: viewModel.todayAbility?.level)
-                            )
-                            .frame(maxWidth: .infinity)
+                    if let error = viewModel.taskGenerationError {
+                        TaskGenerationErrorView(errorMessage: error) {
+                            Task {
+                                await viewModel.generateTask()
+                            }
                         }
-                        .padding(.vertical)
+                    } else {
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("Today's Task")
+                                .font(.headline)
 
-                        OutlinedBox {
-                            Text("Awesome! Our AI will generate a task according to your motivation and ability levels. You've got this!")
-                                .font(.body)
-                                .frame(maxHeight: .infinity, alignment: .topLeading)
+                            Text("Ready to generate your task.")
+                                .foregroundStyle(.secondary)
+
+                            HStack(spacing: 16) {
+                                CapsuleChip(
+                                    label: "Motivation:",
+                                    value: viewModel.todayMotivation != nil ? (viewModel.todayMotivation?.level.capitalized ?? "") : "Not set",
+                                    color: chipColor(for: viewModel.todayMotivation?.level, isMotivation: true),
+                                    textColor: chipTextColor(for: viewModel.todayMotivation?.level)
+                                )
+                                .frame(maxWidth: .infinity)
+
+                                CapsuleChip(
+                                    label: "Ability:",
+                                    value: viewModel.todayAbility != nil ? (viewModel.todayAbility?.level.capitalized ?? "") : "Not set",
+                                    color: chipColor(for: viewModel.todayAbility?.level, isMotivation: false),
+                                    textColor: chipTextColor(for: viewModel.todayAbility?.level)
+                                )
+                                .frame(maxWidth: .infinity)
+                            }
+                            .padding(.vertical)
+
+                            OutlinedBox {
+                                Text("Awesome! Our AI will generate a task according to your motivation and ability levels. You've got this!")
+                                    .font(.body)
+                                    .frame(maxHeight: .infinity, alignment: .topLeading)
+                            }
+
+                            Spacer()
+
+                            Button(action: onGenerateTask) {
+                                Label("Generate Task", systemImage: "wand.and.stars")
+                                    .frame(minHeight: 44)
+                            }
+                            .buttonStyle(PrimaryButtonStyle())
                         }
-
-                        Spacer()
-
-                        Button(action: onGenerateTask) {
-                            Label("Generate Task", systemImage: "wand.and.stars")
-                                .frame(minHeight: 44)
-                        }
-                        .buttonStyle(PrimaryButtonStyle())
+                        .frame(maxWidth: .infinity, alignment: .top)
                     }
-                    .frame(maxWidth: .infinity, alignment: .top)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                 .padding(.vertical)
@@ -898,7 +906,7 @@ struct FailedNoAttemptsView: View {
             Text("You've got 0 attempts left.")
 
             Text(nextTaskMessage(for: nextTaskDate))
-            
+
             Spacer()
         }
         .frame(maxWidth: .infinity, alignment: .top)
@@ -1067,6 +1075,54 @@ struct DismissableFailedNoAttemptsView: View {
             .buttonStyle(PrimaryButtonStyle())
         }
         .padding()
+    }
+}
+
+struct GeneratingTaskView: View {
+    var body: some View {
+        VStack(spacing: 16) {
+            Spacer()
+            ProgressView()
+                .scaleEffect(1.2)
+            TypingText(
+                text: "Generating your task...",
+                animatedDots: true,
+                typingSpeed: 0.05
+            )
+            .font(.title2)
+            .fontWeight(.medium)
+            .foregroundColor(.primary)
+            Spacer()
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+struct TaskGenerationErrorView: View {
+    let errorMessage: String
+    let onRetry: () -> Void
+
+    var body: some View {
+        VStack(spacing: 16) {
+            Spacer()
+            Image(systemName: "exclamationmark.triangle")
+                .font(.system(size: 48))
+                .foregroundColor(.orange)
+            Text("Generation Failed")
+                .font(.title2)
+                .fontWeight(.semibold)
+            Text(errorMessage)
+                .font(.body)
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal)
+            Button("Try Again") {
+                onRetry()
+            }
+            .buttonStyle(.borderedProminent)
+            Spacer()
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 

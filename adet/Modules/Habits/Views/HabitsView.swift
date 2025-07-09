@@ -123,6 +123,9 @@ struct HabitsView: View {
                     .environmentObject(viewModel)
                 }
             }
+            .onDisappear {
+                viewModel.cancelPolling()
+            }
         }
     }
 

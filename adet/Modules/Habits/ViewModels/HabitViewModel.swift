@@ -27,6 +27,9 @@ public class HabitViewModel: ObservableObject {
 
     @Published var typingTextProofKey: String = ""
     private var pollingTask: Task<Void, Never>? = nil
+    @Published var taskGenerationError: String?
+    private var pollAttempts = 0
+    private let maxPollAttempts = 10 // 10 attempts = ~50 seconds
 
     private let apiService = APIService.shared
 
@@ -38,6 +41,16 @@ public class HabitViewModel: ObservableObject {
     /// Called by the UI when the timer hits 0
     func handleTaskExpired() async {
         guard let habit = selectedHabit, let task = todayTask, task.status.lowercased() == "pending" else { return }
+
+        let iso = ISO8601DateFormatter()
+        iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        guard
+            let due = iso.date(from: task.dueDate),
+            Date() > due
+        else {
+            return
+        }
+
         do {
             // Mark as missed in backend
             _ = try await apiService.checkAndMarkExpiredTasks()
@@ -49,10 +62,6 @@ public class HabitViewModel: ObservableObject {
         } catch {
             print("Failed to mark task as missed: \(error.localizedDescription)")
         }
-    }
-
-    public init() {
-        // No longer needed
     }
 
     func fetchHabits() async {
@@ -67,8 +76,6 @@ public class HabitViewModel: ObservableObject {
             if selectedHabit == nil && !habits.isEmpty {
                 selectedHabit = habits.first
             }
-            // Fallback: check for expiry after fetching habits
-            await handleTaskExpired()
         } catch {
             errorMessage = "Failed to fetch habits: \(error.localizedDescription)"
             print(errorMessage ?? "Unknown error")
@@ -556,28 +563,98 @@ public class HabitViewModel: ObservableObject {
     }
 
     func generateTask() async {
-        guard let habit = selectedHabit else { return }
-        isGeneratingTask = true
-        updateTaskState()
+        guard let selectedHabit = selectedHabit else { return }
+
+        await MainActor.run {
+            currentTaskState = .generatingTask
+            taskGenerationError = nil
+            pollAttempts = 0
+        }
+
+        let success = await generateAndCreateTask(for: selectedHabit.id)
+        if success {
+            await pollForGeneratedTask()
+        } else {
+            // Try to fetch today's task in case it was created but POST failed
+            let fetchedTask = await getTodayTask(for: selectedHabit.id)
+            await MainActor.run {
+                if let task = fetchedTask {
+                    self.todayTask = task
+                    self.taskGenerationError = nil
+                    self.currentTaskState = .showTask(task: makeTaskDetails(), proof: proofState)
+                    self.updateTaskState() // Ensure state machine is up to date
+                } else {
+                    self.currentTaskState = .readyToGenerateTask
+                    self.taskGenerationError = "Failed to generate task. Please try again."
+                }
+            }
+        }
+    }
+
+    private func generateAndCreateTask(for habitId: Int) async -> Bool {
         do {
+            let formatter = DateFormatter()
+            formatter.dateFormat = "yyyy-MM-dd"
+            formatter.timeZone = .current
+            let userDate = formatter.string(from: Date())
+
+            guard let habit = selectedHabit else { return false }
+
             let request = AITaskGenerationRequest(
                 base_difficulty: habit.difficulty.lowercased(),
                 motivation_level: todayMotivation?.level.lowercased() ?? "",
                 ability_level: todayAbility?.level.lowercased() ?? "",
                 proof_style: habit.proofStyle.lowercased(),
                 user_language: "en",
-                user_timezone: TimeZone.current.identifier
+                user_timezone: TimeZone.current.identifier,
+                user_date: userDate
             )
-            _ = try await apiService.generateAndCreateTask(habitId: habit.id, request: request)
-            // Start polling for the generated task
-            startPollingForTodayTask(habit: habit)
+
+            _ = try await apiService.generateAndCreateTask(habitId: habitId, request: request)
+            return true
         } catch {
-            await fetchTodayTask(for: habit)
-            await MainActor.run {
-                self.isGeneratingTask = false
-                self.updateTaskStateAfterGeneration()
-            }
+            print("Task generation failed: \(error)")
+            return false
         }
+    }
+
+    // MARK: - Polling for Task Generation
+    private func pollForGeneratedTask() async {
+        guard let selectedHabit = selectedHabit else { return }
+
+        // Check if we've exceeded max polling attempts
+        if pollAttempts >= maxPollAttempts {
+            await MainActor.run {
+                currentTaskState = .readyToGenerateTask
+                taskGenerationError = "Task generation timed out. Please try again."
+                isGeneratingTask = false
+            }
+            return
+        }
+
+        pollAttempts += 1
+
+        // Try to fetch today's task
+        if let task = await getTodayTask(for: selectedHabit.id) {
+            await MainActor.run {
+                todayTask = task
+                isGeneratingTask = false
+                currentTaskState = .showTask(task: makeTaskDetails(), proof: proofState)
+                taskGenerationError = nil
+                updateTaskState() // Ensure state machine is up to date
+            }
+        } else {
+            // Wait 2 seconds and try again
+            try? await Task.sleep(nanoseconds: 2_000_000_000)
+            await pollForGeneratedTask()
+        }
+    }
+
+    /// Cancel polling if user leaves the Habits tab or view disappears
+    func cancelPolling() {
+        pollingTask?.cancel()
+        pollingTask = nil
+        isGeneratingTask = false
     }
 
     /// Polls for today's task after generation, stops when found or after maxAttempts
@@ -776,6 +853,19 @@ public class HabitViewModel: ObservableObject {
         let f = ISO8601DateFormatter()
         f.formatOptions = [.withFullDate, .withDashSeparatorInDate]
         return f
+    }
+
+    private func getTodayTask(for habitId: Int) async -> TaskEntry? {
+        do {
+            let formatter = DateFormatter()
+            formatter.dateFormat = "yyyy-MM-dd"
+            formatter.timeZone = .current
+            let userDate = formatter.string(from: Date())
+            let task = try await apiService.getTodayTask(habitId: habitId, userDate: userDate)
+            return task
+        } catch {
+            return nil
+        }
     }
 }
 
