@@ -11,7 +11,7 @@ actor NetworkService {
     // Configuration for retry logic
     private let maxRetries = 1
     private let retryDelay: TimeInterval = 1.0
-    private let timeout: TimeInterval = 15.0
+    private let timeout: TimeInterval = 60.0
 
     private init() {}
 

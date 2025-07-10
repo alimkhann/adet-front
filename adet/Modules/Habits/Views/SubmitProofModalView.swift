@@ -60,20 +60,19 @@ struct SubmitProofModalView: View {
                 .padding(.top, 8)
 
             switch proofState {
-            case .notStarted:
+            case .notStarted, .readyToSubmit:
                 OutlinedBox {
                     Text(instruction)
                         .font(.body)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
-
-                ProofWindowTimerView(validationTime: validationTime)
-
-                proofInputSection
+                HStack {
+                    ProofWindowTimerView(validationTime: validationTime)
+                    Spacer()
+                }
+                proofInputSection.disabled(false)
                 proofPreviewSection
-
                 Spacer()
-
                 Button(action: submitProof) {
                     Text("Submit Proof")
                         .frame(minHeight: 44)
@@ -82,32 +81,38 @@ struct SubmitProofModalView: View {
                 .frame(maxWidth: .infinity)
                 .disabled(!isProofReady)
 
-            case .uploading:
-                ProgressView("Uploading...")
-
-            case .validating:
-                ProgressView("Validating...")
-
-            case .readyToSubmit:
-                proofInputSection
+            case .uploading, .validating:
+                OutlinedBox {
+                    Text(instruction)
+                        .font(.body)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                HStack {
+                    ProofWindowTimerView(validationTime: validationTime)
+                    Spacer()
+                }
+                proofInputSection.disabled(true)
                 proofPreviewSection
                 Spacer()
-                Button(action: submitProof) {
-                    Text("Submit Proof")
+                Button(action: {}) {
+                    Text(proofState == .uploading ? "Uploading..." : "Validating...")
                         .frame(minHeight: 44)
                 }
                 .buttonStyle(PrimaryButtonStyle())
                 .frame(maxWidth: .infinity)
+                .disabled(true)
+                // Disable drag-to-dismiss and background tap
+                .interactiveDismissDisabled(true)
 
             case .submitted:
                 Text("Proof submitted! AI says: Great job!").font(.title2).foregroundColor(.green)
-
             case .error(let message):
                 Text("Error: \(message)").foregroundColor(.red)
-                // Optionally show retry button
             }
         }
         .padding()
+        // Make modal undismissable during uploading/validating
+        .interactiveDismissDisabled(proofState == .uploading || proofState == .validating)
     }
 
     @ViewBuilder
@@ -134,6 +139,16 @@ struct SubmitProofModalView: View {
             }
             .sheet(isPresented: $showCameraSheet) {
                 ImagePicker(sourceType: .camera, selectedImage: $previewImage)
+            }
+            .onChange(of: selectedItem) { newItem in
+                guard let item = newItem else { return }
+                Task {
+                    if let data = try? await item.loadTransferable(type: Data.self),
+                    let uiImage = UIImage(data: data) {
+                        previewImage = uiImage
+                        proofState = .readyToSubmit(image: data)
+                    }
+                }
             }
 
         case .video:
@@ -222,7 +237,7 @@ struct SubmitProofModalView: View {
                 Image(uiImage: img)
                     .resizable()
                     .scaledToFit()
-                    .frame(height: 120)
+                    .frame(maxWidth: .infinity)
                     .clipShape(RoundedRectangle(cornerRadius: 10))
             } else {
                 ZStack {
@@ -309,6 +324,7 @@ struct SubmitProofModalView: View {
             } else {
                 ToastManager.shared.showError("No photo selected.")
             }
+
         case .video:
             if let url = videoURL, let data = try? Data(contentsOf: url) {
                 onSubmit(.video, data, nil)
@@ -316,6 +332,7 @@ struct SubmitProofModalView: View {
             } else {
                 ToastManager.shared.showError("No video selected.")
             }
+
         case .audio:
             if let url = audioURL, let data = try? Data(contentsOf: url) {
                 onSubmit(.audio, data, nil)
@@ -323,6 +340,7 @@ struct SubmitProofModalView: View {
             } else {
                 ToastManager.shared.showError("No audio selected.")
             }
+
         case .text:
             if !textProof.isEmpty {
                 onSubmit(.text, nil, textProof)

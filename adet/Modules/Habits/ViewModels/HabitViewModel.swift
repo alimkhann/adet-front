@@ -31,6 +31,24 @@ public class HabitViewModel: ObservableObject {
     private var pollAttempts = 0
     private let maxPollAttempts = 10 // 10 attempts = ~50 seconds
 
+    // --- SuccessShare Persistence ---
+    @Published var isInSuccessShare: Bool = false
+    private var lastSuccessShareTask: HabitTaskDetails? = nil
+    private var lastSuccessShareProof: HabitProofState? = nil
+    private var lastSuccessShareDate: Date? = nil
+
+    // --- SuccessDone Persistence ---
+    @Published var isInSuccessDone: Bool = false
+    private var lastSuccessDoneDate: Date? = nil
+
+    // --- Failed/Missed Persistence ---
+    @Published var isInFailed: Bool = false
+    private var lastFailedAttemptsLeft: Int? = nil
+    private var lastFailedDate: Date? = nil
+    @Published var isInMissed: Bool = false
+    private var lastMissedNextTaskDate: Date? = nil
+    private var lastMissedDate: Date? = nil
+
     private let apiService = APIService.shared
 
     // Remove expiryTimer and foregroundObserver
@@ -331,6 +349,58 @@ public class HabitViewModel: ObservableObject {
 
     // MARK: - Task State Machine
     func updateTaskState() {
+        // Persist .successDone if set and day hasn't changed
+        if isInSuccessDone, let date = lastSuccessDoneDate {
+            let today = Calendar.current.startOfDay(for: Date())
+            let last = Calendar.current.startOfDay(for: date)
+            if today == last {
+                currentTaskState = .successDone
+                return
+            } else {
+                isInSuccessDone = false
+                lastSuccessDoneDate = nil
+            }
+        }
+        // Persist .successShare if set and day hasn't changed
+        if isInSuccessShare, let task = lastSuccessShareTask, let proof = lastSuccessShareProof, let date = lastSuccessShareDate {
+            let today = Calendar.current.startOfDay(for: Date())
+            let last = Calendar.current.startOfDay(for: date)
+            if today == last {
+                currentTaskState = .successShare(task: task, proof: proof)
+                return
+            } else {
+                isInSuccessShare = false
+                lastSuccessShareTask = nil
+                lastSuccessShareProof = nil
+                lastSuccessShareDate = nil
+            }
+        }
+        // Persist .failed if set and day hasn't changed
+        if isInFailed, let attempts = lastFailedAttemptsLeft, let date = lastFailedDate {
+            let today = Calendar.current.startOfDay(for: Date())
+            let last = Calendar.current.startOfDay(for: date)
+            if today == last {
+                currentTaskState = .failed(attemptsLeft: attempts)
+                return
+            } else {
+                isInFailed = false
+                lastFailedAttemptsLeft = nil
+                lastFailedDate = nil
+            }
+        }
+        // Persist .missed if set and day hasn't changed
+        if isInMissed, let nextDate = lastMissedNextTaskDate, let date = lastMissedDate {
+            let today = Calendar.current.startOfDay(for: Date())
+            let last = Calendar.current.startOfDay(for: date)
+            if today == last {
+                currentTaskState = .missed(nextTaskDate: nextDate)
+                return
+            } else {
+                isInMissed = false
+                lastMissedNextTaskDate = nil
+                lastMissedDate = nil
+            }
+        }
         guard let habit = selectedHabit else {
             currentTaskState = .empty
             return
@@ -396,7 +466,6 @@ public class HabitViewModel: ObservableObject {
             }
         }
 
-        // Not validation time yet
         let now = Date()
         let validationTime = parseValidationTime(habit.validationTime)
         let timeLeft = validationTime.timeIntervalSince(now)
@@ -405,7 +474,24 @@ public class HabitViewModel: ObservableObject {
         let motivationSet = todayMotivation != nil
         let abilitySet = todayAbility != nil
 
-        if !isValidationTime {
+        if isValidationTime {
+            if !motivationSet {
+                currentTaskState = .setMotivation(current: nil)
+                return
+            }
+            if !abilitySet {
+                currentTaskState = .setAbility(current: nil)
+                return
+            }
+            // Only allow .readyToGenerateTask if no todayTask exists
+            if todayTask == nil {
+                currentTaskState = .readyToGenerateTask
+            } else {
+                // If a task exists, always show it
+                currentTaskState = .showTask(task: makeTaskDetails(), proof: proofState)
+            }
+            return
+        } else {
             if !motivationSet {
                 currentTaskState = .setMotivation(current: nil)
                 return
@@ -416,22 +502,6 @@ public class HabitViewModel: ObservableObject {
             }
             currentTaskState = .waitingForValidationTime(timeLeft: timeLeft, motivationSet: motivationSet, abilitySet: abilitySet)
             return
-        }
-        if !motivationSet {
-            currentTaskState = .setMotivation(current: nil)
-            return
-        }
-        if !abilitySet {
-            currentTaskState = .setAbility(current: nil)
-            return
-        }
-
-        // Only allow .readyToGenerateTask if no todayTask exists
-        if todayTask == nil {
-            currentTaskState = .readyToGenerateTask
-        } else {
-            // If a task exists, always show it
-            currentTaskState = .showTask(task: makeTaskDetails(), proof: proofState)
         }
     }
 
@@ -514,7 +584,7 @@ public class HabitViewModel: ObservableObject {
 
     // Helper: Parse validation time string to Date
     func parseValidationTime(_ timeString: String) -> Date {
-        let today = Date()
+        let now = Date()
         let calendar = Calendar.current
         let formatter24 = DateFormatter()
         formatter24.dateFormat = "HH:mm"
@@ -526,16 +596,17 @@ public class HabitViewModel: ObservableObject {
         } else if let t = formatter12.date(from: timeString) {
             time = t
         }
-        guard let parsedTime = time else { return today }
-        let components = calendar.dateComponents([.year, .month, .day], from: today)
+        guard let parsedTime = time else { return now }
+        let todayComponents = calendar.dateComponents([.year, .month, .day], from: now)
         let timeComponents = calendar.dateComponents([.hour, .minute], from: parsedTime)
         var merged = DateComponents()
-        merged.year = components.year
-        merged.month = components.month
-        merged.day = components.day
+        merged.year = todayComponents.year
+        merged.month = todayComponents.month
+        merged.day = todayComponents.day
         merged.hour = timeComponents.hour
         merged.minute = timeComponents.minute
-        return calendar.date(from: merged) ?? today
+        let todayValidation = calendar.date(from: merged) ?? now
+        return todayValidation
     }
 
     // MARK: - Actions (called by the view)
@@ -756,11 +827,60 @@ public class HabitViewModel: ObservableObject {
                 response = try await apiService.submitTaskProof(taskId: task.id, proofData: proofData)
             }
             let updatedTask = response.task
+            let validation = response.validation
+            let attemptsLeft = updatedTask.attemptsLeft // fixed property name
+            let nextTaskDateString = updatedTask.dueDate // fixed property name
+            // Parse dueDate string to Date
+            let formatter = ISO8601DateFormatter()
+            formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            let isoDueDate = nextTaskDateString.hasSuffix("Z") ? nextTaskDateString : nextTaskDateString + "Z"
+            let nextTaskDate = formatter.date(from: isoDueDate)
             await MainActor.run {
                 self.proofState = .submitted
                 self.isSubmittingProof = false
                 self.todayTask = updatedTask
-                self.updateTaskState()
+                // Handle state transitions based on validation
+                if let validation = validation, validation.isValid {
+                    let details = self.makeTaskDetails()
+                    self.currentTaskState = .successShare(task: details, proof: .submitted)
+                    self.isInSuccessShare = true
+                    self.lastSuccessShareTask = details
+                    self.lastSuccessShareProof = .submitted
+                    self.lastSuccessShareDate = Date()
+                    // Reset failed/missed persistence
+                    self.isInFailed = false
+                    self.lastFailedAttemptsLeft = nil
+                    self.lastFailedDate = nil
+                    self.isInMissed = false
+                    self.lastMissedNextTaskDate = nil
+                    self.lastMissedDate = nil
+                } else if attemptsLeft > 0 {
+                    self.currentTaskState = .failed(attemptsLeft: attemptsLeft)
+                    self.isInFailed = true
+                    self.lastFailedAttemptsLeft = attemptsLeft
+                    self.lastFailedDate = Date()
+                    // Reset others
+                    self.isInSuccessShare = false
+                    self.lastSuccessShareTask = nil
+                    self.lastSuccessShareProof = nil
+                    self.lastSuccessShareDate = nil
+                    self.isInMissed = false
+                    self.lastMissedNextTaskDate = nil
+                    self.lastMissedDate = nil
+                } else {
+                    self.currentTaskState = .failedNoAttempts(nextTaskDate: nextTaskDate ?? Date())
+                    // Reset all persistence for failedNoAttempts
+                    self.isInFailed = false
+                    self.lastFailedAttemptsLeft = nil
+                    self.lastFailedDate = nil
+                    self.isInSuccessShare = false
+                    self.lastSuccessShareTask = nil
+                    self.lastSuccessShareProof = nil
+                    self.lastSuccessShareDate = nil
+                    self.isInMissed = false
+                    self.lastMissedNextTaskDate = nil
+                    self.lastMissedDate = nil
+                }
                 self.resetMotivationAndAbility()
             }
         } catch {
@@ -841,6 +961,16 @@ public class HabitViewModel: ObservableObject {
                 // Award streak freezer is now backend-driven and handled automatically
                 await fetchStreakFreezers()
             }
+            // --- Reset successShare state after sharing ---
+            await MainActor.run {
+                self.isInSuccessShare = false
+                self.lastSuccessShareTask = nil
+                self.lastSuccessShareProof = nil
+                self.lastSuccessShareDate = nil
+                // --- Set persistent successDone state ---
+                self.isInSuccessDone = true
+                self.lastSuccessDoneDate = Date()
+            }
         } catch {
             await MainActor.run {
                 ToastManager.shared.showError("Failed to share proof: \(error.localizedDescription)")
@@ -866,6 +996,31 @@ public class HabitViewModel: ObservableObject {
         } catch {
             return nil
         }
+    }
+
+    // When marking missed, persist missed state
+    func markTaskMissed(nextTaskDate: Date) {
+        self.currentTaskState = .missed(nextTaskDate: nextTaskDate)
+        self.isInMissed = true
+        self.lastMissedNextTaskDate = nextTaskDate
+        self.lastMissedDate = Date()
+        // Reset others
+        self.isInFailed = false
+        self.lastFailedAttemptsLeft = nil
+        self.lastFailedDate = nil
+        self.isInSuccessShare = false
+        self.lastSuccessShareTask = nil
+        self.lastSuccessShareProof = nil
+        self.lastSuccessShareDate = nil
+    }
+    // When user retries or dismisses, reset failed/missed persistence
+    func resetFailedMissedPersistence() {
+        self.isInFailed = false
+        self.lastFailedAttemptsLeft = nil
+        self.lastFailedDate = nil
+        self.isInMissed = false
+        self.lastMissedNextTaskDate = nil
+        self.lastMissedDate = nil
     }
 }
 

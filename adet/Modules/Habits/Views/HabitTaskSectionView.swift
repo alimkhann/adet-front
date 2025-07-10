@@ -194,7 +194,7 @@ struct HabitTaskSectionView: View {
                             }
                             .padding(.bottom, 8)
                             OutlinedBox {
-                                TypingText(text: "Generating your task", animatedDots: true)
+                                TypingText(text: "Generating Task", animatedDots: true)
                                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                             }
                         }
@@ -296,7 +296,7 @@ struct HabitTaskSectionView: View {
                 }) {
                     SubmitProofModalView(
                         proofState: $viewModel.proofState,
-                        instruction: currentTaskDescription ?? task.description,
+                        instruction: viewModel.todayTask?.proofRequirements ?? "",
                         validationTime: viewModel.selectedHabit.map { viewModel.parseValidationTime($0.validationTime) } ?? Date(),
                         proofType: proofInputType(from: viewModel.todayTask?.proofRequirements ?? "photo"),
                         onSubmit: { type, data, text in
@@ -1085,7 +1085,7 @@ struct GeneratingTaskView: View {
             ProgressView()
                 .scaleEffect(1.2)
             TypingText(
-                text: "Generating your task...",
+                text: "Generating Task...",
                 animatedDots: true,
                 typingSpeed: 0.05
             )
