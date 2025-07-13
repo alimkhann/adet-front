@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct FeedView: View {
-    @StateObject private var postsViewModel = PostsViewModel()
+    @EnvironmentObject var postsViewModel: PostsViewModel
     @State private var refreshTrigger = false
 
     var body: some View {
@@ -73,7 +73,6 @@ struct FeedView: View {
                         .padding()
                 }
             }
-            .padding(.horizontal)
             .padding(.top, 8)
         }
     }

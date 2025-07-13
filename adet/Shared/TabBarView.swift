@@ -5,6 +5,8 @@ struct TabBarView: View {
     @EnvironmentObject var authViewModel: AuthViewModel
     @State private var selectedTab = 0
     @State private var friendRequestCount = 0
+    @StateObject private var postsViewModel = PostsViewModel()
+    @StateObject private var profileViewModel = ProfileViewModel(authViewModel: AuthViewModel())
     @AppStorage("appLanguage") var appLanguage: String = Locale.current.language.languageCode?.identifier ?? "en"
 
     var body: some View {
@@ -14,6 +16,8 @@ struct TabBarView: View {
                     Label("home".t(appLanguage), systemImage: "house")
                 }
                 .tag(0)
+                .environmentObject(profileViewModel)
+                .environmentObject(postsViewModel)
 
             FriendsView()
                 .tabItem {
@@ -21,24 +25,29 @@ struct TabBarView: View {
                 }
                 .tag(1)
                 .badge(friendsTabBadge)
+                .environmentObject(profileViewModel)
 
             HabitsView()
                 .tabItem {
                     Label("habits".t(appLanguage), systemImage: "book.fill")
                 }
                 .tag(2)
+                .environmentObject(postsViewModel)
+                .environmentObject(profileViewModel)
 
             ChatsView()
                 .tabItem {
                     Label("chats".t(appLanguage), systemImage: "message")
                 }
                 .tag(3)
+                .environmentObject(profileViewModel)
 
             ProfileView()
                 .tabItem {
                     Label("profile".t(appLanguage), systemImage: "person")
                 }
                 .tag(4)
+                .environmentObject(profileViewModel)
         }
         .tint(.primary)
         .onAppear {
@@ -54,6 +63,8 @@ struct TabBarView: View {
                 await authViewModel.fetchUser()
                 await updateFriendRequestCount()
             }
+
+            profileViewModel.updateAuthViewModel(authViewModel)
         }
         .onChange(of: selectedTab) { _, newValue in
             Task { @MainActor in

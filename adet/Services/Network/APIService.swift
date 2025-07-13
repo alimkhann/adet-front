@@ -454,6 +454,17 @@ actor APIService {
             body: (nil as String?)
         )
     }
+
+    // MARK: - Profile/Post Count API Operations
+    func fetchMyPostCount() async throws -> Int {
+        struct PostCountResponse: Codable { let post_count: Int }
+        let response: PostCountResponse = try await networkService.makeAuthenticatedRequest(
+            endpoint: "/api/v1/users/me/post-count",
+            method: "GET",
+            body: (nil as String?)
+        )
+        return response.post_count
+    }
 }
 
 extension DateFormatter {

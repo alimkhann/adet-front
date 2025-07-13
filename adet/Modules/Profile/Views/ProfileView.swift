@@ -31,56 +31,59 @@ struct ProfileView: View {
 
     var body: some View {
         NavigationStack {
-            VStack(alignment: .leading, spacing: 0) {
-                // Header Section
-                profileHeaderSection
+            ScrollView {
+                VStack(alignment: .leading, spacing: 0) {
+                    // Header Section
+                    profileHeaderSection
 
-                // Tab Selector
-                tabSelectorSection
+                    // Tab Selector
+                    tabSelectorSection
 
-                // Content based on selected tab
-                contentSection
-            }
-            .background(Color(.systemBackground))
-            .onAppear {
-                print("DEBUG: .onAppear triggered in ProfileView at \(Date())")
-                // Update the ViewModel with the current AuthViewModel
-                viewModel.updateAuthViewModel(authViewModel)
-                loadUserPosts()
-                Task {
-                    await viewModel.loadFriendsCount()
-                    await viewModel.loadUserHabits()
+                    // Content based on selected tab
+                    contentSection
                 }
-                logger.info("ProfileView appeared")
-            }
-            .overlay(loadingOverlay)
-            .alert("Error", isPresented: .constant(viewModel.errorMessage != nil)) {
-                Button("OK") {
-                    viewModel.clearError()
-                }
-            } message: {
-                Text(viewModel.errorMessage ?? "")
-            }
-            .actionSheet(isPresented: $viewModel.showPfpActionSheet) {
-                ActionSheet(title: Text("Profile Picture"), buttons: [
-                    .default(Text("Choose from library")) { viewModel.selectPhotoFromLibrary() },
-                    .default(Text("Take photo")) { viewModel.takePhoto() },
-                    .destructive(Text("Remove current picture")) {
-                        Task { await viewModel.removeCurrentPicture() }
-                    },
-                    .cancel()
-                ])
-            }
-            .sheet(isPresented: $viewModel.showPhotoLibrary) {
-                ImagePicker(sourceType: .photoLibrary, selectedImage: $viewModel.selectedImage)
-            }
-            .sheet(isPresented: $viewModel.showCamera) {
-                ImagePicker(sourceType: .camera, selectedImage: $viewModel.selectedImage)
-            }
-            .onChange(of: viewModel.selectedImage) { _, newValue in
-                if let image = newValue {
+                .background(Color(.systemBackground))
+                .onAppear {
+                    print("DEBUG: .onAppear triggered in ProfileView at \(Date())")
+                    // Update the ViewModel with the current AuthViewModel
+                    viewModel.updateAuthViewModel(authViewModel)
+                    loadUserPosts()
                     Task {
-                        await viewModel.uploadSelectedImage(image)
+                        await viewModel.loadFriendsCount()
+                        await viewModel.loadUserHabits()
+                        await viewModel.refreshPostCount()
+                    }
+                    logger.info("ProfileView appeared")
+                }
+                .overlay(loadingOverlay)
+                .alert("Error", isPresented: .constant(viewModel.errorMessage != nil)) {
+                    Button("OK") {
+                        viewModel.clearError()
+                    }
+                } message: {
+                    Text(viewModel.errorMessage ?? "")
+                }
+                .actionSheet(isPresented: $viewModel.showPfpActionSheet) {
+                    ActionSheet(title: Text("Profile Picture"), buttons: [
+                        .default(Text("Choose from library")) { viewModel.selectPhotoFromLibrary() },
+                        .default(Text("Take photo")) { viewModel.takePhoto() },
+                        .destructive(Text("Remove current picture")) {
+                            Task { await viewModel.removeCurrentPicture() }
+                        },
+                        .cancel()
+                    ])
+                }
+                .sheet(isPresented: $viewModel.showPhotoLibrary) {
+                    ImagePicker(sourceType: .photoLibrary, selectedImage: $viewModel.selectedImage)
+                }
+                .sheet(isPresented: $viewModel.showCamera) {
+                    ImagePicker(sourceType: .camera, selectedImage: $viewModel.selectedImage)
+                }
+                .onChange(of: viewModel.selectedImage) { _, newValue in
+                    if let image = newValue {
+                        Task {
+                            await viewModel.uploadSelectedImage(image)
+                        }
                     }
                 }
             }
@@ -253,124 +256,120 @@ struct ProfileView: View {
 
     // MARK: - Posts Content View
     private var postsContentView: some View {
-        ScrollView {
-            VStack(spacing: 16) {
-                if postsViewModel.isLoadingMyPosts {
-                    HStack {
-                        ProgressView()
-                            .scaleEffect(0.8)
-                        Text("Loading posts...")
+        VStack(spacing: 16) {
+            if postsViewModel.isLoadingMyPosts {
+                HStack {
+                    ProgressView()
+                        .scaleEffect(0.8)
+                    Text("Loading posts...")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                }
+                .frame(maxWidth: .infinity, alignment: .center)
+                .padding(.top, 40)
+            } else if postsViewModel.myPosts.isEmpty {
+                VStack(spacing: 16) {
+                    Image(systemName: "photo.on.rectangle.angled")
+                        .font(.system(size: 48))
+                        .foregroundColor(.secondary)
+
+                    VStack(spacing: 8) {
+                        Text("No posts yet")
+                            .font(.headline)
+                            .fontWeight(.semibold)
+
+                        Text("Share your habit progress to start building your story!")
                             .font(.subheadline)
                             .foregroundColor(.secondary)
+                            .multilineTextAlignment(.center)
                     }
-                    .frame(maxWidth: .infinity, alignment: .center)
-                    .padding(.top, 40)
-                } else if postsViewModel.myPosts.isEmpty {
-                    VStack(spacing: 16) {
-                        Image(systemName: "photo.on.rectangle.angled")
-                            .font(.system(size: 48))
-                            .foregroundColor(.secondary)
-
-                        VStack(spacing: 8) {
-                            Text("No posts yet")
-                                .font(.headline)
-                                .fontWeight(.semibold)
-
-                            Text("Share your habit progress to start building your story!")
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
-                                .multilineTextAlignment(.center)
-                        }
-                    }
-                    .frame(maxWidth: .infinity, alignment: .center)
-                    .padding(.horizontal, 40)
-                    .padding(.top, 60)
-                } else {
-                    LazyVStack(spacing: 0) {
-                        ForEach(postsViewModel.myPosts) { post in
-                            PostCardView(
-                                post: post,
-                                onLike: {
-                                    Task {
-                                        await postsViewModel.toggleLike(for: post)
-                                    }
-                                },
-                                onComment: {
-                                    // Navigate to comments
-                                },
-                                onView: {
-                                    Task {
-                                        await postsViewModel.markPostAsViewed(post)
-                                    }
-                                },
-                                onShare: {
-                                    SharingHelper.shared.sharePost(post)
-                                },
-                                onUserTap: {
-                                    // User tapped their own profile - no action needed
-                                }
-                            )
-                            .padding(.horizontal, 0)
-                        }
-                    }
-                    .frame(maxWidth: .infinity, alignment: .center)
                 }
+                .frame(maxWidth: .infinity, alignment: .center)
+                .padding(.horizontal, 40)
+                .padding(.top, 60)
+            } else {
+                LazyVStack(spacing: 0) {
+                    ForEach(postsViewModel.myPosts) { post in
+                        PostCardView(
+                            post: post,
+                            onLike: {
+                                Task {
+                                    await postsViewModel.toggleLike(for: post)
+                                }
+                            },
+                            onComment: {
+                                // Navigate to comments
+                            },
+                            onView: {
+                                Task {
+                                    await postsViewModel.markPostAsViewed(post)
+                                }
+                            },
+                            onShare: {
+                                SharingHelper.shared.sharePost(post)
+                            },
+                            onUserTap: {
+                                // User tapped their own profile - no action needed
+                            }
+                        )
+                        .padding(.horizontal, 0)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .center)
             }
         }
     }
 
     // MARK: - Habits Content View
     private var habitsContentView: some View {
-        ScrollView {
-            VStack(spacing: 16) {
-                if viewModel.isLoadingHabits {
-                    HStack {
-                        ProgressView()
-                            .scaleEffect(0.8)
-                        Text("Loading habits...")
+        VStack(spacing: 16) {
+            if viewModel.isLoadingHabits {
+                HStack {
+                    ProgressView()
+                        .scaleEffect(0.8)
+                    Text("Loading habits...")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                }
+                .frame(maxWidth: .infinity, alignment: .center)
+                .padding(.top, 40)
+            } else if viewModel.userHabits.isEmpty {
+                VStack(spacing: 16) {
+                    Image(systemName: "target")
+                        .font(.system(size: 48))
+                        .foregroundColor(.secondary)
+
+                    VStack(spacing: 8) {
+                        Text("No habits yet")
+                            .font(.headline)
+                            .fontWeight(.semibold)
+
+                        Text("Create your first habit to start your journey!")
                             .font(.subheadline)
                             .foregroundColor(.secondary)
+                            .multilineTextAlignment(.center)
                     }
-                    .frame(maxWidth: .infinity, alignment: .center)
-                    .padding(.top, 40)
-                } else if viewModel.userHabits.isEmpty {
-                    VStack(spacing: 16) {
-                        Image(systemName: "target")
-                            .font(.system(size: 48))
-                            .foregroundColor(.secondary)
-
-                        VStack(spacing: 8) {
-                            Text("No habits yet")
-                                .font(.headline)
-                                .fontWeight(.semibold)
-
-                            Text("Create your first habit to start your journey!")
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
-                                .multilineTextAlignment(.center)
-                        }
-                    }
-                    .frame(maxWidth: .infinity, alignment: .center)
-                    .padding(.horizontal, 40)
-                    .padding(.top, 60)
-                } else {
-                    LazyVStack(spacing: 12) {
-                        ForEach(viewModel.userHabits, id: \.id) { habit in
-                            HabitCardView(
-                                habit: habit,
-                                isSelected: false,
-                                onTap: { },
-                                onLongPress: { },
-                                minHeight: 100
-                            )
-                        }
-                    }
-                    .frame(maxWidth: .infinity, alignment: .center)
-                    .padding(.horizontal, 16)
                 }
+                .frame(maxWidth: .infinity, alignment: .center)
+                .padding(.horizontal, 40)
+                .padding(.top, 60)
+            } else {
+                LazyVStack(spacing: 12) {
+                    ForEach(viewModel.userHabits, id: \.id) { habit in
+                        HabitCardView(
+                            habit: habit,
+                            isSelected: false,
+                            onTap: { },
+                            onLongPress: { },
+                            minHeight: 100
+                        )
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .center)
+                .padding(.horizontal, 16)
             }
-            .padding(.top)
         }
+        .padding(.top)
     }
 
     // MARK: - Loading Overlay

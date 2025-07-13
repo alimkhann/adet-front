@@ -13,6 +13,7 @@ class ProfileViewModel: ObservableObject {
     @Published var selectedImage: UIImage?
     @Published var isLoading = false
     @Published var errorMessage: String?
+    @Published var postCount: Int = 0
 
     // MARK: - Edit Profile Form State
     @Published var editFormUsername: String = ""
@@ -25,7 +26,7 @@ class ProfileViewModel: ObservableObject {
     @Published var isLoadingHabits = false
 
     // MARK: - Dependencies
-    private var authViewModel: AuthViewModel
+    var authViewModel: AuthViewModel
     private let friendsAPI = FriendsAPIService.shared
     private let apiService = APIService.shared
 
@@ -56,6 +57,9 @@ class ProfileViewModel: ObservableObject {
     init(authViewModel: AuthViewModel) {
         self.authViewModel = authViewModel
         logger.info("ProfileViewModel initialized")
+        Task {
+            await refreshPostCount()
+        }
     }
 
     // MARK: - AuthViewModel Update
@@ -118,10 +122,21 @@ class ProfileViewModel: ObservableObject {
     // MARK: - Profile Statistics
     func getProfileStats() -> [ProfileStat] {
         return [
-            ProfileStat(title: "Posts", value: "0"),
+            ProfileStat(title: "Posts", value: "\(postCount)"),
             ProfileStat(title: "Friends", value: "\(friendsCount)"),
             ProfileStat(title: "Habits", value: "\(userHabits.count)")
         ]
+    }
+
+    /// Refreshes the user's post count from the backend.
+    func refreshPostCount() async {
+        do {
+            let count = try await apiService.fetchMyPostCount()
+            await MainActor.run { self.postCount = count }
+            logger.info("Refreshed post count: \(count)")
+        } catch {
+            logger.error("Failed to refresh post count: \(error.localizedDescription)")
+        }
     }
 
     func loadFriendsCount() async {

@@ -673,6 +673,46 @@ class PostService: ObservableObject {
         }
         return try JSONDecoder().decode(Post.self, from: data)
     }
+
+    // MARK: - Fetch Posts for Habit and Date
+    /// Fetch posts for a given habit and assigned date (yyyy-MM-dd), optionally filtering for public/shared posts
+    func getPostsForHabitAndDate(habitId: Int, date: String, onlyShared: Bool = true) async throws -> [Post] {
+        var components = URLComponents(string: "\(baseURL)/posts/me")!
+        components.queryItems = [
+            URLQueryItem(name: "habit_id", value: String(habitId)),
+            URLQueryItem(name: "assigned_date", value: date),
+            URLQueryItem(name: "limit", value: "10")
+        ]
+        guard let url = components.url else { throw NetworkError.invalidURL }
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        if let token = await AuthService.shared.getValidToken() {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        } else {
+            throw NetworkError.requestFailed(statusCode: 0, body: "No valid auth token")
+        }
+        let (data, response) = try await session.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw NetworkError.requestFailed(statusCode: 0, body: "Invalid response")
+        }
+        guard httpResponse.statusCode == 200 else {
+            let responseString = String(data: data, encoding: .utf8) ?? "N/A"
+            if let errorData = try? JSONDecoder().decode(APIError.self, from: data) {
+                throw NetworkError.requestFailed(statusCode: httpResponse.statusCode, body: errorData.detail)
+            } else {
+                throw NetworkError.requestFailed(statusCode: httpResponse.statusCode, body: responseString)
+            }
+        }
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .formatted(Self.iso8601Fractional)
+        let postsResponse = try decoder.decode(PostsResponse.self, from: data)
+        if onlyShared {
+            return postsResponse.posts.filter { $0.privacy == .friends || $0.privacy == .closeFriends }
+        } else {
+            return postsResponse.posts
+        }
+    }
 }
 
 // MARK: - Request/Response Models

@@ -1,18 +1,25 @@
 import SwiftUI
 import Kingfisher
+import Combine
 
 struct ShareProofModalView: View {
     let task: TaskEntry
     let proof: HabitProofState
     let post: Post?
     let freshProofUrl: String? // new parameter
-    let onShare: (String, String, ProofInputType, String?) -> Void
+    let onShareSuccess: () -> Void // New closure to notify parent of success
     let closeFriendsCount: Int
     @State private var description: String = ""
     @State private var selectedVisibility: String = "Friends"
     @State private var proofInputType: ProofInputType = .photo
     @State private var textProof: String? = nil
     @State private var lastDebuggedUrl: String? = nil // Track last printed URL
+    @State private var showShareAlert = false
+    @State private var isSharing = false
+    @State private var showErrorAlert = false
+    @State private var errorMessage = ""
+    @EnvironmentObject var postsViewModel: PostsViewModel
+    @EnvironmentObject var profileViewModel: ProfileViewModel
 
     private func debugPrintOnce(for urlString: String, label: String) {
         if lastDebuggedUrl != urlString {
@@ -62,15 +69,64 @@ struct ShareProofModalView: View {
             }
 
             Button(action: {
-                onShare(selectedVisibility, description, proofInputType, textProof)
+                showShareAlert = true
             }) {
-                Text("Share")
-                    .frame(maxWidth: .infinity, minHeight: 44)
+                if isSharing {
+                    ProgressView()
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                } else {
+                    Text("Share")
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                }
             }
             .buttonStyle(PrimaryButtonStyle())
             .padding(.top, 8)
+            .disabled(isSharing)
+            .alert("Are you sure?", isPresented: $showShareAlert) {
+                Button("Cancel", role: .cancel) {}
+                Button("Share", role: .destructive) { sharePost() }
+            } message: {
+                Text("You won't be able to edit/delete this post after sharing. Continue?")
+            }
+            .alert("Error", isPresented: $showErrorAlert) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(errorMessage)
+            }
         }
         .padding()
+    }
+
+    private func sharePost() {
+        guard let post = post else {
+            errorMessage = "No post found to share."
+            showErrorAlert = true
+            return
+        }
+        isSharing = true
+        let privacy: PostPrivacy = (selectedVisibility == "Close Friends") ? .closeFriends : .friends
+        let update = PostUpdate(description: description, privacy: privacy)
+        Task {
+            do {
+                let response = try await PostService.shared.updatePost(id: post.id, updateData: update)
+                if response.success {
+                    // Refresh feed and profile post count
+                    await postsViewModel.refreshFeed()
+                    await postsViewModel.loadPersonalPosts()
+                    await profileViewModel.refreshPostCount()
+                    isSharing = false
+                    onShareSuccess()
+                } else {
+                    errorMessage = response.message
+                    showErrorAlert = true
+                    isSharing = false
+                }
+            } catch {
+                errorMessage = error.localizedDescription
+                showErrorAlert = true
+                isSharing = false
+            }
+        }
     }
 
     @ViewBuilder

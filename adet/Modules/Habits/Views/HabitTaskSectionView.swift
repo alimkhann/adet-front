@@ -862,6 +862,7 @@ struct ShareProofModalSheetLoader: View {
     let todayTask: TaskEntry
     let proof: HabitProofState
     @State private var didLoad = false
+    @State private var didShare = false
 
     var body: some View {
         Group {
@@ -870,25 +871,10 @@ struct ShareProofModalSheetLoader: View {
                     task: todayTask,
                     proof: proof,
                     post: viewModel.lastCreatedPost,
-                    freshProofUrl: viewModel.freshProofUrl, // pass freshProofUrl
-                    onShare: { visibility, description, proofInputType, textProof in
-                        Task {
-                            await viewModel.shareProof(
-                                visibility: visibility,
-                                description: description,
-                                task: HabitTaskDetails(
-                                    description: todayTask.taskDescription ?? "",
-                                    easierAlternative: todayTask.easierAlternative,
-                                    harderAlternative: todayTask.harderAlternative,
-                                    motivation: viewModel.todayMotivation?.level ?? "",
-                                    ability: viewModel.todayAbility?.level ?? "",
-                                    timeLeft: nil
-                                ),
-                                proof: proof,
-                                proofInputType: proofInputType,
-                                textProof: textProof
-                            )
-                        }
+                    freshProofUrl: viewModel.freshProofUrl,
+                    onShareSuccess: {
+                        didShare = true
+                        viewModel.currentTaskState = .successDone
                     },
                     closeFriendsCount: viewModel.closeFriendsCount
                 )

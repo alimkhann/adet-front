@@ -445,6 +445,29 @@ public class HabitViewModel: ObservableObject {
             }
         }
 
+        // Check for shared post for today
+        Task {
+            let formatter = DateFormatter()
+            formatter.dateFormat = "yyyy-MM-dd"
+            formatter.timeZone = .current
+            let todayString = formatter.string(from: Date())
+            print("[DEBUG] Checking shared posts for habit id:", habit.id, "date:", todayString)
+            do {
+                let sharedPosts = try await PostService.shared.getPostsForHabitAndDate(habitId: habit.id, date: todayString, onlyShared: true)
+                print("[DEBUG] Shared posts found:", sharedPosts)
+                if !sharedPosts.isEmpty {
+                    await MainActor.run {
+                        self.currentTaskState = .successDone
+                        self.isInSuccessDone = true
+                        self.lastSuccessDoneDate = Date()
+                    }
+                    return
+                }
+            } catch {
+                print("[HabitViewModel] updateTaskState: Failed to check shared posts: \(error)")
+            }
+        }
+
         if !isTodayIntervalDay(for: habit) {
             let nextDate = nextScheduledDate(for: habit)
             currentTaskState = .notToday(nextTaskDate: nextDate)

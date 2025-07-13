@@ -123,6 +123,7 @@ class PostsViewModel: ObservableObject {
             hasMorePosts = response.hasMore
 
             logger.info("Loaded \(response.posts.count) feed posts")
+            print("DEBUG: Feed posts loaded: \(feedPosts.map { ($0.id, $0.userId, $0.privacy) })")
 
         } catch {
             logger.error("Failed to load feed posts: \(error.localizedDescription)")

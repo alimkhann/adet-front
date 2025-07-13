@@ -9,24 +9,57 @@ struct PostCardView: View {
     let onShare: () -> Void
     let onUserTap: () -> Void
 
+    @EnvironmentObject var profileViewModel: ProfileViewModel
     @State private var imageAspectRatio: CGFloat = 1.0
     @State private var showFullDescription = false
     // REMOVED: @State private var hasAppeared = false
 
+    private var isCurrentUserPost: Bool {
+        guard let currentUserId = profileViewModel.authViewModel.user?.id else { return false }
+        return post.user.id == currentUserId
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Header with user info
-            PostHeaderView(
-                user: post.user,
-                timeAgo: post.timeAgo,
-                privacy: post.privacy,
-                onUserTap: onUserTap
-            )
+            // Header with user info and menu
+            HStack(alignment: .top) {
+                PostHeaderView(
+                    user: post.user,
+                    timeAgo: post.timeAgo,
+                    privacy: post.privacy,
+                    onUserTap: onUserTap
+                )
+                Spacer()
+                // Menu logic: only show for your own private posts (Edit) or others' posts (Report)
+                if isCurrentUserPost && post.privacy == .private {
+                    Menu {
+                        Button("Edit", systemImage: "pencil") {
+                            // Handle edit
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis")
+                            .foregroundColor(.secondary)
+                            .padding(8)
+                    }
+                } else if !isCurrentUserPost {
+                    Menu {
+                        Button("Report", systemImage: "flag", role: .destructive) {
+                            // Handle report
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis")
+                            .foregroundColor(.secondary)
+                            .padding(8)
+                    }
+                }
+            }
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
 
             // Media content
             if post.isMediaPost {
+                // Debug print
+                let _ = print("PostCardView proofUrls:", post.proofUrls)
                 PostMediaView(
                     urls: post.proofUrls,
                     type: post.proofType,
@@ -147,37 +180,7 @@ struct PostHeaderView: View {
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
-
-            Spacer()
-
-            // More menu
-            Menu {
-                if user.id == getCurrentUserId() {
-                    Button("Edit", systemImage: "pencil") {
-                        // Handle edit
-                    }
-                    Button("Delete", systemImage: "trash", role: .destructive) {
-                        // Handle delete
-                    }
-                } else {
-                    Button("Report", systemImage: "flag", role: .destructive) {
-                        // Handle report
-                    }
-                    Button("Hide", systemImage: "eye.slash") {
-                        // Handle hide
-                    }
-                }
-            } label: {
-                Image(systemName: "ellipsis")
-                    .foregroundColor(.secondary)
-                    .padding(8)
-            }
         }
-    }
-
-    private func getCurrentUserId() -> Int {
-        // TODO: Get from AuthService or UserDefaults
-        return 1
     }
 }
 
@@ -359,6 +362,10 @@ struct SingleMediaView: View {
                 .onSuccess { result in
                     let imageSize = result.image.size
                     aspectRatio = imageSize.width / imageSize.height
+                    print("Kingfisher loaded image:", imageSize)
+                }
+                .onFailure { error in
+                    print("Kingfisher failed to load image:", error)
                 }
                 .placeholder {
                     Rectangle()
