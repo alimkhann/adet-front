@@ -11,9 +11,22 @@ struct ProfileImageView: View {
 
     @State private var isLoading = false
 
+    var cacheBustedProfileImageUrl: URL? {
+        guard let urlString = user.profileImageUrl, !urlString.isEmpty else { return nil }
+        print("Profile image URL used: \(urlString)")
+        // If the URL already contains a query (i.e., is a signed URL), do not append anything
+        if urlString.contains("?") {
+            return URL(string: urlString)
+        }
+        // Otherwise, append a cache-busting query
+        let timestamp = user.updatedAt?.timeIntervalSince1970 ?? Date().timeIntervalSince1970
+        let urlWithQuery = urlString + "?t=\(timestamp)"
+        return URL(string: urlWithQuery)
+    }
+
     var body: some View {
         ZStack {
-            AsyncImage(url: URL(string: user.profileImageUrl ?? "")) { image in
+            AsyncImage(url: cacheBustedProfileImageUrl) { image in
                 image
                     .resizable()
                     .aspectRatio(contentMode: .fill)
@@ -23,11 +36,11 @@ struct ProfileImageView: View {
                     .overlay(
                         Image(systemName: "person.fill")
                             .foregroundColor(.secondary)
-                            .font(.system(size: size * 0.4))
+                            .font(.system(size: 40))
                     )
             }
-            .frame(width: size, height: size)
             .clipShape(Circle())
+            .frame(width: size, height: size)
 
             if isLoading {
                 Circle()
@@ -73,26 +86,4 @@ struct ProfileImageView: View {
             quality: 0.8
         )
     }
-}
-
-#Preview {
-    ProfileImageView(
-        user: User(
-            id: 1,
-            clerkId: "test",
-            email: "test@example.com",
-            name: "Test User",
-            username: "testuser",
-            bio: "Test bio",
-            profileImageUrl: nil,
-            isActive: true,
-            createdAt: Date(),
-            updatedAt: nil
-        ),
-        size: 60,
-        isEditable: true,
-        onImageTap: nil,
-        onDeleteTap: nil,
-        jwtToken: nil
-    )
 }

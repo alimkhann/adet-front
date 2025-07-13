@@ -23,7 +23,6 @@ struct SubmitProofModalView: View {
     @State private var showAudioPicker = false
     @State private var showCamera = false
     @State private var selectedItem: PhotosPickerItem? = nil
-    @State private var previewImage: UIImage? = nil
     @State private var videoURL: URL? = nil
     @State private var audioURL: URL? = nil
     @State private var textProof: String = ""
@@ -36,6 +35,8 @@ struct SubmitProofModalView: View {
     @State private var audioRecorder: AVAudioRecorder?
     @State private var audioSession: AVAudioSession? = nil
     @State private var audioFileURL: URL? = nil
+    @State private var selectedImage: UIImage? = nil // Add this state for camera capture
+    @State private var previewImage: UIImage? = nil
 
     public init(
         proofState: Binding<HabitProofState>,
@@ -113,6 +114,11 @@ struct SubmitProofModalView: View {
         .padding()
         // Make modal undismissable during uploading/validating
         .interactiveDismissDisabled(proofState == .uploading || proofState == .validating)
+        .onChange(of: proofState) { oldValue, newValue in
+            if case .notStarted = newValue {
+                // previewImage = nil // REMOVE: previewImage = nil
+            }
+        }
     }
 
     @ViewBuilder
@@ -121,33 +127,44 @@ struct SubmitProofModalView: View {
         case .photo:
             VStack {
                 HStack(spacing: 12) {
-                    Button(action: { showPhotoPicker = true }) {
+                    Button {
+                        selectedItem = nil
+                        showPhotoPicker = true
+                    } label: {
                         Text("Upload Photo")
-                            .frame(maxWidth: .infinity, minHeight: 44)
+                            .frame(minHeight: 44)
                     }
                     .buttonStyle(SecondaryButtonStyle())
-                    .photosPicker(isPresented: $showPhotoPicker, selection: $selectedItem, matching: .images)
+                    .photosPicker(
+                        isPresented: $showPhotoPicker,
+                        selection: $selectedItem,
+                        matching: .images,
+                        preferredItemEncoding: .automatic
+                    )
+                    .onChange(of: selectedItem) { oldValue, newValue in
+                        guard let item = newValue else { return }
+                        Task {
+                            if let data = try? await item.loadTransferable(type: Data.self),
+                               let uiImage = UIImage(data: data) {
+                                previewImage = uiImage
+                                proofState = .readyToSubmit(.image(data))
+                            }
+                        }
+                    }
 
-                    Button(action: { showCameraSheet = true }) {
+                    Button { showCameraSheet = true } label: {
                         Text("Take Photo")
-                            .frame(maxWidth: .infinity, minHeight: 44)
+                            .frame(minHeight: 44)
                     }
                     .buttonStyle(PrimaryButtonStyle())
                 }
-
-
             }
             .sheet(isPresented: $showCameraSheet) {
                 ImagePicker(sourceType: .camera, selectedImage: $previewImage)
             }
-            .onChange(of: selectedItem) { newItem in
-                guard let item = newItem else { return }
-                Task {
-                    if let data = try? await item.loadTransferable(type: Data.self),
-                    let uiImage = UIImage(data: data) {
-                        previewImage = uiImage
-                        proofState = .readyToSubmit(image: data)
-                    }
+            .onChange(of: previewImage) { oldValue, newValue in
+                if let img = newValue, let data = img.jpegData(compressionQuality: 0.9) {
+                    proofState = .readyToSubmit(.image(data))
                 }
             }
 
@@ -163,7 +180,7 @@ struct SubmitProofModalView: View {
                     case .success(let url):
                         videoURL = url
                         if let data = try? Data(contentsOf: url) {
-                            proofState = .readyToSubmit(image: data)
+                            proofState = .readyToSubmit(.video(data))
                         }
                     default: break
                     }
@@ -178,7 +195,7 @@ struct SubmitProofModalView: View {
                 VideoPicker(sourceType: .camera) { url in
                     if let url = url, let data = try? Data(contentsOf: url) {
                         videoURL = url
-                        proofState = .readyToSubmit(image: data)
+                        proofState = .readyToSubmit(.video(data))
                     }
                     showVideoCameraSheet = false
                 }
@@ -196,7 +213,7 @@ struct SubmitProofModalView: View {
                     case .success(let url):
                         audioURL = url
                         if let data = try? Data(contentsOf: url) {
-                            proofState = .readyToSubmit(image: data)
+                            proofState = .readyToSubmit(.audio(data))
                         }
                     default: break
                     }
@@ -220,9 +237,9 @@ struct SubmitProofModalView: View {
                 TextEditor(text: $textProof)
                     .frame(height: 80)
                     .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.gray.opacity(0.4)))
-                    .onChange(of: textProof) {
-                        if !textProof.isEmpty {
-                            proofState = .readyToSubmit(image: nil)
+                    .onChange(of: textProof) { oldValue, newValue in
+                        if !newValue.isEmpty {
+                            proofState = .readyToSubmit(.text(newValue))
                         }
                     }
             }
@@ -308,17 +325,25 @@ struct SubmitProofModalView: View {
 
     private var isProofReady: Bool {
         switch proofType {
-        case .photo: return previewImage != nil
-        case .video: return videoURL != nil
-        case .audio: return audioURL != nil
-        case .text: return !textProof.isEmpty
+        case .photo:
+            if case let .readyToSubmit(proofData) = proofState, case .image = proofData { return true }
+            return false
+        case .video:
+            if case let .readyToSubmit(proofData) = proofState, case .video = proofData { return true }
+            return false
+        case .audio:
+            if case let .readyToSubmit(proofData) = proofState, case .audio = proofData { return true }
+            return false
+        case .text:
+            if case let .readyToSubmit(proofData) = proofState, case .text = proofData { return true }
+            return false
         }
     }
 
     private func submitProof() {
         switch proofType {
         case .photo:
-            if let data = previewImage?.pngData() {
+            if let data = previewImage?.jpegData(compressionQuality: 0.9) {
                 onSubmit(.photo, data, nil)
                 ToastManager.shared.showSuccess("Photo proof submitted!")
             } else {
@@ -382,7 +407,7 @@ struct SubmitProofModalView: View {
         if let url = audioFileURL {
             audioURL = url
             if let data = try? Data(contentsOf: url) {
-                proofState = .readyToSubmit(image: data)
+                proofState = .readyToSubmit(.audio(data))
                 ToastManager.shared.showSuccess("Audio recorded!")
             } else {
                 ToastManager.shared.showError("Failed to save audio recording.")

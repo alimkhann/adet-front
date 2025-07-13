@@ -117,10 +117,20 @@ actor NetworkService {
             formatter.locale = Locale(identifier: "en_US_POSIX")
             decoder.dateDecodingStrategy = .formatted(formatter)
 
+            // Log the raw JSON string for debugging
+            if let jsonString = String(data: data, encoding: .utf8) {
+                logger.debug("[DECODE DEBUG] Raw JSON for \(T.self): \(jsonString)")
+            } else {
+                logger.debug("[DECODE DEBUG] Could not convert data to string for \(T.self)")
+            }
+            logger.debug("[DECODE DEBUG] Attempting to decode as type: \(T.self)")
             do {
-                return try decoder.decode(T.self, from: data)
+                let decoded = try decoder.decode(T.self, from: data)
+                logger.debug("[DECODE DEBUG] Successfully decoded \(T.self)")
+                return decoded
             } catch {
-                logger.error("Failed to decode response: \(error.localizedDescription)")
+                logger.error("[DECODE DEBUG] Failed to decode \(T.self): \(error.localizedDescription)")
+                logger.error("[DECODE DEBUG] Error details: \(error)")
                 throw NetworkError.decodeError(error)
             }
 

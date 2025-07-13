@@ -22,7 +22,8 @@ struct ConversationCardView: View {
                             profileImageUrl: conversation.otherParticipant.profileImageUrl,
                             isActive: true,
                             createdAt: Date(),
-                            updatedAt: nil
+                            updatedAt: nil,
+                            plan: "free"
                         ),
                         size: 56,
                         isEditable: false,

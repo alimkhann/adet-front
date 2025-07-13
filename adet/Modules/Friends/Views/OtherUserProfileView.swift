@@ -171,7 +171,8 @@ struct OtherUserProfileView: View {
                             profileImageUrl: user.profileImageUrl,
                             isActive: true,
                             createdAt: Date(),
-                            updatedAt: nil
+                            updatedAt: nil,
+                            plan: "free"
                         ),
                         size: 88,
                         isEditable: false,

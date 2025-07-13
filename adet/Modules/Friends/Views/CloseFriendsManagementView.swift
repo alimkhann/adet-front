@@ -259,7 +259,8 @@ struct CloseFriendRowView: View {
                     profileImageUrl: friend.profileImageUrl,
                     isActive: true,
                     createdAt: Date(),
-                    updatedAt: nil
+                    updatedAt: nil,
+                    plan: "free"
                 ),
                 size: 50,
                 isEditable: false,

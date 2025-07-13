@@ -92,7 +92,8 @@ class AuthViewModel: ObservableObject {
                     profileImageUrl: nil, // Will be set from backend
                     isActive: true,
                     createdAt: Date(),
-                    updatedAt: nil
+                    updatedAt: nil,
+                    plan: "free" // Add this line
                 )
                 print("Created fallback user object from Clerk data")
                 // Still try to submit answers
@@ -130,7 +131,8 @@ class AuthViewModel: ObservableObject {
                     profileImageUrl: nil, // Will be set from backend
                     isActive: true,
                     createdAt: Date(),
-                    updatedAt: nil
+                    updatedAt: nil,
+                    plan: "free" // Add this line
                 )
                 print("Created fallback user object from Clerk data")
             }
@@ -200,7 +202,8 @@ class AuthViewModel: ObservableObject {
                 profileImageUrl: currentUser.profileImageUrl,
                 isActive: currentUser.isActive,
                 createdAt: currentUser.createdAt,
-                updatedAt: currentUser.updatedAt
+                updatedAt: currentUser.updatedAt,
+                plan: currentUser.plan // Add this line
             )
         }
 

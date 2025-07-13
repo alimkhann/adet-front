@@ -44,30 +44,32 @@ struct CalibrationMetadata: Codable {
 
 struct TaskEntry: Codable, Identifiable {
     let id: Int
-    let habitId: Int
-    let userId: Int
-    let taskDescription: String
-    let difficultyLevel: Double
-    let estimatedDuration: Int
-    let successCriteria: String
-    let celebrationMessage: String
-    let easierAlternative: String?
-    let harderAlternative: String?
-    let proofRequirements: String
     let status: String
-    let assignedDate: String
-    let dueDate: String
-    let completedAt: String?
     let proofType: String?
     let proofContent: String?
     let proofValidationResult: Bool?
     let proofValidationConfidence: Double?
     let proofFeedback: String?
+    let completedAt: String?
+    let celebrationMessage: String?
+    let attemptsLeft: Int?
+    // All other fields are now optional
+    let habitId: Int?
+    let userId: Int?
+    let taskDescription: String?
+    let difficultyLevel: Double?
+    let estimatedDuration: Int?
+    let successCriteria: String?
+    let easierAlternative: String?
+    let harderAlternative: String?
+    let proofRequirements: String?
+    let assignedDate: String?
+    let dueDate: String?
     let aiGenerationMetadata: String?
     let calibrationMetadata: String?
-    let createdAt: String
+    let createdAt: String?
     let updatedAt: String?
-    let attemptsLeft: Int
+    let validation: TaskValidationResult?
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -95,6 +97,13 @@ struct TaskEntry: Codable, Identifiable {
         case createdAt = "created_at"
         case updatedAt = "updated_at"
         case attemptsLeft = "attempts_left"
+        case validation
+    }
+}
+
+extension TaskEntry {
+    var validationResult: TaskValidationResult? {
+        return validation
     }
 }
 

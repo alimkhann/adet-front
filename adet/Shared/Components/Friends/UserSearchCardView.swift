@@ -23,7 +23,8 @@ struct UserSearchCardView: View {
                         profileImageUrl: user.profileImageUrl,
                         isActive: true,
                         createdAt: Date(),
-                        updatedAt: nil
+                        updatedAt: nil,
+                        plan: "free" // Add this line
                     ),
                     size: 50,
                     isEditable: false,

@@ -12,13 +12,13 @@ enum HabitTaskState: Equatable {
     // Task is today, but not validation time yet
     case waitingForValidationTime(timeLeft: TimeInterval, motivationSet: Bool, abilitySet: Bool)
 
-    // Task is today, validation time, but motivation/ability not set
-    case needMotivationAbility
+    // Task is today, validation time but motivation and ability are not set
+    case validationTime(timeLeft: TimeInterval, motivationSet: Bool, abilitySet: Bool)
 
     // Motivation step (inline, not modal)
-    case setMotivation(current: String?)
+    case setMotivation(current: String?, timeLeft: TimeInterval?)
     // Ability step (inline, not modal)
-    case setAbility(current: String?)
+    case setAbility(current: String?, timeLeft: TimeInterval?)
 
     // Task is today, validation time, motivation/ability set, ready to generate
     case readyToGenerateTask
@@ -67,7 +67,23 @@ public enum HabitProofState: Equatable {
     case notStarted
     case uploading
     case validating
-    case readyToSubmit(image: Data?)
+    case readyToSubmit(ProofData)
     case submitted
     case error(message: String)
 }
+
+public enum ProofData: Equatable {
+    case image(Data)
+    case video(Data)
+    case audio(Data)
+    case text(String)
+}
+
+// Add HabitTaskState extension for isShowTask
+extension HabitTaskState {
+    var isShowTask: Bool {
+        if case .showTask = self { return true }
+        return false
+    }
+}
+

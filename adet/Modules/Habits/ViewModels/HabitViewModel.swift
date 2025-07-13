@@ -1,4 +1,6 @@
 import SwiftUI
+import Combine
+import UIKit
 
 @MainActor
 public class HabitViewModel: ObservableObject {
@@ -8,6 +10,11 @@ public class HabitViewModel: ObservableObject {
     @Published var errorMessage: String?
     @Published var todayMotivation: MotivationEntryResponse? = nil
     @Published var todayAbility: AbilityEntryResponse? = nil
+    @Published var userPlan: String = "free" // Add this line
+    @Published var autoCreatedPostId: Int? = nil
+
+    // --- Add for proof feedback/reasoning ---
+    @Published var lastValidationResult: TaskValidationResult? = nil
 
     // MARK: - Task State Machine
     @Published var currentTaskState: HabitTaskState = .empty
@@ -24,6 +31,8 @@ public class HabitViewModel: ObservableObject {
     }
 
     @Published var streakFreezers: Int = 0 // Always backend-driven
+    @Published var closeFriendsCount: Int = 0
+    private var closeFriendsCancellable: AnyCancellable?
 
     @Published var typingTextProofKey: String = ""
     private var pollingTask: Task<Void, Never>? = nil
@@ -34,7 +43,7 @@ public class HabitViewModel: ObservableObject {
     // --- SuccessShare Persistence ---
     @Published var isInSuccessShare: Bool = false
     private var lastSuccessShareTask: HabitTaskDetails? = nil
-    private var lastSuccessShareProof: HabitProofState? = nil
+    var lastSuccessShareProof: HabitProofState? = nil
     private var lastSuccessShareDate: Date? = nil
 
     // --- SuccessDone Persistence ---
@@ -48,6 +57,12 @@ public class HabitViewModel: ObservableObject {
     @Published var isInMissed: Bool = false
     private var lastMissedNextTaskDate: Date? = nil
     private var lastMissedDate: Date? = nil
+
+    @Published var timeUntilValidation: TimeInterval = 0
+    @Published var timeUntilExpiration: TimeInterval = 0
+
+    private var timerCancellable: AnyCancellable?
+    private var significantChangeCancellable: AnyCancellable?
 
     private let apiService = APIService.shared
 
@@ -63,7 +78,8 @@ public class HabitViewModel: ObservableObject {
         let iso = ISO8601DateFormatter()
         iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         guard
-            let due = iso.date(from: task.dueDate),
+            let dueDateString = task.dueDate,
+            let due = iso.date(from: dueDateString),
             Date() > due
         else {
             return
@@ -102,6 +118,7 @@ public class HabitViewModel: ObservableObject {
 
     func selectHabit(_ habit: Habit) {
         selectedHabit = habit
+        resetMotivationAndAbility()
         updateTypingTextProofKey()
     }
 
@@ -113,6 +130,9 @@ public class HabitViewModel: ObservableObject {
         do {
             try await apiService.deleteHabit(id: habit.id)
             print("Successfully deleted habit: \(habit.name)")
+
+            // Reset motivation and ability after deletion
+            resetMotivationAndAbility()
 
             // Refresh the habits list from the server to ensure consistency
             await fetchHabits()
@@ -133,6 +153,8 @@ public class HabitViewModel: ObservableObject {
 
                 // Clear error message on success
                 errorMessage = nil
+                // Reset motivation and ability after deletion
+                resetMotivationAndAbility()
             } catch {
                 errorMessage = "Failed to delete habit after retry: \(error.localizedDescription)"
                 print("Failed to delete habit on retry: \(error.localizedDescription)")
@@ -150,6 +172,9 @@ public class HabitViewModel: ObservableObject {
             let newHabit = try await apiService.createHabit(from: onboardingAnswers)
             print("Created habit from onboarding: \(newHabit.name)")
 
+            // Reset motivation and ability after creating a new habit
+            resetMotivationAndAbility()
+
             // Refresh habits list
             habits = try await apiService.fetchHabits()
         } catch {
@@ -165,6 +190,8 @@ public class HabitViewModel: ObservableObject {
 
         do {
             let newHabit = try await apiService.createHabit(habit)
+            // Reset motivation and ability after creating a new habit
+            resetMotivationAndAbility()
             await fetchHabits() // Refresh the list
 
             // Select the newly created habit
@@ -321,6 +348,7 @@ public class HabitViewModel: ObservableObject {
 
     // MARK: - Fetch Today's Task
     func fetchTodayTask(for habit: Habit) async {
+        print("[HabitViewModel] fetchTodayTask called for habit id \(habit.id)")
         do {
             let formatter = DateFormatter()
             formatter.dateFormat = "yyyy-MM-dd"
@@ -328,7 +356,9 @@ public class HabitViewModel: ObservableObject {
             let userDate = formatter.string(from: Date())
             let task = try await apiService.getTodayTask(habitId: habit.id, userDate: String(userDate))
             await MainActor.run {
+                print("[HabitViewModel] fetchTodayTask: Got task with status \(task.status)")
                 self.todayTask = task
+                self.lastValidationResult = task.validationResult // <-- always update from backend
                 self.updateTypingTextProofKey()
             }
             // Always fetch motivation and ability entries for today from backend
@@ -338,7 +368,9 @@ public class HabitViewModel: ObservableObject {
             await handleTaskExpired()
         } catch {
             await MainActor.run {
+                print("[HabitViewModel] fetchTodayTask: Failed to fetch task: \(error.localizedDescription)")
                 self.todayTask = nil
+                self.lastValidationResult = nil // clear if no task
                 self.updateTypingTextProofKey()
             }
             // Always clear motivation/ability if no task
@@ -349,6 +381,15 @@ public class HabitViewModel: ObservableObject {
 
     // MARK: - Task State Machine
     func updateTaskState() {
+        print("[HabitViewModel] updateTaskState called. Current todayTask status: \(todayTask?.status ?? "nil")")
+        // make sure our countdowns are fresh before deciding state
+        recomputeCountdowns()
+
+        guard let habit = selectedHabit else {
+            currentTaskState = .empty
+            return
+        }
+
         // Persist .successDone if set and day hasn't changed
         if isInSuccessDone, let date = lastSuccessDoneDate {
             let today = Calendar.current.startOfDay(for: Date())
@@ -401,10 +442,6 @@ public class HabitViewModel: ObservableObject {
                 lastMissedDate = nil
             }
         }
-        guard let habit = selectedHabit else {
-            currentTaskState = .empty
-            return
-        }
 
         if !isTodayIntervalDay(for: habit) {
             let nextDate = nextScheduledDate(for: habit)
@@ -418,6 +455,7 @@ public class HabitViewModel: ObservableObject {
             return
         }
         if isSubmittingProof {
+            print("[HabitViewModel] updateTaskState: isSubmittingProof, transitioning to .showTask")
             currentTaskState = .showTask(task: makeTaskDetails(), proof: proofState)
             return
         }
@@ -453,9 +491,16 @@ public class HabitViewModel: ObservableObject {
                     }
                     return
                 case .completed:
+                    // Only create if not already created
+                    if self.autoCreatedPostId == nil {
+                        Task {
+                            await self.createPrivatePostForSuccessShare(task: makeTaskDetails(), proof: proofState)
+                        }
+                    }
                     currentTaskState = .successShare(task: makeTaskDetails(), proof: proofState)
                     return
                 case .pending:
+                    print("[HabitViewModel] updateTaskState: transitioning to .showTask")
                     currentTaskState = .showTask(task: makeTaskDetails(), proof: proofState)
                     return
                 default:
@@ -466,41 +511,38 @@ public class HabitViewModel: ObservableObject {
             }
         }
 
-        let now = Date()
-        let validationTime = parseValidationTime(habit.validationTime)
-        let timeLeft = validationTime.timeIntervalSince(now)
-        let isValidationTime = timeLeft <= 0
+        // FALLBACK: handle “today’s interval day” & “no existing task”
+        let tOpen  = timeUntilValidation
+        let tClose = timeUntilExpiration
 
         let motivationSet = todayMotivation != nil
-        let abilitySet = todayAbility != nil
+        let abilitySet   = todayAbility   != nil
 
-        if isValidationTime {
-            if !motivationSet {
-                currentTaskState = .setMotivation(current: nil)
-                return
-            }
-            if !abilitySet {
-                currentTaskState = .setAbility(current: nil)
-                return
-            }
-            // Only allow .readyToGenerateTask if no todayTask exists
-            if todayTask == nil {
+        if tOpen > 0 {
+            // still waiting for window to open
+            currentTaskState = .waitingForValidationTime(
+                timeLeft: tOpen,
+                motivationSet: motivationSet,
+                abilitySet: abilitySet
+            )
+            return
+        } else if tClose > 0 {
+            // we’re inside the 4h window → validationTime state
+            if motivationSet && abilitySet {
                 currentTaskState = .readyToGenerateTask
             } else {
-                // If a task exists, always show it
-                currentTaskState = .showTask(task: makeTaskDetails(), proof: proofState)
+                currentTaskState = .validationTime(
+                    timeLeft: tClose,
+                    motivationSet: motivationSet,
+                    abilitySet: abilitySet
+                )
             }
             return
         } else {
-            if !motivationSet {
-                currentTaskState = .setMotivation(current: nil)
-                return
-            }
-            if !abilitySet {
-                currentTaskState = .setAbility(current: nil)
-                return
-            }
-            currentTaskState = .waitingForValidationTime(timeLeft: timeLeft, motivationSet: motivationSet, abilitySet: abilitySet)
+            // both are zero → window expired;
+            let next = nextScheduledDate(for: habit)
+            // Always show missed if the window expired and no task was completed
+            currentTaskState = .missed(nextTaskDate: next)
             return
         }
     }
@@ -513,11 +555,14 @@ public class HabitViewModel: ObservableObject {
         // Parse dueDate string to Date and calculate timeLeft
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        let isoDueDate = task.dueDate.hasSuffix("Z") ? task.dueDate : task.dueDate + "Z"
+        guard let dueDateString = task.dueDate else {
+            return HabitTaskDetails(description: task.taskDescription ?? "No description available", easierAlternative: task.easierAlternative, harderAlternative: task.harderAlternative, motivation: todayMotivation?.level ?? "", ability: todayAbility?.level ?? "", timeLeft: nil)
+        }
+        let isoDueDate = dueDateString.hasSuffix("Z") ? dueDateString : dueDateString + "Z"
         let dueDate = formatter.date(from: isoDueDate)
         let timeLeft = dueDate.map { $0.timeIntervalSince(Date()) }
         return HabitTaskDetails(
-            description: task.taskDescription,
+            description: task.taskDescription ?? "No description available",
             easierAlternative: task.easierAlternative,
             harderAlternative: task.harderAlternative,
             motivation: todayMotivation?.level ?? "",
@@ -833,19 +878,52 @@ public class HabitViewModel: ObservableObject {
             // Parse dueDate string to Date
             let formatter = ISO8601DateFormatter()
             formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-            let isoDueDate = nextTaskDateString.hasSuffix("Z") ? nextTaskDateString : nextTaskDateString + "Z"
+            let isoDueDate = (nextTaskDateString ?? "").hasSuffix("Z") ? (nextTaskDateString ?? "") : (nextTaskDateString ?? "") + "Z"
             let nextTaskDate = formatter.date(from: isoDueDate)
             await MainActor.run {
+                // Store the actual proof state for preview
+                let proofForShare: HabitProofState
+                switch type {
+                case .photo:
+                    if let data = data {
+                        proofForShare = .readyToSubmit(.image(data))
+                    } else {
+                        proofForShare = .submitted
+                    }
+                case .video:
+                    if let data = data {
+                        proofForShare = .readyToSubmit(.video(data))
+                    } else {
+                        proofForShare = .submitted
+                    }
+                case .audio:
+                    if let data = data {
+                        proofForShare = .readyToSubmit(.audio(data))
+                    } else {
+                        proofForShare = .submitted
+                    }
+                case .text:
+                    if let text = text {
+                        proofForShare = .readyToSubmit(.text(text))
+                    } else {
+                        proofForShare = .submitted
+                    }
+                }
                 self.proofState = .submitted
                 self.isSubmittingProof = false
                 self.todayTask = updatedTask
+                self.lastValidationResult = validation
                 // Handle state transitions based on validation
-                if let validation = validation, validation.isValid {
+                if let validation = validation, validation.isValid ?? false {
                     let details = self.makeTaskDetails()
-                    self.currentTaskState = .successShare(task: details, proof: .submitted)
+                    // Save private post immediately
+                    Task {
+                        await self.createPrivatePostForSuccessShare(task: details, proof: proofForShare)
+                    }
+                    self.currentTaskState = .successShare(task: details, proof: proofForShare)
                     self.isInSuccessShare = true
                     self.lastSuccessShareTask = details
-                    self.lastSuccessShareProof = .submitted
+                    self.lastSuccessShareProof = proofForShare
                     self.lastSuccessShareDate = Date()
                     // Reset failed/missed persistence
                     self.isInFailed = false
@@ -854,8 +932,8 @@ public class HabitViewModel: ObservableObject {
                     self.isInMissed = false
                     self.lastMissedNextTaskDate = nil
                     self.lastMissedDate = nil
-                } else if attemptsLeft > 0 {
-                    self.currentTaskState = .failed(attemptsLeft: attemptsLeft)
+                } else if (attemptsLeft ?? 0) > 0 {
+                    self.currentTaskState = .failed(attemptsLeft: attemptsLeft ?? 0)
                     self.isInFailed = true
                     self.lastFailedAttemptsLeft = attemptsLeft
                     self.lastFailedDate = Date()
@@ -882,6 +960,11 @@ public class HabitViewModel: ObservableObject {
                     self.lastMissedDate = nil
                 }
                 self.resetMotivationAndAbility()
+            }
+            if let autoPost = response.autoCreatedPost {
+                self.autoCreatedPostId = autoPost.id
+            } else {
+                self.autoCreatedPostId = nil as Int?
             }
         } catch {
             await MainActor.run {
@@ -944,21 +1027,25 @@ public class HabitViewModel: ObservableObject {
         let shouldIncreaseStreak = (visibility == "Friends" || visibility == "Close Friends")
         do {
             let habitId = selectedHabit?.id
-            try await apiService.createPost(
-                taskDescription: task.description,
-                proof: proof,
-                description: description,
-                visibility: visibility,
-                habitId: habitId,
-                proofInputType: proofInputType,
-                textProof: textProof
-            )
+            if autoCreatedPostId == nil {
+                let post = try await apiService.createPost(
+                    taskDescription: task.description,
+                    proof: proof,
+                    description: description,
+                    visibility: visibility,
+                    habitId: habitId,
+                    proofInputType: proofInputType,
+                    textProof: textProof,
+                    todayTask: todayTask,
+                    autoCreatedPostId: autoCreatedPostId
+                )
+                autoCreatedPostId = post.id
+            }
             if shouldIncreaseStreak, let habit = selectedHabit {
                 let newStreak = habit.streak + 1
                 await MainActor.run {
                     selectedHabit?.streak = newStreak
                 }
-                // Award streak freezer is now backend-driven and handled automatically
                 await fetchStreakFreezers()
             }
             // --- Reset successShare state after sharing ---
@@ -970,11 +1057,34 @@ public class HabitViewModel: ObservableObject {
                 // --- Set persistent successDone state ---
                 self.isInSuccessDone = true
                 self.lastSuccessDoneDate = Date()
+                // --- Reset private post state ---
+                self.autoCreatedPostId = nil as Int?
             }
         } catch {
             await MainActor.run {
                 ToastManager.shared.showError("Failed to share proof: \(error.localizedDescription)")
             }
+        }
+    }
+
+    private func createPrivatePostForSuccessShare(task: HabitTaskDetails, proof: HabitProofState, proofInputType: ProofInputType? = nil, textProof: String? = nil) async {
+        if autoCreatedPostId != nil { return }
+        let habitId = selectedHabit?.id
+        do {
+            let post = try await apiService.createPost(
+                taskDescription: task.description,
+                proof: proof,
+                description: "",
+                visibility: "Private",
+                habitId: habitId,
+                proofInputType: proofInputType,
+                textProof: textProof,
+                todayTask: todayTask,
+                autoCreatedPostId: autoCreatedPostId
+            )
+            autoCreatedPostId = post.id
+        } catch {
+            print("[HabitViewModel] Failed to create private post: \(error)")
         }
     }
 
@@ -1022,12 +1132,167 @@ public class HabitViewModel: ObservableObject {
         self.lastMissedNextTaskDate = nil
         self.lastMissedDate = nil
     }
+
+    /// Call this when entering successShare state to fetch close friends
+    func fetchCloseFriends() async {
+        let response = await FriendsAPIService.shared.getCloseFriends()
+        await MainActor.run {
+            self.closeFriendsCount = response.count
+        }
+    }
+
+    // Add a method to fetch user profile and update userPlan
+    public func fetchUserAndHabits() async {
+        isLoading = true
+        do {
+            let user = try await APIService.shared.getCurrentUser()
+            self.userPlan = user.plan
+            self.habits = try await APIService.shared.fetchHabits()
+        } catch {
+            self.errorMessage = error.localizedDescription
+        }
+        isLoading = false
+    }
+
+    /// Call this once in your View’s onAppear
+    func startCountdownTimer() {
+        cancelCountdownTimer()
+
+        // 1) any “significant” jump in the system clock/time-zone should re-compute immediately
+        let clocks = [
+            UIApplication.significantTimeChangeNotification,
+            .NSSystemClockDidChange,
+            .NSSystemTimeZoneDidChange
+        ].map { NotificationCenter.default.publisher(for: $0) }
+
+        significantChangeCancellable = Publishers.MergeMany(clocks)
+            .sink { [weak self] _ in
+                self?.recomputeCountdowns()
+            }
+
+        // 2) every second tick to update countdown
+        timerCancellable = Timer.publish(every: 1, on: .main, in: .common)
+            .autoconnect()
+            .sink { [weak self] _ in
+                self?.recomputeCountdowns()
+            }
+    }
+
+    /// Cancel everything in your View’s onDisappear
+    func cancelCountdownTimer() {
+        timerCancellable?.cancel()
+        significantChangeCancellable?.cancel()
+    }
+
+    private func recomputeCountdowns() {
+        guard let habit = selectedHabit else {
+            timeUntilValidation = 0
+            timeUntilExpiration = 0
+            return
+        }
+
+        let now = Date()
+        let calendar = Calendar.current
+        let window: TimeInterval = 4 * 3600
+        let (hour, minute) = parseHourMinute(from: habit.validationTime)
+        guard
+            let todayValidation = calendar.date(
+                bySettingHour:   hour,
+                minute:          minute,
+                second:          0,
+                of:               now
+            ),
+            let yesterdayValidation = calendar.date(
+                byAdding:        .day,
+                value:          -1,
+                to:               todayValidation
+            )
+        else {
+            timeUntilValidation = 0
+            timeUntilExpiration = 0
+            return
+        }
+
+        let expToday     = todayValidation.addingTimeInterval(window)
+        let expYesterday = yesterdayValidation.addingTimeInterval(window)
+
+        let (activeValidation, activeExpiration): (Date, Date) = {
+            if now >= yesterdayValidation && now <= expYesterday {
+                return (yesterdayValidation, expYesterday)
+            } else if now >= todayValidation && now <= expToday {
+                return (todayValidation, expToday)
+            } else if now < todayValidation {
+                return (todayValidation, expToday)
+            } else {
+                let tomorrowValidation = calendar.date(
+                    byAdding: .day,
+                    value:    1,
+                    to:       todayValidation
+                )!
+                return (tomorrowValidation, tomorrowValidation.addingTimeInterval(window))
+            }
+        }()
+
+        // --- PATCH: If today is an interval day and the window has expired, force countdowns to zero ---
+        if isTodayIntervalDay(for: habit) {
+            if now > expToday {
+                timeUntilValidation = 0
+                timeUntilExpiration = 0
+                return
+            }
+        }
+        // --- END PATCH ---
+
+        timeUntilValidation = max(0, activeValidation.timeIntervalSince(now))
+        timeUntilExpiration = max(0, activeExpiration.timeIntervalSince(now))
+
+        // If we just crossed into the validation window, advance your state
+        if case .waitingForValidationTime = currentTaskState, now >= activeValidation {
+            Task { await updateTaskStateAsync() }
+        }
+    }
+
+    /// Helper: parse “9:20 PM” / “21:00” etc. into (hour, minute)
+    private func parseHourMinute(from s: String) -> (Int, Int) {
+        let df = DateFormatter()
+        df.locale = Locale(identifier: "en_US_POSIX")
+        for fmt in ["h:mm a", "H:mm", "ha", "H"] {
+            df.dateFormat = fmt
+            if let d = df.date(from: s) {
+                let comps = Calendar.current.dateComponents([.hour, .minute], from: d)
+                return (comps.hour ?? 0, comps.minute ?? 0)
+            }
+        }
+        return (0, 0)
+    }
+
+    /// Called by the UI when the user taps "Try Again" in the failed state
+    public func retryAfterFailure() async {
+        print("[HabitViewModel] retryAfterFailure called")
+        guard let habit = selectedHabit else {
+            print("[HabitViewModel] retryAfterFailure: No selected habit")
+            return
+        }
+
+        print("[HabitViewModel] retryAfterFailure: Fetching today's task for habit id \(habit.id)")
+
+        self.isInFailed = false
+        self.lastFailedAttemptsLeft = nil
+        self.lastFailedDate = nil
+        await fetchTodayTask(for: habit)
+        await MainActor.run {
+            print("[HabitViewModel] retryAfterFailure: Resetting proof state and updating task state")
+            self.proofState = .notStarted
+            self.lastValidationResult = nil
+            self.updateTaskState()
+        }
+    }
 }
 
 // Add this extension to TaskEntry
 extension TaskEntry {
     var assignedDateString: String {
-        return assignedDate
+        return assignedDate ?? "No date"
     }
 }
 

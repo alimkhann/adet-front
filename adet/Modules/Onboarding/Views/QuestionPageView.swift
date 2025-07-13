@@ -54,11 +54,14 @@ struct QuestionPageView: View {
             if let options = step.options, !options.isEmpty {
                 VStack(spacing: 16) {
                     ForEach(options.filter { $0 != "Other" }, id: \.self) { option in
+                        let isDisabled = option.contains("Coming soon")
                         Button {
-                            answerBinding.wrappedValue = option
-                            isCustomEntry = false
-                            isTimePicker = false
-                            isWeekdayPicker = false
+                            if !isDisabled {
+                                answerBinding.wrappedValue = option.replacingOccurrences(of: " (Coming soon)", with: "")
+                                isCustomEntry = false
+                                isTimePicker = false
+                                isWeekdayPicker = false
+                            }
                         } label: {
                             Text(option)
                                 .frame(maxWidth: .infinity)
@@ -66,17 +69,20 @@ struct QuestionPageView: View {
                                 .background(
                                     RoundedRectangle(cornerRadius: 10)
                                         .fill(
-                                            answerBinding.wrappedValue == option
+                                            answerBinding.wrappedValue == option.replacingOccurrences(of: " (Coming soon)", with: "")
                                             ? Color.primary
                                             : (colorScheme == .dark ? Color.zinc900 : Color.zinc100)
                                         )
                                 )
                                 .foregroundColor(
-                                    answerBinding.wrappedValue == option
-                                    ? (colorScheme == .dark ? .black : .white)
-                                    : (colorScheme == .dark ? .white : .black)
+                                    isDisabled ? .gray : (
+                                        answerBinding.wrappedValue == option.replacingOccurrences(of: " (Coming soon)", with: "")
+                                        ? (colorScheme == .dark ? .black : .white)
+                                        : (colorScheme == .dark ? .white : .black)
+                                    )
                                 )
                         }
+                        .disabled(isDisabled)
                     }
 
                     if isTimePicker && step.title.contains("validation/proof time") {

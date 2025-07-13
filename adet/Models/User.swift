@@ -12,6 +12,7 @@ struct User: Codable, Identifiable {
     let isActive: Bool
     let createdAt: Date
     let updatedAt: Date?
+    let plan: String
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -24,5 +25,6 @@ struct User: Codable, Identifiable {
         case isActive = "is_active"
         case createdAt = "created_at"
         case updatedAt = "updated_at"
+        case plan
     }
 }

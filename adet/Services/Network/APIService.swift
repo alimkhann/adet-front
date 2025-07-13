@@ -236,6 +236,7 @@ actor APIService {
         )
     }
 
+    // NOTE: The response for submitTaskProof and submitTaskProofWithFile must match TaskSubmissionResponse (with TaskEntry as 'task')
     func submitTaskProof(taskId: Int, proofData: TaskProofSubmissionData) async throws -> TaskSubmissionResponse {
         return try await networkService.makeAuthenticatedRequest(
             endpoint: "/api/v1/habits/tasks/\(taskId)/submit-proof",
@@ -300,64 +301,86 @@ actor APIService {
 
     // MARK: - Post API Operations
 
-    func createPost(taskDescription: String, proof: HabitProofState, description: String, visibility: String, habitId: Int? = nil, proofInputType: ProofInputType? = nil, textProof: String? = nil) async throws {
+    func createPost(taskDescription: String, proof: HabitProofState, description: String, visibility: String, habitId: Int? = nil, proofInputType: ProofInputType? = nil, textProof: String? = nil, todayTask: TaskEntry? = nil, autoCreatedPostId: Int? = nil) async throws -> Post {
+        // Prevent duplicate post creation
+        if let existingId = autoCreatedPostId {
+            throw NetworkError.requestFailed(statusCode: 409, body: "Post already created with id \(existingId)")
+        }
         // Map visibility to PostPrivacy
         let privacy: PostPrivacy
         switch visibility.lowercased() {
         case "friends": privacy = .friends
         case "close friends": privacy = .closeFriends
-        default: privacy = .onlyMe
+        default: privacy = .private
         }
 
         var proofType: ProofType = .image
         var proofUrls: [String] = []
-        var postDescription = description.isEmpty ? taskDescription : description
-
-        // Handle all proof types
+        var postDescription = description
         if let inputType = proofInputType {
             switch inputType {
-            case .photo:
-                if case let .readyToSubmit(imageData) = proof, let data = imageData {
-                    let url = try await uploadProofFile(data: data, fileName: "proof.jpg", mimeType: "image/jpeg")
-                    proofType = .image
-                    proofUrls = [url]
-                }
-            case .video:
-                if case let .readyToSubmit(videoData) = proof, let data = videoData {
-                    let url = try await uploadProofFile(data: data, fileName: "proof.mov", mimeType: "video/quicktime")
-                    proofType = .video
-                    proofUrls = [url]
-                }
-            case .audio:
-                if case let .readyToSubmit(audioData) = proof, let data = audioData {
-                    let url = try await uploadProofFile(data: data, fileName: "proof.m4a", mimeType: "audio/mp4")
-                    proofType = .audio
-                    proofUrls = [url]
-                }
             case .text:
                 proofType = .text
+                postDescription = textProof ?? description
                 proofUrls = []
-                if let text = textProof, !text.isEmpty {
-                    postDescription = text
+            default:
+                proofType = .image // or .video/.audio if you support them
+                if let url = todayTask?.proofContent, !url.isEmpty {
+                    proofUrls = [url]
                 }
             }
         } else {
-            // Fallback: treat as photo if possible
-            if case let .readyToSubmit(imageData) = proof, let data = imageData {
-                let url = try await uploadProofFile(data: data, fileName: "proof.jpg", mimeType: "image/jpeg")
-                proofType = .image
+            // fallback: use todayTask proofContent if available
+            if let url = todayTask?.proofContent, !url.isEmpty {
                 proofUrls = [url]
             }
         }
 
-        let postData = PostCreate(
+        // Always provide assigned_date if available, fallback to today
+        let assignedDate: String = todayTask?.assignedDate ?? DateFormatter.yyyyMMdd.string(from: Date())
+
+        let postCreate = PostCreate(
             habitId: habitId,
             proofUrls: proofUrls,
             proofType: proofType,
             description: postDescription,
-            privacy: privacy
+            privacy: privacy,
+            assignedDate: assignedDate // now always non-nil
         )
-        _ = try await PostService.shared.createPost(postData)
+
+        let url = URL(string: "\(APIConfig.apiBaseURL)/posts")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        if let token = await AuthService.shared.getValidToken() {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = .prettyPrinted
+        let jsonData = try encoder.encode(postCreate)
+        print("[DEBUG] PostCreate JSON body:\n" + (String(data: jsonData, encoding: .utf8) ?? "<invalid json>"))
+        request.httpBody = jsonData
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw NetworkError.requestFailed(statusCode: 0, body: "Invalid response")
+        }
+        if (200...299).contains(httpResponse.statusCode) {
+            do {
+                let postResponse = try JSONDecoder().decode(PostResponse.self, from: data)
+                return postResponse.post
+            } catch {
+                print("[WARNING] Decoding PostResponse failed but status was \(httpResponse.statusCode): \(error)")
+                throw NetworkError.decodeError(error)
+            }
+        } else if httpResponse.statusCode == 409 {
+            // Backend upsert: treat as success, decode and return existing post
+            let postResponse = try JSONDecoder().decode(PostResponse.self, from: data)
+            return postResponse.post
+        } else {
+            let body = String(data: data, encoding: .utf8) ?? "N/A"
+            throw NetworkError.requestFailed(statusCode: httpResponse.statusCode, body: body)
+        }
     }
 
     // MARK: - Proof File Upload
@@ -420,4 +443,13 @@ actor APIService {
             body: (nil as String?)
         )
     }
+}
+
+extension DateFormatter {
+    static let yyyyMMdd: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        formatter.timeZone = .current
+        return formatter
+    }()
 }

@@ -132,25 +132,42 @@ class PostService: ObservableObject {
 
     // MARK: - Get My Posts
 
+    // Custom ISO8601 formatter with microseconds
+    private static let iso8601Fractional: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSSSSSXXXXX"
+        return formatter
+    }()
+
     func getMyPosts(cursor: String? = nil, limit: Int = 20) async throws -> PostsResponse {
+        // Defensive: Ensure limit is always valid
+        let safeLimit: Int
+        if limit < 1 || limit > 50 {
+            print("[PostService] Invalid limit value: \(limit). Defaulting to 20.")
+            safeLimit = 20
+        } else {
+            safeLimit = limit
+        }
         var components = URLComponents(string: "\(baseURL)/posts/me")!
-        var queryItems = [URLQueryItem(name: "limit", value: String(limit))]
+        var queryItems = [URLQueryItem(name: "limit", value: String(safeLimit))]
 
         if let cursor = cursor {
             queryItems.append(URLQueryItem(name: "cursor", value: cursor))
         }
 
         components.queryItems = queryItems
-
         guard let url = components.url else {
             throw NetworkError.invalidURL
         }
-
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
-
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
         if let token = await AuthService.shared.getValidToken() {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        } else {
+            throw NetworkError.requestFailed(statusCode: 0, body: "No valid auth token")
         }
 
         let (data, response) = try await session.data(for: request)
@@ -160,13 +177,21 @@ class PostService: ObservableObject {
         }
 
         guard httpResponse.statusCode == 200 else {
+            let responseString = String(data: data, encoding: .utf8) ?? "N/A"
+            print("Failed to load my posts: Network request failed with status code: \(httpResponse.statusCode). Response: \(responseString)")
             if let errorData = try? JSONDecoder().decode(APIError.self, from: data) {
                 throw NetworkError.requestFailed(statusCode: httpResponse.statusCode, body: errorData.detail)
+            } else {
+                throw NetworkError.requestFailed(statusCode: httpResponse.statusCode, body: responseString)
             }
-            throw NetworkError.requestFailed(statusCode: httpResponse.statusCode, body: nil)
         }
 
-        return try JSONDecoder().decode(PostsResponse.self, from: data)
+        let responseString = String(data: data, encoding: .utf8) ?? "N/A"
+        print("PostsResponse: \(responseString)")
+
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .formatted(Self.iso8601Fractional)
+        return try decoder.decode(PostsResponse.self, from: data)
     }
 
     // MARK: - Create Post (updated)
@@ -246,7 +271,8 @@ class PostService: ObservableObject {
             throw NetworkError.requestFailed(statusCode: 0, body: "Invalid response")
         }
 
-        guard httpResponse.statusCode == 201 else {
+        // Accept 200, 201, or 204 as success
+        guard (200...204).contains(httpResponse.statusCode) else {
             throw NetworkError.requestFailed(statusCode: httpResponse.statusCode, body: nil)
         }
     }

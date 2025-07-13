@@ -18,9 +18,11 @@ struct FeedView: View {
             .navigationTitle("ädet")
             .navigationBarTitleDisplayMode(.inline)
             .refreshable {
+                print("DEBUG: .refreshable triggered in FeedView at \(Date())")
                 await refreshFeed()
             }
             .onAppear {
+                print("DEBUG: .onAppear triggered in FeedView at \(Date())")
                 Task {
                     await loadFeedIfNeeded()
                 }
@@ -114,12 +116,14 @@ struct FeedView: View {
     // MARK: - Actions
 
     private func loadFeedIfNeeded() async {
+        print("DEBUG: loadFeedIfNeeded called in FeedView at \(Date())")
         if postsViewModel.posts.isEmpty && !postsViewModel.isLoading {
             await postsViewModel.loadFeed()
         }
     }
 
     private func refreshFeed() async {
+        print("DEBUG: refreshFeed called in FeedView at \(Date())")
         await postsViewModel.refreshFeed()
     }
 

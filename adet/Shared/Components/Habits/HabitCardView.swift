@@ -73,14 +73,14 @@ struct HabitCardView: View {
                                 stops: [
                                     .init(color: (colorScheme == .dark ? Color("Zinc400") : Color("Zinc700")), location: 0.0),
                                     .init(color: (colorScheme == .dark ? Color("Zinc400") : Color("Zinc700")), location: 0.75),
-                                    .init(color: (colorScheme == .dark ? Color("Zinc900") : Color("Zinc100")).opacity(0.0), location: 1.0)
+                                    .init(color: (colorScheme == .dark ? Color("Zinc900") : Color("Zinc100").opacity(0.0)), location: 1.0)
                                 ],
                                 startPoint: .topLeading,
                                 endPoint: .bottomTrailing
                             )
                         )
-                        : AnyShapeStyle(Color.clear),
-                    lineWidth: lineWidth
+                        : (colorScheme == .dark ? AnyShapeStyle(Color.white.opacity(0.15)) : AnyShapeStyle(Color.clear)),
+                    lineWidth: isSelected ? lineWidth : (colorScheme == .dark ? 0.8 : 0)
                 )
                 .scaleEffect(scale)
                 .animation(.easeInOut(duration: 0.2), value: scale)

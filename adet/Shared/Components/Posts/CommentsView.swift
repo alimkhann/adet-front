@@ -535,33 +535,3 @@ extension PostComment: Equatable {
         lhs.id == rhs.id
     }
 }
-
-#Preview {
-    let samplePost = Post(
-        id: 1,
-        userId: 1,
-        habitId: 1,
-        proofUrls: ["https://example.com/image.jpg"],
-        proofType: .image,
-        description: "Just finished my morning workout!",
-        privacy: .friends,
-        createdAt: Date().addingTimeInterval(-3600),
-        updatedAt: nil,
-        viewsCount: 15,
-        likesCount: 5,
-        commentsCount: 3,
-        user: UserBasic(
-            id: 1,
-            username: "johndoe",
-            name: "johndoe",
-            bio: nil,
-            profileImageUrl: nil
-        ),
-        habitStreak: 5,
-        isLikedByCurrentUser: false,
-        isViewedByCurrentUser: false
-    )
-
-    CommentsView(post: samplePost)
-}
-

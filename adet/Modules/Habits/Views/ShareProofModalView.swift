@@ -5,6 +5,7 @@ struct ShareProofModalView: View {
     let task: HabitTaskDetails
     let proof: HabitProofState
     let onShare: (String, String, ProofInputType, String?) -> Void
+    let closeFriendsCount: Int
     @State private var description: String = ""
     @State private var selectedVisibility: String = "Friends"
     @State private var proofInputType: ProofInputType = .photo
@@ -29,24 +30,23 @@ struct ShareProofModalView: View {
                 .background(Color(.systemGray6))
                 .cornerRadius(8)
 
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Who can see this?")
-                HStack(spacing: 12) {
-                    Button(action: { selectedVisibility = "Friends" }) {
-                        Text("Friends")
-                            .frame(maxWidth: .infinity, minHeight: 44)
-                            .background(selectedVisibility == "Friends" ? Color.black : Color.white)
-                            .foregroundColor(selectedVisibility == "Friends" ? .white : .black)
-                            .cornerRadius(10)
-                    }
-                    Button(action: { selectedVisibility = "Close Friends" }) {
-                        Text("Close Friends")
-                            .frame(maxWidth: .infinity, minHeight: 44)
-                            .background(selectedVisibility == "Close Friends" ? Color.black : Color.white)
-                            .foregroundColor(selectedVisibility == "Close Friends" ? .white : .black)
-                            .cornerRadius(10)
-                    }
+            Text("Who can see this?")
+            HStack(spacing: 12) {
+                Button(action: { selectedVisibility = "Friends" }) {
+                    Text("Friends")
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                        .background(selectedVisibility == "Friends" ? Color.black : Color.white)
+                        .foregroundColor(selectedVisibility == "Friends" ? .white : .black)
+                        .cornerRadius(10)
                 }
+                Button(action: { selectedVisibility = "Close Friends" }) {
+                    Text("Close Friends")
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                        .background(selectedVisibility == "Close Friends" ? Color.black.opacity(closeFriendsCount > 0 ? 1.0 : 0.2) : Color.white)
+                        .foregroundColor(selectedVisibility == "Close Friends" ? .white : .black)
+                        .cornerRadius(10)
+                }
+                .disabled(closeFriendsCount == 0)
             }
 
             Button(action: {
@@ -64,21 +64,32 @@ struct ShareProofModalView: View {
     @ViewBuilder
     private var proofPreview: some View {
         switch proof {
-        case .readyToSubmit(let imageData):
-            if let data = imageData, let uiImage = UIImage(data: data) {
-                Image(uiImage: uiImage)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(height: 180)
-                    .clipShape(RoundedRectangle(cornerRadius: 10))
-            } else if let data = imageData, let urlString = String(data: data, encoding: .utf8), let url = URL(string: urlString), url.scheme?.hasPrefix("http") == true {
-                KFImage(url)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(height: 180)
-                    .clipShape(RoundedRectangle(cornerRadius: 10))
-            } else {
-                Text("Proof ready to submit!")
+        case .readyToSubmit(let proofData):
+            switch proofData {
+            case .image(let data):
+                if let uiImage = UIImage(data: data) {
+                    Image(uiImage: uiImage)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(height: 180)
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
+                } else {
+                    Text("Image proof ready to submit!")
+                }
+            case .video(let data):
+                Text("Video proof attached (\(data.count) bytes)")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+            case .audio(let data):
+                Text("Audio proof attached (\(data.count) bytes)")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+            case .text(let text):
+                Text(text)
+                    .font(.body)
+                    .padding()
+                    .background(Color(.systemGray6))
+                    .cornerRadius(8)
             }
         case .submitted:
             Text("Proof submitted!")
@@ -90,21 +101,4 @@ struct ShareProofModalView: View {
             Text("No proof preview available.")
         }
     }
-}
-
-#Preview {
-    ShareProofModalView(
-        task: HabitTaskDetails(
-            description: "Take a 10-minute walk around your neighborhood",
-            easierAlternative: "Walk to your mailbox and back",
-            harderAlternative: "Take a 20-minute brisk walk with some hills",
-            motivation: "High",
-            ability: "Easy",
-            timeLeft: TimeInterval(3600) // 1 hour left
-        ),
-        proof: .readyToSubmit(image: nil),
-        onShare: { visibility, description, proofType, textProof in
-            print("Sharing with visibility: \(visibility), description: \(description)")
-        }
-    )
 }

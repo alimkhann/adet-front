@@ -218,13 +218,23 @@ struct HabitDifficultyPicker: View {
 struct HabitProofStylePicker: View {
     @Binding var proofStyle: String
 
-    private let proofStyles = ["Photo", "Video", "Audio", "Text"]
+    private let allowedStyles = ["Photo", "Text"]
+    private let proofStyles = ["Photo", "Video (Coming soon)", "Audio (Coming soon)", "Text"]
 
     var body: some View {
-        Picker("Proof Style", selection: $proofStyle) {
-            ForEach(proofStyles, id: \.self) { style in
-                Text(style).tag(style)
+        Picker("Proof Style", selection: Binding(
+            get: { proofStyle },
+            set: { newValue in
+                // Only allow valid selections
+                if allowedStyles.contains(newValue) {
+                    proofStyle = newValue
+                }
             }
+        )) {
+            Text("Photo").tag("Photo")
+            Text("Video").tag("Video")
+            Text("Audio").tag("Audio")
+            Text("Text").tag("Text")
         }
         .pickerStyle(.segmented)
     }

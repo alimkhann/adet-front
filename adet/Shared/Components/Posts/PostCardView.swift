@@ -11,7 +11,7 @@ struct PostCardView: View {
 
     @State private var imageAspectRatio: CGFloat = 1.0
     @State private var showFullDescription = false
-    @State private var hasAppeared = false
+    // REMOVED: @State private var hasAppeared = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -23,7 +23,7 @@ struct PostCardView: View {
                 onUserTap: onUserTap
             )
             .padding(.horizontal, 16)
-            .padding(.top, 12)
+            .padding(.vertical, 12)
 
             // Media content
             if post.isMediaPost {
@@ -33,8 +33,7 @@ struct PostCardView: View {
                     aspectRatio: $imageAspectRatio
                 )
                 .onAppear {
-                    if !hasAppeared {
-                        hasAppeared = true
+                    if !post.isViewedByCurrentUser {
                         onView()
                     }
                 }
@@ -44,8 +43,7 @@ struct PostCardView: View {
                     .padding(.horizontal, 16)
                     .padding(.top, 8)
                     .onAppear {
-                        if !hasAppeared {
-                            hasAppeared = true
+                        if !post.isViewedByCurrentUser {
                             onView()
                         }
                     }
@@ -644,45 +642,4 @@ struct AudioPlayerView: View {
         let seconds = Int(time) % 60
         return String(format: "%d:%02d", minutes, seconds)
     }
-}
-
-// MARK: - Extensions
-
-// Note: PostPrivacy and UserBasic extensions are already defined in their respective model files
-
-#Preview {
-    let samplePost = Post(
-        id: 1,
-        userId: 1,
-        habitId: 1,
-        proofUrls: ["https://example.com/image.jpg"],
-        proofType: .image,
-        description: "Just finished my morning workout! Feeling great and ready to tackle the day. This was a challenging session but totally worth it.",
-        privacy: .friends,
-        createdAt: Date().addingTimeInterval(-3600), // 1 hour ago
-        updatedAt: nil,
-        viewsCount: 15,
-        likesCount: 5,
-        commentsCount: 2,
-        user: UserBasic(
-            id: 1,
-            username: "johndoe",
-            name: "John Doe",
-            bio: nil,
-            profileImageUrl: nil
-        ),
-        habitStreak: 15,
-        isLikedByCurrentUser: false,
-        isViewedByCurrentUser: false
-    )
-
-    PostCardView(
-        post: samplePost,
-        onLike: {},
-        onComment: {},
-        onView: {},
-        onShare: {},
-        onUserTap: {}
-    )
-    .padding()
 }

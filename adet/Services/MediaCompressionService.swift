@@ -9,6 +9,7 @@ class MediaCompressionService: ObservableObject, Sendable {
 
     // MARK: - Image Compression
 
+    /// Compress a UIImage to a target file size and quality, returning a UIImage.
     func compressImage(
         _ image: UIImage,
         maxFileSize: Int = 1_000_000, // 1MB default
@@ -26,6 +27,7 @@ class MediaCompressionService: ObservableObject, Sendable {
         }
     }
 
+    /// Compress a UIImage and return JPEG Data for upload (recommended for proof uploads)
     func compressImageData(
         _ image: UIImage,
         maxFileSize: Int = 1_000_000,
@@ -34,8 +36,17 @@ class MediaCompressionService: ObservableObject, Sendable {
         guard let compressedImage = await compressImage(image, maxFileSize: maxFileSize, quality: quality) else {
             return nil
         }
-
         return compressedImage.jpegData(compressionQuality: quality)
+    }
+
+    /// Static utility for one-shot compression to Data (for use in sync contexts)
+    static func compressImageToData(
+        _ image: UIImage,
+        maxFileSize: Int = 1_000_000,
+        quality: CGFloat = 0.8
+    ) -> Data? {
+        guard let compressed = performImageCompression(image, maxFileSize: maxFileSize, quality: quality) else { return nil }
+        return compressed.jpegData(compressionQuality: quality)
     }
 
     // MARK: - Private Methods
@@ -58,3 +69,7 @@ class MediaCompressionService: ObservableObject, Sendable {
         return UIImage(data: finalData)
     }
 }
+
+// USAGE EXAMPLE (in your proof upload flow):
+// let compressedData = await MediaCompressionService.shared.compressImageData(selectedUIImage)
+// Use compressedData for your multipart upload to the backend

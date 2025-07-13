@@ -72,10 +72,12 @@ struct SettingsView: View {
                 }
 
                 // Notifications Section
+                /*
                 Section(header: Text("notifications".t(language))) {
                     Toggle("push_notifications".t(language), isOn: $pushNotifications)
                     Toggle("motivational_messages".t(language), isOn: $motivationalMessages)
                 }
+                */ // TODO: Enable notification settings when implemented
 
                 // App Section
                 Section(header: Text("app".t(language))) {
@@ -85,6 +87,7 @@ struct SettingsView: View {
                         }
                     }
                     Toggle("haptics".t(language), isOn: $haptics)
+                    /*
                     Picker("language".t(language), selection: $language) {
                         Text("English").tag("en")
                         Text("Русский").tag("ru")
@@ -92,6 +95,7 @@ struct SettingsView: View {
                         Text("简体中文").tag("zh-Hans")
                         Text("粤语").tag("yue")
                     }
+                    */ // TODO: Enable language settings when implemented
                 }
 
                 // Support Section

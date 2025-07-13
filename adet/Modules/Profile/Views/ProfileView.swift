@@ -8,6 +8,7 @@ struct ProfileView: View {
     @State private var showEditProfile = false
     @State private var showSettings = false
     @State private var selectedTab: ProfileTab = .posts
+    @Environment(\.colorScheme) private var colorScheme
 
     private let logger = Logger(subsystem: "com.adet.profile", category: "ProfileView")
 
@@ -42,6 +43,7 @@ struct ProfileView: View {
             }
             .background(Color(.systemBackground))
             .onAppear {
+                print("DEBUG: .onAppear triggered in ProfileView at \(Date())")
                 // Update the ViewModel with the current AuthViewModel
                 viewModel.updateAuthViewModel(authViewModel)
                 loadUserPosts()
@@ -246,8 +248,7 @@ struct ProfileView: View {
             }
         }
         .frame(maxHeight: .infinity)
-        .padding(.top, 20)
-        .background(Color(.systemGray6))
+        .background(colorScheme == .dark ? .black : Color(.systemGray6))
     }
 
     // MARK: - Posts Content View
@@ -269,12 +270,12 @@ struct ProfileView: View {
                         Image(systemName: "photo.on.rectangle.angled")
                             .font(.system(size: 48))
                             .foregroundColor(.secondary)
-                        
+
                         VStack(spacing: 8) {
                             Text("No posts yet")
                                 .font(.headline)
                                 .fontWeight(.semibold)
-                            
+
                             Text("Share your habit progress to start building your story!")
                                 .font(.subheadline)
                                 .foregroundColor(.secondary)
@@ -337,12 +338,12 @@ struct ProfileView: View {
                         Image(systemName: "target")
                             .font(.system(size: 48))
                             .foregroundColor(.secondary)
-                        
+
                         VStack(spacing: 8) {
                             Text("No habits yet")
                                 .font(.headline)
                                 .fontWeight(.semibold)
-                            
+
                             Text("Create your first habit to start your journey!")
                                 .font(.subheadline)
                                 .foregroundColor(.secondary)
@@ -368,6 +369,7 @@ struct ProfileView: View {
                     .padding(.horizontal, 16)
                 }
             }
+            .padding(.top)
         }
     }
 
@@ -386,6 +388,7 @@ struct ProfileView: View {
 
     // MARK: - Helper Methods
     private func loadUserPosts() {
+        print("DEBUG: loadUserPosts called in ProfileView at \(Date())")
         Task {
             await postsViewModel.loadMyPosts(refresh: true)
         }

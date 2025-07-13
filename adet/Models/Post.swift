@@ -2,7 +2,7 @@ import Foundation
 
 // MARK: - Post Privacy Levels
 enum PostPrivacy: String, CaseIterable, Identifiable, Codable {
-    case onlyMe = "only_me"
+    case `private` = "private"
     case friends = "friends"
     case closeFriends = "close_friends"
 
@@ -10,7 +10,7 @@ enum PostPrivacy: String, CaseIterable, Identifiable, Codable {
 
     var displayName: String {
         switch self {
-        case .onlyMe:
+        case .private:
             return "Only me"
         case .friends:
             return "Friends"
@@ -21,7 +21,7 @@ enum PostPrivacy: String, CaseIterable, Identifiable, Codable {
 
     var icon: String {
         switch self {
-        case .onlyMe:
+        case .private:
             return "lock.fill"
         case .friends:
             return "person.2.fill"
@@ -32,7 +32,7 @@ enum PostPrivacy: String, CaseIterable, Identifiable, Codable {
 
     var description: String {
         switch self {
-        case .onlyMe:
+        case .private:
             return "Only visible to you"
         case .friends:
             return "Visible to all friends"
@@ -43,7 +43,7 @@ enum PostPrivacy: String, CaseIterable, Identifiable, Codable {
 
     var privacyColor: String {
         switch self {
-        case .onlyMe:
+        case .private:
             return "orange"
         case .friends:
             return "blue"
@@ -135,9 +135,58 @@ struct Post: Identifiable, Codable, Equatable {
         case isViewedByCurrentUser = "is_viewed_by_current_user"
     }
 
+    // Custom decoder to handle ISO8601 string dates
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(Int.self, forKey: .id)
+        userId = try container.decode(Int.self, forKey: .userId)
+        habitId = try container.decodeIfPresent(Int.self, forKey: .habitId)
+        proofUrls = try container.decode([String].self, forKey: .proofUrls)
+        proofType = try container.decode(ProofType.self, forKey: .proofType)
+        description = try container.decodeIfPresent(String.self, forKey: .description)
+        privacy = try container.decode(PostPrivacy.self, forKey: .privacy)
+        // Decode ISO8601 string to Date
+        let createdAtString = try container.decode(String.self, forKey: .createdAt)
+        let updatedAtString = try container.decodeIfPresent(String.self, forKey: .updatedAt)
+        let isoFormatter = ISO8601DateFormatter()
+        isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        guard let createdAtDate = isoFormatter.date(from: createdAtString) else {
+            throw DecodingError.dataCorruptedError(forKey: .createdAt, in: container, debugDescription: "Invalid date format for createdAt: \(createdAtString)")
+        }
+        createdAt = createdAtDate
+        if let updatedAtString = updatedAtString {
+            updatedAt = isoFormatter.date(from: updatedAtString)
+        } else {
+            updatedAt = nil
+        }
+        viewsCount = try container.decode(Int.self, forKey: .viewsCount)
+        likesCount = try container.decode(Int.self, forKey: .likesCount)
+        commentsCount = try container.decode(Int.self, forKey: .commentsCount)
+        user = try container.decode(UserBasic.self, forKey: .user)
+        habitStreak = try container.decodeIfPresent(Int.self, forKey: .habitStreak)
+        isLikedByCurrentUser = try container.decodeIfPresent(Bool.self, forKey: .isLikedByCurrentUser) ?? false
+        isViewedByCurrentUser = try container.decodeIfPresent(Bool.self, forKey: .isViewedByCurrentUser) ?? false
+    }
+
     // Equatable conformance
     static func == (lhs: Post, rhs: Post) -> Bool {
         return lhs.id == rhs.id
+    }
+}
+
+struct PostUser: Codable {
+    let id: Int
+    let username: String
+    let name: String?
+    let bio: String?
+    let profileImageUrl: String?
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case username
+        case name
+        case bio
+        case profileImageUrl = "profile_image_url"
     }
 }
 
@@ -239,6 +288,7 @@ struct PostCreate: Codable {
     let proofType: ProofType
     let description: String?
     let privacy: PostPrivacy
+    let assignedDate: String?
 
     enum CodingKeys: String, CodingKey {
         case habitId = "habit_id"
@@ -246,6 +296,7 @@ struct PostCreate: Codable {
         case proofType = "proof_type"
         case description
         case privacy
+        case assignedDate = "assigned_date"
     }
 }
 
@@ -342,4 +393,9 @@ struct PostAnalytics: Codable {
         case topLikers = "top_likers"
         case engagementRate = "engagement_rate"
     }
+}
+
+// MARK: - Post Creation Response
+struct PostResponse: Codable {
+    let post: Post
 }

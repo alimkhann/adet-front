@@ -1,6 +1,6 @@
 import Foundation
 
-public struct Habit: Codable, Identifiable {
+public struct Habit: Codable, Identifiable, Hashable {
     public let id: Int
     public let userId: Int
     public var name: String

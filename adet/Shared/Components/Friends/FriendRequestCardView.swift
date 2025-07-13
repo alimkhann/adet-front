@@ -37,7 +37,8 @@ struct FriendRequestCardView: View {
                         profileImageUrl: displayUser.profileImageUrl,
                         isActive: true,
                         createdAt: Date(),
-                        updatedAt: nil
+                        updatedAt: nil,
+                        plan: "plan"
                     ),
                     size: 50,
                     isEditable: false,

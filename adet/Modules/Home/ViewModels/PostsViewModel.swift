@@ -22,13 +22,14 @@ class PostsViewModel: ObservableObject {
     private let logger = Logger(subsystem: "com.adet.posts", category: "PostsViewModel")
 
     // Cache for viewed posts to avoid duplicate API calls
-    private var viewedPostIds: Set<Int> = []
+    @Published var viewedPostIds: Set<Int> = []
 
     // MARK: - Convenience Properties for Profile
     var personalPosts: [Post] { myPosts }
     var isLoading: Bool { isLoadingMyPosts || isLoadingFeed }
 
     init() {
+        print("DEBUG: PostsViewModel init at \(Date())")
         setupNotifications()
     }
 
@@ -98,6 +99,7 @@ class PostsViewModel: ObservableObject {
     var posts: [Post] { feedPosts }
 
     func loadFeedPosts(refresh: Bool = false) async {
+        print("DEBUG: loadFeedPosts called at \(Date()) with refresh=\(refresh)")
         guard !isLoadingFeed else { return }
 
         isLoadingFeed = true
@@ -138,6 +140,7 @@ class PostsViewModel: ObservableObject {
     // MARK: - My Posts Operations
 
     func loadMyPosts(refresh: Bool = false) async {
+        print("DEBUG: loadMyPosts called at \(Date()) with refresh=\(refresh)")
         guard !isLoadingMyPosts else { return }
 
         isLoadingMyPosts = true
@@ -176,7 +179,8 @@ class PostsViewModel: ObservableObject {
         proofUrls: [String],
         proofType: ProofType,
         description: String?,
-        privacy: PostPrivacy
+        privacy: PostPrivacy,
+        assignedDate: String?
     ) async -> Bool {
         guard !isCreatingPost else { return false }
 
@@ -188,7 +192,8 @@ class PostsViewModel: ObservableObject {
             proofUrls: proofUrls,
             proofType: proofType,
             description: description,
-            privacy: privacy
+            privacy: privacy,
+            assignedDate: assignedDate
         )
 
         do {
@@ -444,7 +449,7 @@ extension Post {
 
     var privacyDisplayText: String {
         switch privacy {
-        case .onlyMe:
+        case .private:
             return "Private"
         case .friends:
             return "Friends"

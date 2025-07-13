@@ -132,29 +132,11 @@ struct TaskProofSubmissionData: Codable {
     }
 }
 
-struct TaskSubmissionResponse: Codable {
-    let success: Bool
-    let task: TaskEntry
-    let message: String
-    let fileUrl: String?
-    let validation: TaskValidationResult?
-    let autoCreatedPost: AutoCreatedPost?
-
-    enum CodingKeys: String, CodingKey {
-        case success
-        case task
-        case message
-        case fileUrl = "file_url"
-        case validation
-        case autoCreatedPost = "auto_created_post"
-    }
-}
-
-struct AutoCreatedPost: Codable {
-    let id: Int
-    let privacy: String
-    let description: String
-    let createdAt: String
+public struct AutoCreatedPost: Codable {
+    public let id: Int
+    public let privacy: String
+    public let description: String?
+    public let createdAt: String?
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -164,16 +146,36 @@ struct AutoCreatedPost: Codable {
     }
 }
 
+public struct TaskSubmissionResponse: Codable {
+    let task: TaskEntry
+    let validation: TaskValidationResult?
+    public let attemptsLeft: Int?
+    public let dueDate: String?
+    public let autoCreatedPost: AutoCreatedPost?
+
+    enum CodingKeys: String, CodingKey {
+        case task
+        case validation
+        case attemptsLeft = "attempts_left"
+        case dueDate = "due_date"
+        case autoCreatedPost = "auto_created_post"
+    }
+}
+
 struct TaskValidationResult: Codable {
-    let isValid: Bool
-    let confidence: Double
-    let feedback: String
-    let suggestions: [String]
+    let isValid: Bool?
+    let isNsfw: Bool?
+    let confidence: Double?
+    let feedback: String?
+    let reasoning: String?
+    let suggestions: [String]?
 
     enum CodingKeys: String, CodingKey {
         case isValid = "is_valid"
+        case isNsfw = "is_nsfw"
         case confidence
         case feedback
+        case reasoning
         case suggestions
     }
 }
@@ -241,5 +243,21 @@ struct FriendshipStatusResponse: Codable {
     enum CodingKeys: String, CodingKey {
         case userId = "user_id"
         case friendshipStatus = "friendship_status"
+    }
+}
+
+struct PostModel: Codable, Identifiable {
+    let id: Int
+    let content: String?
+    let imageUrl: String?
+    let createdAt: String?
+    let authorId: Int?
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case content
+        case imageUrl = "image_url"
+        case createdAt = "created_at"
+        case authorId = "author_id"
     }
 }

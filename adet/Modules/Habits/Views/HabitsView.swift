@@ -23,6 +23,7 @@ struct HabitsView: View {
                 } else {
                     habitCarouselSection
                         .padding(.horizontal)
+                        .background(colorScheme == .dark ? Color.black : Color(.systemGray6))
 
                     // Main Task Section (always present)
                     HabitTaskSectionView(
@@ -32,14 +33,24 @@ struct HabitsView: View {
                         onSetAbility: { level in Task { await viewModel.setAbility(level) } },
                         onGenerateTask: { Task { await viewModel.generateTask() } },
                         onSubmitProof: { type, data, text in Task { await viewModel.submitProof(type: type, data: data, text: text) } },
-                        onRetry: { Task { await viewModel.updateTaskStateAsync() } },
-                        onShowMotivationStep: { viewModel.currentTaskState = .setMotivation(current: viewModel.todayMotivation?.level) },
+                        onRetry: {
+                            Task {
+                                await viewModel.retryAfterFailure()
+                            }
+                        },
+                        onShowMotivationStep: { viewModel.currentTaskState = .setMotivation(current: viewModel.todayMotivation?.level, timeLeft: nil) },
                         viewModel: viewModel
+                    )
+                    .background(colorScheme == .dark ? Color.black : Color(.systemGray6))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(colorScheme == .dark ? Color.white.opacity(0.15) : Color.clear, lineWidth: 1)
+                            .padding()
                     )
                 }
                 Spacer(minLength: 0)
             }
-            .background(Color(.systemGray6))
+            .background(colorScheme == .dark ? Color.black : Color(.systemGray6))
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Text("ädet")
@@ -62,38 +73,27 @@ struct HabitsView: View {
             }
             .navigationBarBackButtonHidden(true)
             .onAppear {
-                Task { @MainActor in
-                    await viewModel.fetchHabits()
-                    await viewModel.fetchStreakFreezers()
-                    if let habit = viewModel.selectedHabit {
-                        await viewModel.fetchTodayTask(for: habit)
-                        _ = await viewModel.getTodayMotivationEntry(for: habit.id)
-                        _ = await viewModel.getTodayAbilityEntry(for: habit.id)
-                        viewModel.updateTaskState()
-                    }
-                    lastDateChecked = Calendar.current.startOfDay(for: Date())
-                }
-            }
-            .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
+                viewModel.startCountdownTimer()
                 Task {
                     if let habit = viewModel.selectedHabit {
                         await viewModel.fetchTodayTask(for: habit)
                         viewModel.updateTaskState()
-                    }
-                    lastDateChecked = Calendar.current.startOfDay(for: Date())
-                }
-            }
-            .onReceive(Timer.publish(every: 60, on: .main, in: .common).autoconnect()) { _ in
-                let currentDate = Calendar.current.startOfDay(for: Date())
-                if currentDate != lastDateChecked {
-                    Task {
-                        if let habit = viewModel.selectedHabit {
+                    } else {
+                        await viewModel.fetchUserAndHabits()
+                        // Auto-select first habit if available and none selected
+                        if viewModel.selectedHabit == nil, let firstHabit = viewModel.habits.first {
+                            viewModel.selectHabit(firstHabit)
+                            await viewModel.fetchTodayTask(for: firstHabit)
+                            viewModel.updateTaskState()
+                        } else if let habit = viewModel.selectedHabit {
                             await viewModel.fetchTodayTask(for: habit)
                             viewModel.updateTaskState()
                         }
-                        lastDateChecked = currentDate
                     }
                 }
+            }
+            .onDisappear {
+                viewModel.cancelCountdownTimer()
             }
             .alert(isPresented: Binding<Bool>(
                 get: { viewModel.errorMessage != nil },
@@ -108,23 +108,26 @@ struct HabitsView: View {
             }
             // Habit Details Navigation
             .navigationDestination(isPresented: $showingHabitDetails) {
+                let isDevMode = true
+
                 if let habit = editingHabit {
                     HabitDetailsView(
                         habit: habit,
                         canEdit: {
-                            switch viewModel.currentTaskState {
-                            case .generatingTask, .showTask:
-                                return false
-                            default:
+                            if isDevMode {
                                 return true
+                            } else {
+                                switch viewModel.currentTaskState {
+                                case .notToday, .successDone:
+                                    return true
+                                default:
+                                    return false
+                                }
                             }
                         }()
                     )
                     .environmentObject(viewModel)
                 }
-            }
-            .onDisappear {
-                viewModel.cancelPolling()
             }
         }
     }
@@ -138,14 +141,12 @@ struct HabitsView: View {
                         habit: habit,
                         isSelected: viewModel.selectedHabit?.id == habit.id,
                         onTap: {
-                            if !viewModel.isTaskInProgress {
-                                viewModel.selectHabit(habit)
-                                Task {
-                                    await viewModel.fetchTodayTask(for: habit)
-                                    _ = await viewModel.getTodayMotivationEntry(for: habit.id)
-                                    _ = await viewModel.getTodayAbilityEntry(for: habit.id)
-                                    viewModel.updateTaskState()
-                                }
+                            viewModel.selectHabit(habit)
+                            Task {
+                                await viewModel.fetchTodayTask(for: habit)
+                                _ = await viewModel.getTodayMotivationEntry(for: habit.id)
+                                _ = await viewModel.getTodayAbilityEntry(for: habit.id)
+                                viewModel.updateTaskState()
                             }
                         },
                         onLongPress: {
@@ -160,9 +161,12 @@ struct HabitsView: View {
                         isTaskInProgress: viewModel.isTaskInProgress
                     )
                 }
-                AddHabitCardView(onTap: {
-                    showingAddHabitSheet = true
-                })
+                AddHabitCardView(
+                    onTap: {
+                        showingAddHabitSheet = true
+                    },
+                    isLocked: viewModel.userPlan == "free" && viewModel.habits.count >= 2
+                )
                 .frame(width: 150, height: 100)
             }
         }
