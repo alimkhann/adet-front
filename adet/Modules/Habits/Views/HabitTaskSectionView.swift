@@ -379,25 +379,10 @@ struct HabitTaskSectionView: View {
                     }
                 }
                 .sheet(isPresented: $showShareModal) {
-                    ShareProofModalView(task: task, proof: viewModel.lastSuccessShareProof ?? proof, onShare: { visibility, description, proofInputType, textProof in
-                        Task {
-                            await viewModel.shareProof(
-                                visibility: visibility,
-                                description: description,
-                                task: task,
-                                proof: viewModel.lastSuccessShareProof ?? proof,
-                                proofInputType: proofInputType,
-                                textProof: textProof
-                            )
-                            showShareModal = false
-                            if visibility == "Friends" || visibility == "Close Friends" {
-                                await MainActor.run {
-                                    viewModel.currentTaskState = .successDone
-                                }
-                            }
-                        }
-                    }, closeFriendsCount: viewModel.closeFriendsCount)
-                    .presentationDetents([.fraction(0.65), .large])
+                    if let todayTask = viewModel.todayTask {
+                        // Reload the post if needed when the sheet appears
+                        ShareProofModalSheetLoader(viewModel: viewModel, todayTask: todayTask, proof: viewModel.lastSuccessShareProof ?? proof)
+                    }
                 }
 
             case .successDone:
@@ -869,4 +854,57 @@ private func nextTaskMessage(for date: Date) -> String {
         onShowMotivationStep: { },
         viewModel: HabitViewModel()
     )
+}
+
+// Loader view to ensure post is loaded before showing ShareProofModalView
+struct ShareProofModalSheetLoader: View {
+    @ObservedObject var viewModel: HabitViewModel
+    let todayTask: TaskEntry
+    let proof: HabitProofState
+    @State private var didLoad = false
+
+    var body: some View {
+        Group {
+            if viewModel.lastCreatedPost != nil || viewModel.autoCreatedPostId == nil {
+                ShareProofModalView(
+                    task: todayTask,
+                    proof: proof,
+                    post: viewModel.lastCreatedPost,
+                    freshProofUrl: viewModel.freshProofUrl, // pass freshProofUrl
+                    onShare: { visibility, description, proofInputType, textProof in
+                        Task {
+                            await viewModel.shareProof(
+                                visibility: visibility,
+                                description: description,
+                                task: HabitTaskDetails(
+                                    description: todayTask.taskDescription ?? "",
+                                    easierAlternative: todayTask.easierAlternative,
+                                    harderAlternative: todayTask.harderAlternative,
+                                    motivation: viewModel.todayMotivation?.level ?? "",
+                                    ability: viewModel.todayAbility?.level ?? "",
+                                    timeLeft: nil
+                                ),
+                                proof: proof,
+                                proofInputType: proofInputType,
+                                textProof: textProof
+                            )
+                        }
+                    },
+                    closeFriendsCount: viewModel.closeFriendsCount
+                )
+                .presentationDetents([.large])
+                .task(id: todayTask.id) {
+                    await viewModel.fetchFreshProofUrl()
+                }
+            } else {
+                ProgressView("Loading proof...")
+                    .task {
+                        if !didLoad {
+                            didLoad = true
+                            await viewModel.reloadLastCreatedPost()
+                        }
+                    }
+            }
+        }
+    }
 }

@@ -12,6 +12,8 @@ public class HabitViewModel: ObservableObject {
     @Published var todayAbility: AbilityEntryResponse? = nil
     @Published var userPlan: String = "free" // Add this line
     @Published var autoCreatedPostId: Int? = nil
+    @Published var lastCreatedPost: Post? = nil
+    @Published var freshProofUrl: String? = nil
 
     // --- Add for proof feedback/reasoning ---
     @Published var lastValidationResult: TaskValidationResult? = nil
@@ -1040,6 +1042,9 @@ public class HabitViewModel: ObservableObject {
                     autoCreatedPostId: autoCreatedPostId
                 )
                 autoCreatedPostId = post.id
+                await MainActor.run {
+                    self.lastCreatedPost = post
+                }
             }
             if shouldIncreaseStreak, let habit = selectedHabit {
                 let newStreak = habit.streak + 1
@@ -1083,6 +1088,9 @@ public class HabitViewModel: ObservableObject {
                 autoCreatedPostId: autoCreatedPostId
             )
             autoCreatedPostId = post.id
+            await MainActor.run {
+                self.lastCreatedPost = post
+            }
         } catch {
             print("[HabitViewModel] Failed to create private post: \(error)")
         }
@@ -1285,6 +1293,35 @@ public class HabitViewModel: ObservableObject {
             self.proofState = .notStarted
             self.lastValidationResult = nil
             self.updateTaskState()
+        }
+    }
+
+    /// Reload the last created post from backend (for share modal after relaunch)
+    public func reloadLastCreatedPost() async {
+        guard let postId = autoCreatedPostId else { return }
+        do {
+            let post = try await PostService.shared.fetchPost(by: postId)
+            await MainActor.run {
+                self.lastCreatedPost = post
+            }
+        } catch {
+            print("[HabitViewModel] Failed to reload post: \(error)")
+        }
+    }
+
+    /// Fetch a fresh SAS URL for the proof image for the current task (todayTask)
+    func fetchFreshProofUrl() async {
+        guard let taskId = todayTask?.id else { return }
+        do {
+            let url = try await apiService.getFreshProofUrl(taskId: taskId)
+            await MainActor.run {
+                self.freshProofUrl = url
+            }
+        } catch {
+            print("[HabitViewModel] Failed to fetch fresh proof URL: \(error.localizedDescription)")
+            await MainActor.run {
+                self.freshProofUrl = nil
+            }
         }
     }
 }

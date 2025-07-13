@@ -2,14 +2,24 @@ import SwiftUI
 import Kingfisher
 
 struct ShareProofModalView: View {
-    let task: HabitTaskDetails
+    let task: TaskEntry
     let proof: HabitProofState
+    let post: Post?
+    let freshProofUrl: String? // new parameter
     let onShare: (String, String, ProofInputType, String?) -> Void
     let closeFriendsCount: Int
     @State private var description: String = ""
     @State private var selectedVisibility: String = "Friends"
     @State private var proofInputType: ProofInputType = .photo
     @State private var textProof: String? = nil
+    @State private var lastDebuggedUrl: String? = nil // Track last printed URL
+
+    private func debugPrintOnce(for urlString: String, label: String) {
+        if lastDebuggedUrl != urlString {
+            print("[DEBUG] ShareProofModalView: \(label) \(urlString)")
+            lastDebuggedUrl = urlString
+        }
+    }
 
     var body: some View {
         VStack(spacing: 20) {
@@ -18,7 +28,7 @@ struct ShareProofModalView: View {
                 .padding(.top, 8)
 
             OutlinedBox {
-                Text(task.description)
+                Text(task.taskDescription ?? "No description")
                     .font(.headline)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
@@ -31,6 +41,8 @@ struct ShareProofModalView: View {
                 .cornerRadius(8)
 
             Text("Who can see this?")
+                .frame(maxWidth: .infinity, alignment: .leading)
+
             HStack(spacing: 12) {
                 Button(action: { selectedVisibility = "Friends" }) {
                     Text("Friends")
@@ -63,42 +75,94 @@ struct ShareProofModalView: View {
 
     @ViewBuilder
     private var proofPreview: some View {
-        switch proof {
-        case .readyToSubmit(let proofData):
-            switch proofData {
-            case .image(let data):
-                if let uiImage = UIImage(data: data) {
+        // Prefer freshProofUrl if available
+        if let urlString = freshProofUrl, let url = URL(string: urlString), !urlString.isEmpty {
+            VStack {
+                KFImage.url(url)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(maxHeight: .infinity)
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .shadow(radius: 8)
+                    .padding(.vertical, 8)
+                    .onAppear {
+                        debugPrintOnce(for: urlString, label: "Using freshProofUrl for image preview:")
+                    }
+                Text("Image preview")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+        } else if let urlString = post?.proofUrls.first, let url = URL(string: urlString), !urlString.isEmpty {
+            VStack {
+                KFImage.url(url)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(maxHeight: .infinity)
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .shadow(radius: 8)
+                    .padding(.vertical, 8)
+                    .onAppear {
+                        debugPrintOnce(for: urlString, label: "Using post.proofUrls[0] for image preview:")
+                    }
+                Text("Image preview")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+        } else if let type = task.proofType?.lowercased(), (type == "photo" || type == "image"),
+                  let urlString = task.proofContent, let url = URL(string: urlString), !urlString.isEmpty {
+            VStack {
+                KFImage.url(url)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(maxHeight: .infinity)
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .shadow(radius: 8)
+                    .padding(.vertical, 8)
+                    .onAppear {
+                        debugPrintOnce(for: urlString, label: "Using task.proofContent for image preview:")
+                    }
+                Text("Image preview (from task)")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+        } else if case let .readyToSubmit(.image(imageData)) = proof {
+            if let uiImage = UIImage(data: imageData) {
+                VStack {
                     Image(uiImage: uiImage)
                         .resizable()
-                        .scaledToFit()
-                        .frame(height: 180)
-                        .clipShape(RoundedRectangle(cornerRadius: 10))
-                } else {
-                    Text("Image proof ready to submit!")
+                        .aspectRatio(contentMode: .fit)
+                        .frame(maxWidth: 220, maxHeight: 220)
+                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        .shadow(radius: 8)
+                        .padding(.vertical, 8)
+                        .onAppear {
+                            debugPrintOnce(for: "local-image", label: "Using local image data for image preview")
+                        }
+                    Text("Image preview (local)")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
                 }
-            case .video(let data):
-                Text("Video proof attached (\(data.count) bytes)")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-            case .audio(let data):
-                Text("Audio proof attached (\(data.count) bytes)")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-            case .text(let text):
-                Text(text)
-                    .font(.body)
-                    .padding()
-                    .background(Color(.systemGray6))
-                    .cornerRadius(8)
+            } else {
+                Text("Could not load image preview.")
+                    .foregroundColor(.red)
             }
-        case .submitted:
-            Text("Proof submitted!")
-        case .error(let message):
-            OutlinedBox {
-                Text(message).foregroundColor(.red)
-            }
-        default:
+        } else {
             Text("No proof preview available.")
+                .foregroundColor(.secondary)
+        }
+    }
+}
+
+// Helper extension for proof type check
+extension HabitProofState {
+    var isImageOrPhoto: Bool {
+        switch self {
+        case .readyToSubmit(let proofData):
+            if case .image = proofData { return true }
+            return false
+        default:
+            // For .submitted, we assume if the task.proofContent is set and proofType is photo
+            return true
         }
     }
 }

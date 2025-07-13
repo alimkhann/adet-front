@@ -236,6 +236,17 @@ actor APIService {
         )
     }
 
+    /// Fetch a fresh SAS URL for a proof image for a given task_id
+    func getFreshProofUrl(taskId: Int) async throws -> String {
+        struct ProofUrlResponse: Codable { let url: String }
+        let response: ProofUrlResponse = try await networkService.makeAuthenticatedRequest(
+            endpoint: "/api/v1/habits/tasks/\(taskId)/proof-url",
+            method: "GET",
+            body: (nil as String?)
+        )
+        return response.url
+    }
+
     // NOTE: The response for submitTaskProof and submitTaskProofWithFile must match TaskSubmissionResponse (with TaskEntry as 'task')
     func submitTaskProof(taskId: Int, proofData: TaskProofSubmissionData) async throws -> TaskSubmissionResponse {
         return try await networkService.makeAuthenticatedRequest(

@@ -652,6 +652,27 @@ class PostService: ObservableObject {
             throw NetworkError.requestFailed(statusCode: httpResponse.statusCode, body: nil)
         }
     }
+
+    // MARK: - Fetch Single Post by ID
+    func fetchPost(by id: Int) async throws -> Post {
+        let url = URL(string: "\(baseURL)/posts/\(id)")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        if let token = await AuthService.shared.getValidToken() {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        let (data, response) = try await session.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw NetworkError.requestFailed(statusCode: 0, body: "Invalid response")
+        }
+        guard httpResponse.statusCode == 200 else {
+            if let errorData = try? JSONDecoder().decode(APIError.self, from: data) {
+                throw NetworkError.requestFailed(statusCode: httpResponse.statusCode, body: errorData.detail)
+            }
+            throw NetworkError.requestFailed(statusCode: httpResponse.statusCode, body: nil)
+        }
+        return try JSONDecoder().decode(Post.self, from: data)
+    }
 }
 
 // MARK: - Request/Response Models
