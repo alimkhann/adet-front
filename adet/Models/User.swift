@@ -1,6 +1,5 @@
 import Foundation
 
-// Represents user data decoded from the backend API
 struct User: Codable, Identifiable {
     let id: Int
     let clerkId: String
@@ -26,5 +25,17 @@ struct User: Codable, Identifiable {
         case createdAt = "created_at"
         case updatedAt = "updated_at"
         case plan
+    }
+}
+
+extension User {
+    var asUserBasic: UserBasic {
+        UserBasic(
+            id: self.id,
+            username: self.username,
+            name: self.name,
+            bio: self.bio,
+            profileImageUrl: self.profileImageUrl
+        )
     }
 }

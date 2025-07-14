@@ -197,8 +197,8 @@ struct PostComment: Identifiable, Codable {
     let postId: Int
     let userId: Int
     let content: String
-    let createdAt: Date
-    let updatedAt: Date?
+    let createdAt: String
+    let updatedAt: String?
 
     // User info
     let user: UserBasic

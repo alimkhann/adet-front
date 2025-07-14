@@ -3,9 +3,15 @@ import SwiftUI
 struct FeedView: View {
     @EnvironmentObject var postsViewModel: PostsViewModel
     @State private var refreshTrigger = false
+    @State private var showCommentsSheet = false
+    @State private var selectedPost: Post? = nil
+    @EnvironmentObject var currentUser: AuthViewModel
+    @State private var selectedUserId: Int? = nil
+    @State private var showProfile: Bool = false
+    @StateObject private var commentsViewModel = CommentsViewModel()
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ZStack {
                 if postsViewModel.isLoading && postsViewModel.posts.isEmpty {
                     loadingView
@@ -36,6 +42,32 @@ struct FeedView: View {
                     Text(errorMessage)
                 }
             }
+            // --- Comments Sheet ---
+            .sheet(item: $selectedPost) { post in
+                CommentsSheetView(
+                    viewModel: commentsViewModel,
+                    postId: post.id,
+                    currentUser: currentUser.user!.asUserBasic,
+                    isPresented: Binding(
+                        get: { selectedPost != nil },
+                        set: { if !$0 { selectedPost = nil } }
+                    ),
+                    onUserTap: { user in
+                        // Dismiss comments sheet before navigating
+                        selectedPost = nil
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                            showUserProfile(for: user)
+                        }
+                    }
+                )
+                .presentationDetents([.medium, .large])
+            }
+            .navigationDestination(isPresented: $showProfile) {
+                ProfileView()
+            }
+            .navigationDestination(item: $selectedUserId) { userId in
+                OtherUserProfileView(userId: userId)
+            }
         }
     }
 
@@ -50,7 +82,13 @@ struct FeedView: View {
                         onLike: {
                             Task { await toggleLike(for: post) }
                         },
-                        onComment: { showComments(for: post) },
+                        onComment: {
+                            print("Opening comments for post id: \(post.id)")
+                            selectedPost = post
+                            DispatchQueue.main.async {
+                                showCommentsSheet = true
+                            }
+                        },
                         onView: {
                             Task { await postsViewModel.markAsViewed(postId: post.id) }
                         },
@@ -131,8 +169,10 @@ struct FeedView: View {
     }
 
     private func showComments(for post: Post) {
-        // TODO: Navigate to comments view
-        print("Show comments for post \(post.id)")
+        selectedPost = post
+        DispatchQueue.main.async {
+            showCommentsSheet = true
+        }
     }
 
     private func sharePost(_ post: Post) {
@@ -141,8 +181,11 @@ struct FeedView: View {
     }
 
     private func showUserProfile(for user: UserBasic) {
-        // TODO: Navigate to user profile view
-        print("Show user profile for user \(user.id)")
+        if user.id == currentUser.user?.id {
+            showProfile = true
+        } else {
+            selectedUserId = user.id
+        }
     }
 }
 

@@ -410,7 +410,7 @@ class PostService: ObservableObject {
     // MARK: - Create Comment (updated)
 
     func createComment(_ commentData: PostCommentCreate) async throws -> CommentActionResponse {
-        let url = URL(string: "\(baseURL)/posts/\(commentData.postId)/comments")!
+        let url = URL(string: "\(baseURL)/posts/comments")!
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -428,7 +428,8 @@ class PostService: ObservableObject {
             throw NetworkError.requestFailed(statusCode: 0, body: "Invalid response")
         }
 
-        guard httpResponse.statusCode == 201 else {
+        // Backend returns 200 OK, not 201
+        guard httpResponse.statusCode == 200 else {
             if let errorData = try? JSONDecoder().decode(APIError.self, from: data) {
                 throw NetworkError.requestFailed(statusCode: httpResponse.statusCode, body: errorData.detail)
             }
@@ -441,7 +442,7 @@ class PostService: ObservableObject {
     // MARK: - Toggle Comment Like
 
     func toggleCommentLike(commentId: Int) async throws -> LikeActionResponse {
-        let url = URL(string: "\(baseURL)/comments/\(commentId)/like")!
+        let url = URL(string: "\(baseURL)/posts/comments/\(commentId)/like")!
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -464,6 +465,40 @@ class PostService: ObservableObject {
         }
 
         return try JSONDecoder().decode(LikeActionResponse.self, from: data)
+    }
+
+    func deleteComment(commentId: Int) async throws -> Bool {
+        let url = URL(string: "\(baseURL)/posts/comments/\(commentId)")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "DELETE"
+        if let token = await AuthService.shared.getValidToken() {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        let (_, response) = try await session.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse else { return false }
+        return httpResponse.statusCode == 200
+    }
+
+    func reportComment(commentId: Int, reason: String, description: String? = nil) async throws -> Bool {
+        let url = URL(string: "\(baseURL)/posts/comments/\(commentId)/report")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        if let token = await AuthService.shared.getValidToken() {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        let body: [String: Any] = [
+            "reason": reason,
+            "description": description ?? ""
+        ]
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        let (_, response) = try await session.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse else { return false }
+        if httpResponse.statusCode == 200 {
+            return true
+        }
+        // Optionally parse error message from data
+        return false
     }
 
     // MARK: - Get User Posts
