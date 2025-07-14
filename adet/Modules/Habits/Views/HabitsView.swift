@@ -108,7 +108,7 @@ struct HabitsView: View {
             }
             // Habit Details Navigation
             .navigationDestination(isPresented: $showingHabitDetails) {
-                let isDevMode = true
+                let isDevMode = false
 
                 if let habit = editingHabit {
                     HabitDetailsView(

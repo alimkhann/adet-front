@@ -56,30 +56,26 @@ struct PostCardView: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
 
-            // Media content
-            if post.isMediaPost {
-                // Debug print
-                let _ = print("PostCardView proofUrls:", post.proofUrls)
-                PostMediaView(
-                    urls: post.proofUrls,
-                    type: post.proofType,
-                    aspectRatio: $imageAspectRatio
-                )
-                .onAppear {
-                    if !post.isViewedByCurrentUser {
-                        onView()
-                    }
+            // Media or text proof content
+            switch post.proofType {
+            case .text:
+                OutlinedBox {
+                    Text(post.proofContent ?? "")
+                        .font(.body)
                 }
-            } else {
-                // Text and Audio posts
-                PostContentView(post: post)
-                    .padding(.horizontal, 16)
-                    .padding(.top, 8)
-                    .onAppear {
-                        if !post.isViewedByCurrentUser {
-                            onView()
-                        }
-                    }
+                .padding(.horizontal, 16)
+                .padding(.top, 8)
+            case .image:
+                if let urlStr = post.proofUrls.first,
+                   let url = URL(string: urlStr) {
+                    KFImage(url)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(maxHeight: .infinity)
+                        .clipped()
+                }
+            default:
+                EmptyView()
             }
 
             // Interaction buttons

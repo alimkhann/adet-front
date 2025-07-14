@@ -72,7 +72,9 @@ struct SubmitProofModalView: View {
                     Spacer()
                 }
                 proofInputSection.disabled(false)
-                proofPreviewSection
+                if proofType != .text {
+                    proofPreviewSection
+                }
                 Spacer()
                 Button(action: submitProof) {
                     Text("Submit Proof")
@@ -235,15 +237,97 @@ struct SubmitProofModalView: View {
             VStack(alignment: .leading) {
                 Text("Enter your proof:")
                 TextEditor(text: $textProof)
-                    .frame(height: 80)
+                    .frame(maxHeight: .infinity)
                     .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.gray.opacity(0.4)))
                     .onChange(of: textProof) { oldValue, newValue in
-                        if !newValue.isEmpty {
-                            proofState = .readyToSubmit(.text(newValue))
-                        }
+                        proofState = newValue.isEmpty ? .notStarted : .readyToSubmit(.text(newValue))
                     }
             }
         }
+    }
+
+    // MARK: - Helpers (moved out of ViewBuilder)
+    /// Whether we have valid proof data ready to submit
+    private var isProofReady: Bool {
+        switch proofType {
+        case .photo:
+            if case let .readyToSubmit(proofData) = proofState, case .image = proofData { return true }
+            return false
+        case .video:
+            if case let .readyToSubmit(proofData) = proofState, case .video = proofData { return true }
+            return false
+        case .audio:
+            if case let .readyToSubmit(proofData) = proofState, case .audio = proofData { return true }
+            return false
+        case .text:
+            if case let .readyToSubmit(proofData) = proofState, case .text = proofData { return true }
+            return false
+        }
+    }
+
+    /// Called when the "Submit Proof" button is tapped
+    private func submitProof() {
+        switch proofType {
+        case .photo:
+            guard let data = previewImage?.jpegData(compressionQuality: 0.9) else {
+                ToastManager.shared.showError("No photo selected."); return
+            }
+            onSubmit(.photo, data, nil)
+            ToastManager.shared.showSuccess("Photo proof submitted!")
+        case .video:
+            guard let url = videoURL, let data = try? Data(contentsOf: url) else {
+                ToastManager.shared.showError("No video selected."); return
+            }
+            onSubmit(.video, data, nil)
+            ToastManager.shared.showSuccess("Video proof submitted!")
+        case .audio:
+            guard let url = audioURL, let data = try? Data(contentsOf: url) else {
+                ToastManager.shared.showError("No audio selected."); return
+            }
+            onSubmit(.audio, data, nil)
+            ToastManager.shared.showSuccess("Audio proof submitted!")
+        case .text:
+            guard !textProof.isEmpty else {
+                ToastManager.shared.showError("No text entered."); return
+            }
+            onSubmit(.text, nil, textProof)
+            ToastManager.shared.showSuccess("Text proof submitted!")
+        }
+    }
+
+    /// Audio recording helpers
+    private func startAudioRecording() {
+        let session = AVAudioSession.sharedInstance()
+        do {
+            try session.setCategory(.playAndRecord, mode: .default)
+            try session.setActive(true)
+            let fileURL = FileManager.default.temporaryDirectory
+                .appendingPathComponent(UUID().uuidString + ".m4a")
+            let settings: [String: Any] = [
+                AVFormatIDKey: Int(kAudioFormatMPEG4AAC),
+                AVSampleRateKey: 44100,
+                AVNumberOfChannelsKey: 1,
+                AVEncoderAudioQualityKey: AVAudioQuality.high.rawValue
+            ]
+            audioRecorder = try AVAudioRecorder(url: fileURL, settings: settings)
+            audioRecorder?.record()
+            audioFileURL = fileURL
+            isRecordingAudio = true
+            ToastManager.shared.showSuccess("Recording started")
+        } catch {
+            ToastManager.shared.showError("Failed to start recording: \(error.localizedDescription)")
+        }
+    }
+
+    private func stopAudioRecording() {
+        audioRecorder?.stop()
+        isRecordingAudio = false
+        guard let url = audioFileURL, let data = try? Data(contentsOf: url) else {
+            ToastManager.shared.showError("Failed to save audio recording."); return
+        }
+        audioURL = url
+        proofState = .readyToSubmit(.audio(data))
+        ToastManager.shared.showSuccess("Audio recorded!")
     }
 
     @ViewBuilder
@@ -262,19 +346,16 @@ struct SubmitProofModalView: View {
                         .stroke(style: StrokeStyle(lineWidth: 2, dash: [8]))
                         .foregroundColor(.gray.opacity(0.5))
                         .frame(maxHeight: .infinity)
-
                     VStack {
                         Image(systemName: "photo.on.rectangle.angled")
                             .font(.system(size: 40))
                             .foregroundColor(.gray)
-
                         Text("Add a photo as proof")
                             .font(.subheadline)
                             .foregroundColor(.gray)
                     }
                 }
             }
-
         case .video:
             if let url = videoURL {
                 Text("Selected: \(url.lastPathComponent)")
@@ -314,106 +395,7 @@ struct SubmitProofModalView: View {
                 }
             }
         case .text:
-            if !textProof.isEmpty {
-                Text("Text: \(textProof)")
-            } else {
-                Text("Enter your proof above.")
-                    .foregroundColor(.gray)
-            }
-        }
-    }
-
-    private var isProofReady: Bool {
-        switch proofType {
-        case .photo:
-            if case let .readyToSubmit(proofData) = proofState, case .image = proofData { return true }
-            return false
-        case .video:
-            if case let .readyToSubmit(proofData) = proofState, case .video = proofData { return true }
-            return false
-        case .audio:
-            if case let .readyToSubmit(proofData) = proofState, case .audio = proofData { return true }
-            return false
-        case .text:
-            if case let .readyToSubmit(proofData) = proofState, case .text = proofData { return true }
-            return false
-        }
-    }
-
-    private func submitProof() {
-        switch proofType {
-        case .photo:
-            if let data = previewImage?.jpegData(compressionQuality: 0.9) {
-                onSubmit(.photo, data, nil)
-                ToastManager.shared.showSuccess("Photo proof submitted!")
-            } else {
-                ToastManager.shared.showError("No photo selected.")
-            }
-
-        case .video:
-            if let url = videoURL, let data = try? Data(contentsOf: url) {
-                onSubmit(.video, data, nil)
-                ToastManager.shared.showSuccess("Video proof submitted!")
-            } else {
-                ToastManager.shared.showError("No video selected.")
-            }
-
-        case .audio:
-            if let url = audioURL, let data = try? Data(contentsOf: url) {
-                onSubmit(.audio, data, nil)
-                ToastManager.shared.showSuccess("Audio proof submitted!")
-            } else {
-                ToastManager.shared.showError("No audio selected.")
-            }
-
-        case .text:
-            if !textProof.isEmpty {
-                onSubmit(.text, nil, textProof)
-                ToastManager.shared.showSuccess("Text proof submitted!")
-            } else {
-                ToastManager.shared.showError("No text entered.")
-            }
-        }
-    }
-
-    // MARK: - Audio Recording
-    private func startAudioRecording() {
-        let session = AVAudioSession.sharedInstance()
-        do {
-            try session.setCategory(.playAndRecord, mode: .default)
-            try session.setActive(true)
-            let tempDir = FileManager.default.temporaryDirectory
-            let fileURL = tempDir.appendingPathComponent(UUID().uuidString + ".m4a")
-            let settings: [String: Any] = [
-                AVFormatIDKey: Int(kAudioFormatMPEG4AAC),
-                AVSampleRateKey: 44100,
-                AVNumberOfChannelsKey: 1,
-                AVEncoderAudioQualityKey: AVAudioQuality.high.rawValue
-            ]
-            audioRecorder = try AVAudioRecorder(url: fileURL, settings: settings)
-            audioRecorder?.record()
-            audioFileURL = fileURL
-            isRecordingAudio = true
-            ToastManager.shared.showSuccess("Recording started")
-        } catch {
-            print("Failed to start audio recording: \(error)")
-            ToastManager.shared.showError("Failed to start audio recording: \(error.localizedDescription)")
-        }
-    }
-
-    private func stopAudioRecording() {
-        audioRecorder?.stop()
-        isRecordingAudio = false
-        if let url = audioFileURL {
-            audioURL = url
-            if let data = try? Data(contentsOf: url) {
-                proofState = .readyToSubmit(.audio(data))
-                ToastManager.shared.showSuccess("Audio recorded!")
-            } else {
-                ToastManager.shared.showError("Failed to save audio recording.")
-            }
-        } else {
-            ToastManager.shared.showError("No audio file found.")
+            EmptyView()
         }
     }
 }

@@ -863,6 +863,7 @@ public class HabitViewModel: ObservableObject {
             switch type {
             case .photo:
                 guard let imageData = data else { throw NSError(domain: "No photo data", code: 0) }
+                _ = TaskProofSubmissionData(proof_type: "photo", proof_content: "photo")
                 response = try await apiService.submitTaskProofWithFile(
                     taskId: task.id,
                     proofType: "photo",
@@ -873,6 +874,7 @@ public class HabitViewModel: ObservableObject {
                 )
             case .video:
                 guard let videoData = data else { throw NSError(domain: "No video data", code: 0) }
+                _ = TaskProofSubmissionData(proof_type: "video", proof_content: "video")
                 response = try await apiService.submitTaskProofWithFile(
                     taskId: task.id,
                     proofType: "video",
@@ -883,6 +885,7 @@ public class HabitViewModel: ObservableObject {
                 )
             case .audio:
                 guard let audioData = data else { throw NSError(domain: "No audio data", code: 0) }
+                _ = TaskProofSubmissionData(proof_type: "audio", proof_content: "audio")
                 response = try await apiService.submitTaskProofWithFile(
                     taskId: task.id,
                     proofType: "audio",
@@ -893,6 +896,7 @@ public class HabitViewModel: ObservableObject {
                 )
             case .text:
                 guard let textProof = text else { throw NSError(domain: "No text proof", code: 0) }
+                print("[DEBUG] Submitting text proof: \(textProof)")
                 let proofData = TaskProofSubmissionData(proof_type: "text", proof_content: textProof)
                 response = try await apiService.submitTaskProof(taskId: task.id, proofData: proofData)
             }
@@ -1052,6 +1056,21 @@ public class HabitViewModel: ObservableObject {
         let shouldIncreaseStreak = (visibility == "Friends" || visibility == "Close Friends")
         do {
             let habitId = selectedHabit?.id
+            // Extract text proof if this HabitProofState contains text
+            var proofInput: ProofInputType? = nil
+            var actualTextProof: String? = nil
+            switch proof {
+            case .readyToSubmit(.text(let content)):
+                proofInput = .text
+                actualTextProof = content
+            case .submitted where todayTask?.proofContent != nil:
+                proofInput = .text
+                actualTextProof = todayTask?.proofContent
+            default:
+                proofInput = proofInputType
+                actualTextProof = textProof
+            }
+            print("[DEBUG] shareProof with proofInputType=\(String(describing: proofInput)), textProof=\(String(describing: actualTextProof))")
             if autoCreatedPostId == nil {
                 let post = try await apiService.createPost(
                     taskDescription: task.description,
@@ -1059,8 +1078,8 @@ public class HabitViewModel: ObservableObject {
                     description: description,
                     visibility: visibility,
                     habitId: habitId,
-                    proofInputType: proofInputType,
-                    textProof: textProof,
+                    proofInputType: proofInput,
+                    textProof: actualTextProof,
                     todayTask: todayTask,
                     autoCreatedPostId: autoCreatedPostId
                 )
@@ -1095,9 +1114,23 @@ public class HabitViewModel: ObservableObject {
         }
     }
 
-    private func createPrivatePostForSuccessShare(task: HabitTaskDetails, proof: HabitProofState, proofInputType: ProofInputType? = nil, textProof: String? = nil) async {
+    private func createPrivatePostForSuccessShare(task: HabitTaskDetails, proof: HabitProofState) async {
         if autoCreatedPostId != nil { return }
         let habitId = selectedHabit?.id
+        // Extract text proof if this HabitProofState contains text
+        var proofInput: ProofInputType? = nil
+        var actualTextProof: String? = nil
+        switch proof {
+        case .readyToSubmit(.text(let content)):
+            proofInput = .text
+            actualTextProof = content
+        case .submitted where todayTask?.proofContent != nil:
+            proofInput = .text
+            actualTextProof = todayTask?.proofContent
+        default:
+            break
+        }
+        print("[DEBUG] auto-post with proofInputType=\(String(describing: proofInput)), textProof=\(String(describing: actualTextProof))")
         do {
             let post = try await apiService.createPost(
                 taskDescription: task.description,
@@ -1105,8 +1138,8 @@ public class HabitViewModel: ObservableObject {
                 description: "",
                 visibility: "Private",
                 habitId: habitId,
-                proofInputType: proofInputType,
-                textProof: textProof,
+                proofInputType: proofInput,
+                textProof: actualTextProof,
                 todayTask: todayTask,
                 autoCreatedPostId: autoCreatedPostId
             )

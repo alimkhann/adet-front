@@ -327,39 +327,36 @@ actor APIService {
 
         var proofType: ProofType = .image
         var proofUrls: [String] = []
-        var postDescription = description
+        var proofContent: String? = nil
         if let inputType = proofInputType {
             switch inputType {
             case .text:
                 proofType = .text
-                postDescription = textProof ?? description
                 proofUrls = []
+                proofContent = textProof ?? todayTask?.proofContent ?? ""
+                print("[DEBUG] createPost: proofType .text, proofContent=\(String(describing: proofContent))")
             default:
-                proofType = .image // or .video/.audio if you support them
-                if let url = todayTask?.proofContent, !url.isEmpty {
-                    proofUrls = [url]
-                }
-            }
-        } else {
-            // fallback: use todayTask proofContent if available
-            if let url = todayTask?.proofContent, !url.isEmpty {
-                proofUrls = [url]
+                proofType = .image
+                proofUrls = [todayTask?.proofContent].compactMap { $0 }
+                proofContent = nil
+                print("[DEBUG] createPost: proofType .image, proofUrls=\(proofUrls)")
             }
         }
+        print("[DEBUG] Final createPost values: proofType=\(proofType), proofUrls=\(proofUrls), proofContent=\(String(describing: proofContent))")
 
-        // Always provide assigned_date if available, fallback to today
         let assignedDate: String = todayTask?.assignedDate ?? DateFormatter.yyyyMMdd.string(from: Date())
 
         let postCreate = PostCreate(
             habitId: habitId,
             proofUrls: proofUrls,
             proofType: proofType,
-            description: postDescription,
+            proofContent: proofContent,
+            description: description,
             privacy: privacy,
-            assignedDate: assignedDate // now always non-nil
+            assignedDate: assignedDate
         )
 
-        let url = URL(string: "\(APIConfig.apiBaseURL)/posts")!
+        let url = URL(string: "\(APIConfig.apiBaseURL)/posts/")! // Trailing slash to avoid 307 redirect
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -370,6 +367,7 @@ actor APIService {
         encoder.outputFormatting = .prettyPrinted
         let jsonData = try encoder.encode(postCreate)
         print("[DEBUG] PostCreate JSON body:\n" + (String(data: jsonData, encoding: .utf8) ?? "<invalid json>"))
+        print("[DEBUG] PostCreate request headers: \(request.allHTTPHeaderFields ?? [:])")
         request.httpBody = jsonData
 
         let (data, response) = try await URLSession.shared.data(for: request)

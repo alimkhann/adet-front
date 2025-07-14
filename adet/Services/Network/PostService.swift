@@ -17,7 +17,7 @@ class PostService: ObservableObject {
         description: String,
         privacy: PostPrivacy
     ) async throws -> Post {
-        let url = URL(string: "\(baseURL)/posts")!
+        let url = URL(string: "\(baseURL)/posts/")! // Trailing slash to avoid 307 redirect
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -197,7 +197,7 @@ class PostService: ObservableObject {
     // MARK: - Create Post (updated)
 
     func createPost(_ postData: PostCreate) async throws -> PostActionResponse {
-        let url = URL(string: "\(baseURL)/posts")!
+        let url = URL(string: "\(baseURL)/posts/")! // Trailing slash to avoid 307 redirect
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -206,7 +206,7 @@ class PostService: ObservableObject {
         if let token = await AuthService.shared.getValidToken() {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
-
+        print("[DEBUG] PostCreate request headers: \(request.allHTTPHeaderFields ?? [:])")
         request.httpBody = try JSONEncoder().encode(postData)
 
         let (data, response) = try await session.data(for: request)

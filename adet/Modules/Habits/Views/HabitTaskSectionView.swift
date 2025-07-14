@@ -324,7 +324,17 @@ struct HabitTaskSectionView: View {
                         proofState: $viewModel.proofState,
                         instruction: viewModel.todayTask?.proofRequirements ?? "",
                         validationTime: viewModel.selectedHabit.map { viewModel.parseValidationTime($0.validationTime) } ?? Date(),
-                        proofType: proofInputType(from: viewModel.todayTask?.proofRequirements ?? "photo"),
+                        proofType: {
+                            if let typeString = viewModel.todayTask?.proofType?.lowercased(),
+                               let type = ProofInputType(rawValue: typeString.capitalized) {
+                                return type
+                            } else if let habitProofStyle = viewModel.selectedHabit?.proofStyle.lowercased(),
+                                      let type = ProofInputType(rawValue: habitProofStyle.capitalized) {
+                                return type
+                            } else {
+                                return .photo
+                            }
+                        }(),
                         onSubmit: { type, data, text in
                             Task {
                                 await viewModel.submitProof(type: type, data: data, text: text)
@@ -340,6 +350,10 @@ struct HabitTaskSectionView: View {
                     }
                     if case .error = viewModel.proofState {
                         showProofModal = false
+                    }
+                    if case .notStarted = viewModel.proofState {
+                        // Ensure proof state is reset and modal uses correct proof type after retry
+                        // No-op here, but ensures state is handled
                     }
                 }
 

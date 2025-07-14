@@ -179,6 +179,7 @@ class PostsViewModel: ObservableObject {
         habitId: Int? = nil,
         proofUrls: [String],
         proofType: ProofType,
+        proofContent: String? = nil,
         description: String?,
         privacy: PostPrivacy,
         assignedDate: String?
@@ -192,6 +193,7 @@ class PostsViewModel: ObservableObject {
             habitId: habitId,
             proofUrls: proofUrls,
             proofType: proofType,
+            proofContent: proofContent,
             description: description,
             privacy: privacy,
             assignedDate: assignedDate

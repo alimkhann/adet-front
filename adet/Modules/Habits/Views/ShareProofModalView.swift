@@ -20,6 +20,11 @@ struct ShareProofModalView: View {
     @State private var errorMessage = ""
     @EnvironmentObject var postsViewModel: PostsViewModel
     @EnvironmentObject var profileViewModel: ProfileViewModel
+    @Environment(\.colorScheme) var colorScheme
+    // --- Add state for latest post ---
+    @State private var latestPost: Post? = nil
+    @State private var isLoadingPost = false
+    @State private var didLoadPost = false
 
     private func debugPrintOnce(for urlString: String, label: String) {
         if lastDebuggedUrl != urlString {
@@ -40,7 +45,88 @@ struct ShareProofModalView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
 
-            proofPreview
+            Group {
+                if isLoadingPost {
+                    ProgressView("Loading latest post...")
+                        .padding()
+                } else {
+                    let displayPost = latestPost ?? post
+                    switch proof {
+                    case .readyToSubmit(let proofData):
+                        switch proofData {
+                        case .text(let text):
+                            OutlinedBox {
+                                ScrollView {
+                                    Text(text)
+                                        .frame(maxHeight: .infinity, alignment: .topLeading)
+                                        .font(.body)
+                                }
+                            }
+                        case .image(let imageData):
+                            if let uiImage = UIImage(data: imageData) {
+                                VStack {
+                                    Image(uiImage: uiImage)
+                                        .resizable()
+                                        .aspectRatio(contentMode: .fit)
+                                        .frame(maxHeight: .infinity)
+                                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                                        .shadow(radius: 8)
+                                        .padding(.vertical, 8)
+                                        .onAppear {
+                                            debugPrintOnce(for: "local-image", label: "Using local image data for image preview")
+                                        }
+                                    Text("Image preview (local)")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+                            } else {
+                                Text("Could not load image preview.")
+                                    .foregroundColor(.red)
+                            }
+                        case .video(_):
+                            Text("Video preview not supported yet.")
+                        case .audio(_):
+                            Text("Audio preview not supported yet.")
+                        }
+                    case .submitted:
+                        if let postType = displayPost?.proofType, postType == .text, let text = displayPost?.proofContent, !text.isEmpty {
+                            ScrollView {
+                                Text(text)
+                                    .font(.body)
+                                    .padding()
+                            }
+                        } else if let urlString = displayPost?.proofUrls.first, let url = URL(string: urlString), !urlString.isEmpty, let postType = displayPost?.proofType, (postType == .image) {
+                            VStack {
+                                KFImage.url(url)
+                                    .resizable()
+                                    .aspectRatio(contentMode: .fit)
+                                    .frame(maxHeight: .infinity)
+                                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                                    .shadow(radius: 8)
+                                    .padding(.vertical, 8)
+                                    .onAppear {
+                                        debugPrintOnce(for: urlString, label: "Using post.proofUrls[0] for image preview:")
+                                    }
+                                Text("Image preview")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                        } else {
+                            Text("No proof preview available.")
+                                .foregroundColor(.secondary)
+                        }
+                    case .notStarted:
+                        EmptyView()
+                    case .uploading:
+                        ProgressView("Uploading proof…")
+                    case .validating:
+                        ProgressView("Validating proof…")
+                    case .error(message: let message):
+                        Text("Error: \(message)")
+                            .foregroundColor(.red)
+                    }
+                }
+            }
 
             TextField("Share your thoughts...", text: $description)
                 .padding()
@@ -95,6 +181,27 @@ struct ShareProofModalView: View {
             }
         }
         .padding()
+        .onAppear {
+            guard !didLoadPost else { return }
+            didLoadPost = true
+            if let post = post, latestPost == nil {
+                isLoadingPost = true
+                Task {
+                    do {
+                        let fetched = try await PostService.shared.fetchPost(by: post.id)
+                        await MainActor.run {
+                            latestPost = fetched
+                            isLoadingPost = false
+                        }
+                    } catch {
+                        print("[ShareProofModalView] Failed to fetch latest post: \(error)")
+                        await MainActor.run {
+                            isLoadingPost = false
+                        }
+                    }
+                }
+            }
+        }
     }
 
     private func sharePost() {

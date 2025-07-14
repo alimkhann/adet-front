@@ -96,6 +96,7 @@ struct Post: Identifiable, Codable, Equatable {
     let habitId: Int?
     let proofUrls: [String]
     let proofType: ProofType
+    var proofContent: String?
     var description: String?
     var privacy: PostPrivacy
     let createdAt: Date
@@ -122,6 +123,7 @@ struct Post: Identifiable, Codable, Equatable {
         case habitId = "habit_id"
         case proofUrls = "proof_urls"
         case proofType = "proof_type"
+        case proofContent = "proof_content"
         case description
         case privacy
         case createdAt = "created_at"
@@ -143,6 +145,7 @@ struct Post: Identifiable, Codable, Equatable {
         habitId = try container.decodeIfPresent(Int.self, forKey: .habitId)
         proofUrls = try container.decode([String].self, forKey: .proofUrls)
         proofType = try container.decode(ProofType.self, forKey: .proofType)
+        proofContent = try container.decodeIfPresent(String.self, forKey: .proofContent)
         description = try container.decodeIfPresent(String.self, forKey: .description)
         privacy = try container.decode(PostPrivacy.self, forKey: .privacy)
         // Decode ISO8601 string to Date
@@ -286,6 +289,7 @@ struct PostCreate: Codable {
     let habitId: Int?
     let proofUrls: [String]
     let proofType: ProofType
+    let proofContent: String?
     let description: String?
     let privacy: PostPrivacy
     let assignedDate: String?
@@ -294,6 +298,7 @@ struct PostCreate: Codable {
         case habitId = "habit_id"
         case proofUrls = "proof_urls"
         case proofType = "proof_type"
+        case proofContent = "proof_content"
         case description
         case privacy
         case assignedDate = "assigned_date"
