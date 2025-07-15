@@ -22,7 +22,7 @@ struct adetApp: App {
             .environmentObject(authManager)
             .environment(\.locale, .init(identifier: appLanguage))
             .task {
-                clerk.configure(publishableKey: "pk_test_dGVuZGVyLWFscGFjYS0xMC5jbGVyay5hY2NvdW50cy5kZXYk")
+                clerk.configure(publishableKey: "pk_live_Y2xlcmsudHJ5YWRldC5jb20k")
                 try? await clerk.load()
             }
         }
