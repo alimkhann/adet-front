@@ -5,6 +5,8 @@ struct TabBarView: View {
     @EnvironmentObject var authViewModel: AuthViewModel
     @State private var selectedTab = 0
     @State private var friendRequestCount = 0
+    @State private var hasLoadedUser = false
+    @State private var hasLoadedFriendRequests = false
     @StateObject private var postsViewModel = PostsViewModel()
     @StateObject private var profileViewModel = ProfileViewModel(authViewModel: AuthViewModel())
     @AppStorage("appLanguage") var appLanguage: String = Locale.current.language.languageCode?.identifier ?? "en"
@@ -60,18 +62,27 @@ struct TabBarView: View {
             UITabBar.appearance().standardAppearance = appearance
             UITabBar.appearance().scrollEdgeAppearance = appearance
             Task { @MainActor in
-                await authViewModel.fetchUser()
-                await updateFriendRequestCount()
+                if !hasLoadedUser {
+                    await authViewModel.fetchUser()
+                    hasLoadedUser = true
+                }
+                if !hasLoadedFriendRequests {
+                    await updateFriendRequestCount()
+                    hasLoadedFriendRequests = true
+                }
             }
-
             profileViewModel.updateAuthViewModel(authViewModel)
         }
         .onChange(of: selectedTab) { _, newValue in
             Task { @MainActor in
-                await authViewModel.fetchUser()
-                // Refresh friend request count when switching tabs
-                if newValue == 1 { // Friends tab
+                if !hasLoadedUser {
+                    await authViewModel.fetchUser()
+                    hasLoadedUser = true
+                }
+                // Refresh friend request count only when switching to Friends tab
+                if newValue == 1 && !hasLoadedFriendRequests {
                     await updateFriendRequestCount()
+                    hasLoadedFriendRequests = true
                 }
             }
         }

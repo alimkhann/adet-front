@@ -27,10 +27,12 @@ struct ShareProofModalView: View {
     @State private var didLoadPost = false
 
     private func debugPrintOnce(for urlString: String, label: String) {
+#if DEBUG
         if lastDebuggedUrl != urlString {
             print("[DEBUG] ShareProofModalView: \(label) \(urlString)")
             lastDebuggedUrl = urlString
         }
+#endif
     }
 
     var body: some View {

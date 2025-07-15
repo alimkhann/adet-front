@@ -1,5 +1,6 @@
 import SwiftUI
 import Clerk
+import SafariServices
 
 struct SettingsView: View {
     @EnvironmentObject var authViewModel: AuthViewModel
@@ -23,6 +24,8 @@ struct SettingsView: View {
     }
     @State private var haptics = true
     @AppStorage("appLanguage") private var language: String = "en"
+    @State private var showSafari = false
+    @State private var safariURL: URL? = nil
 
     var body: some View {
         NavigationStack {
@@ -119,10 +122,16 @@ struct SettingsView: View {
                         Text(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0")
                             .foregroundColor(.secondary)
                     }
-                    NavigationLink(destination: PrivacyPolicyView()) {
+                    Button {
+                        safariURL = URL(string: "https://tryadet.com/privacy-policy")
+                        showSafari = true
+                    } label: {
                         Text("privacy_policy".t(language))
                     }
-                    NavigationLink(destination: TermsOfServiceView()) {
+                    Button {
+                        safariURL = URL(string: "https://tryadet.com/terms-of-service")
+                        showSafari = true
+                    } label: {
                         Text("terms_of_service".t(language))
                     }
                 }
@@ -196,6 +205,11 @@ struct SettingsView: View {
                 Text("are_you_sure_delete_account".t(language))
             }
         }
+        .sheet(isPresented: $showSafari) {
+            if let url = safariURL {
+                SafariView(url: url)
+            }
+        }
     }
 
     private func uploadSelectedImage(_ image: UIImage) async {
@@ -209,4 +223,13 @@ struct SettingsView: View {
         // Clear the selected image
         selectedImage = nil
     }
+}
+
+// Add SafariView for opening URLs
+struct SafariView: UIViewControllerRepresentable {
+    let url: URL
+    func makeUIViewController(context: Context) -> SFSafariViewController {
+        SFSafariViewController(url: url)
+    }
+    func updateUIViewController(_ uiViewController: SFSafariViewController, context: Context) {}
 }

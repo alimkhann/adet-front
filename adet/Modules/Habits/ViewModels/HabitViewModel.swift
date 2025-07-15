@@ -451,10 +451,14 @@ public class HabitViewModel: ObservableObject {
             formatter.dateFormat = "yyyy-MM-dd"
             formatter.timeZone = .current
             let todayString = formatter.string(from: Date())
+#if DEBUG
             print("[DEBUG] Checking shared posts for habit id:", habit.id, "date:", todayString)
+#endif
             do {
                 let sharedPosts = try await PostService.shared.getPostsForHabitAndDate(habitId: habit.id, date: todayString, onlyShared: true)
+#if DEBUG
                 print("[DEBUG] Shared posts found:", sharedPosts)
+#endif
                 if !sharedPosts.isEmpty {
                     await MainActor.run {
                         self.currentTaskState = .successDone
@@ -464,7 +468,9 @@ public class HabitViewModel: ObservableObject {
                     return
                 }
             } catch {
+#if DEBUG
                 print("[HabitViewModel] updateTaskState: Failed to check shared posts: \(error)")
+#endif
             }
         }
 
@@ -480,7 +486,9 @@ public class HabitViewModel: ObservableObject {
             return
         }
         if isSubmittingProof {
+#if DEBUG
             print("[HabitViewModel] updateTaskState: isSubmittingProof, transitioning to .showTask")
+#endif
             currentTaskState = .showTask(task: makeTaskDetails(), proof: proofState)
             return
         }
@@ -896,7 +904,9 @@ public class HabitViewModel: ObservableObject {
                 )
             case .text:
                 guard let textProof = text else { throw NSError(domain: "No text proof", code: 0) }
+#if DEBUG
                 print("[DEBUG] Submitting text proof: \(textProof)")
+#endif
                 let proofData = TaskProofSubmissionData(proof_type: "text", proof_content: textProof)
                 response = try await apiService.submitTaskProof(taskId: task.id, proofData: proofData)
             }
@@ -1070,7 +1080,9 @@ public class HabitViewModel: ObservableObject {
                 proofInput = proofInputType
                 actualTextProof = textProof
             }
+#if DEBUG
             print("[DEBUG] shareProof with proofInputType=\(String(describing: proofInput)), textProof=\(String(describing: actualTextProof))")
+#endif
             if autoCreatedPostId == nil {
                 let post = try await apiService.createPost(
                     taskDescription: task.description,
@@ -1130,7 +1142,9 @@ public class HabitViewModel: ObservableObject {
         default:
             break
         }
+#if DEBUG
         print("[DEBUG] auto-post with proofInputType=\(String(describing: proofInput)), textProof=\(String(describing: actualTextProof))")
+#endif
         do {
             let post = try await apiService.createPost(
                 taskDescription: task.description,
@@ -1332,20 +1346,26 @@ public class HabitViewModel: ObservableObject {
 
     /// Called by the UI when the user taps "Try Again" in the failed state
     public func retryAfterFailure() async {
+#if DEBUG
         print("[HabitViewModel] retryAfterFailure called")
+#endif
         guard let habit = selectedHabit else {
+#if DEBUG
             print("[HabitViewModel] retryAfterFailure: No selected habit")
+#endif
             return
         }
-
+#if DEBUG
         print("[HabitViewModel] retryAfterFailure: Fetching today's task for habit id \(habit.id)")
-
+#endif
         self.isInFailed = false
         self.lastFailedAttemptsLeft = nil
         self.lastFailedDate = nil
         await fetchTodayTask(for: habit)
         await MainActor.run {
+#if DEBUG
             print("[HabitViewModel] retryAfterFailure: Resetting proof state and updating task state")
+#endif
             self.proofState = .notStarted
             self.lastValidationResult = nil
             self.updateTaskState()
@@ -1361,7 +1381,9 @@ public class HabitViewModel: ObservableObject {
                 self.lastCreatedPost = post
             }
         } catch {
+#if DEBUG
             print("[HabitViewModel] Failed to reload post: \(error)")
+#endif
         }
     }
 
@@ -1374,7 +1396,9 @@ public class HabitViewModel: ObservableObject {
                 self.freshProofUrl = url
             }
         } catch {
+#if DEBUG
             print("[HabitViewModel] Failed to fetch fresh proof URL: \(error.localizedDescription)")
+#endif
             await MainActor.run {
                 self.freshProofUrl = nil
             }

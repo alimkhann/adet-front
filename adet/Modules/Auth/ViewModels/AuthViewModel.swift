@@ -30,10 +30,14 @@ class AuthViewModel: ObservableObject {
     func fetchUser() async {
         do {
             self.user = try await apiService.getCurrentUser()
+#if DEBUG
             print("Fetched user: \(String(describing: user?.username))")
+#endif
             await fetchJWT()
         } catch {
+#if DEBUG
             print("Failed to fetch user: \(error.localizedDescription)")
+#endif
             self.user = nil
         }
     }
@@ -41,14 +45,20 @@ class AuthViewModel: ObservableObject {
     func syncUserFromClerk() async {
         do {
             self.user = try await apiService.syncUserFromClerk()
+#if DEBUG
             print("Synced user from Clerk: \(String(describing: user?.username))")
+#endif
         } catch {
+#if DEBUG
             print("Failed to sync user from Clerk: \(error.localizedDescription)")
+#endif
         }
     }
 
     func signUpClerk(email: String, password: String, username: String?, answers: OnboardingAnswers) async {
+#if DEBUG
         print("Starting sign up in AuthViewModel...")
+#endif
         self.pendingOnboardingAnswers = answers
         clearErrors()
         isClerkVerifying = false
@@ -57,12 +67,16 @@ class AuthViewModel: ObservableObject {
         if let error = authService.error {
             toastManager.showError(error)
         }
+#if DEBUG
         print("Sign up initiated, isVerifying: \(isClerkVerifying)")
+#endif
         await fetchJWT()
     }
 
     func verifyClerk(_ code: String) async {
+#if DEBUG
         print("Starting verification in AuthViewModel...")
+#endif
         clearErrors()
         await authService.verify(code: code)
         self.isClerkVerifying = authService.isVerifying
@@ -95,7 +109,9 @@ class AuthViewModel: ObservableObject {
                     updatedAt: nil,
                     plan: "free" // Add this line
                 )
+#if DEBUG
                 print("Created fallback user object from Clerk data")
+#endif
                 // Still try to submit answers
                 if let answers = pendingOnboardingAnswers {
                     await submitOnboardingAnswers(answers)
@@ -106,7 +122,9 @@ class AuthViewModel: ObservableObject {
     }
 
     func signInClerk(email: String, password: String) async {
+#if DEBUG
         print("Starting sign in in AuthViewModel...")
+#endif
         clearErrors()
         await authService.submit(email: email, password: password)
 
@@ -115,7 +133,9 @@ class AuthViewModel: ObservableObject {
         // Try to sync user data from Clerk after successful sign in
         // If it fails, we'll still consider the user authenticated via Clerk
         await syncUserFromClerk()
+#if DEBUG
         print("Sign in complete, user synced: \(String(describing: user?.username))")
+#endif
         await fetchJWT()
 
         // If sync failed, create a minimal user object from Clerk data
@@ -134,7 +154,9 @@ class AuthViewModel: ObservableObject {
                     updatedAt: nil,
                     plan: "free" // Add this line
                 )
+#if DEBUG
                 print("Created fallback user object from Clerk data")
+#endif
             }
         }
         if let error = authService.error {
@@ -145,9 +167,13 @@ class AuthViewModel: ObservableObject {
     func submitOnboardingAnswers(_ answers: OnboardingAnswers) async {
         do {
             try await apiService.submitOnboarding(answers: answers)
+#if DEBUG
             print("Successfully submitted onboarding answers.")
+#endif
         } catch {
+#if DEBUG
             print("Failed to submit onboarding answers: \(error.localizedDescription)")
+#endif
             toastManager.showError("Account created, but failed to save onboarding answers.")
         }
     }
@@ -159,17 +185,23 @@ class AuthViewModel: ObservableObject {
         do {
             // First delete from backend
             try await apiService.deleteAccount()
+#if DEBUG
             print("Account deleted from backend successfully")
+#endif
 
             // Then delete from Clerk
             await authService.delete()
+#if DEBUG
             print("Account deleted from Clerk successfully")
+#endif
 
             // Clear local user data
             self.user = nil
 
         } catch {
+#if DEBUG
             print("Failed to delete account: \(error.localizedDescription)")
+#endif
             // Even if backend deletion fails, still try to delete from Clerk
             await authService.delete()
             self.user = nil
@@ -182,7 +214,9 @@ class AuthViewModel: ObservableObject {
         // Debouncing: prevent rapid updates
         let now = Date()
         if now.timeIntervalSince(lastUsernameUpdateTime) < usernameUpdateDebounceInterval {
+#if DEBUG
             print("Username update debounced - too soon since last update")
+#endif
             return
         }
         lastUsernameUpdateTime = now
@@ -212,12 +246,16 @@ class AuthViewModel: ObservableObject {
             try await withThrowingTaskGroup(of: Void.self) { group in
                 group.addTask {
                     try await self.apiService.updateUsername(username)
+#if DEBUG
                     print("Username updated in backend successfully")
+#endif
                 }
 
                 group.addTask {
                     try await self.authService.updateUsername(username)
+#if DEBUG
                     print("Username updated in Clerk successfully")
+#endif
                 }
 
                 // Wait for both tasks to complete
@@ -228,7 +266,9 @@ class AuthViewModel: ObservableObject {
             toastManager.dismiss()
 
         } catch {
+#if DEBUG
             print("Failed to update username: \(error.localizedDescription)")
+#endif
             toastManager.showError("Failed to update username: \(error.localizedDescription)")
 
             // Revert local changes on error
@@ -243,13 +283,17 @@ class AuthViewModel: ObservableObject {
         do {
             // Sign out from Clerk
             try await Clerk.shared.signOut()
+#if DEBUG
             print("Signed out from Clerk successfully")
+#endif
 
             // Clear local user data
             self.user = nil
 
         } catch {
+#if DEBUG
             print("Failed to sign out: \(error.localizedDescription)")
+#endif
             // Even if sign out fails, clear local data
             self.user = nil
         }
@@ -262,10 +306,14 @@ class AuthViewModel: ObservableObject {
         do {
             let isConnected = try await apiService.testConnectivity()
             self.networkStatus = isConnected
+#if DEBUG
             print("Network connectivity test result: \(isConnected)")
+#endif
         } catch {
             self.networkStatus = false
+#if DEBUG
             print("Network connectivity test failed: \(error.localizedDescription)")
+#endif
         }
     }
 
@@ -277,9 +325,13 @@ class AuthViewModel: ObservableObject {
             let updatedUser = try await apiService.uploadProfileImage(imageData, fileName: fileName, mimeType: mimeType)
             self.user = updatedUser
             toastManager.dismiss()
+#if DEBUG
             print("Profile image uploaded successfully")
+#endif
         } catch {
+#if DEBUG
             print("Failed to upload profile image: \(error.localizedDescription)")
+#endif
             toastManager.showError("Failed to upload profile image: \(error.localizedDescription)")
         }
     }
@@ -292,9 +344,13 @@ class AuthViewModel: ObservableObject {
             let updatedUser = try await apiService.updateProfileImageUrl(imageUrl)
             self.user = updatedUser
             toastManager.dismiss()
+#if DEBUG
             print("Profile image URL updated successfully")
+#endif
         } catch {
+#if DEBUG
             print("Failed to update profile image URL: \(error.localizedDescription)")
+#endif
             toastManager.showError("Failed to update profile image: \(error.localizedDescription)")
         }
     }
@@ -307,9 +363,13 @@ class AuthViewModel: ObservableObject {
             let updatedUser = try await apiService.deleteProfileImage()
             self.user = updatedUser
             toastManager.dismiss()
+#if DEBUG
             print("Profile image deleted successfully")
+#endif
         } catch {
+#if DEBUG
             print("Failed to delete profile image: \(error.localizedDescription)")
+#endif
             toastManager.showError("Failed to delete profile image: \(error.localizedDescription)")
         }
     }

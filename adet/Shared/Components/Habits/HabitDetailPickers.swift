@@ -219,7 +219,8 @@ struct HabitProofStylePicker: View {
     @Binding var proofStyle: String
 
     private let allowedStyles = ["Photo", "Text"]
-    private let proofStyles = ["Photo", "Video (Coming soon)", "Audio (Coming soon)", "Text"]
+    // private let proofStyles = ["Photo", "Video (Coming soon)", "Audio (Coming soon)", "Text"]
+    private let proofStyles = ["Photo", "Text"] // Video/Audio
 
     var body: some View {
         Picker("Proof Style", selection: Binding(
@@ -232,8 +233,8 @@ struct HabitProofStylePicker: View {
             }
         )) {
             Text("Photo").tag("Photo")
-            Text("Video").tag("Video")
-            Text("Audio").tag("Audio")
+            // Text("Video").tag("Video")
+            // Text("Audio").tag("Audio")
             Text("Text").tag("Text")
         }
         .pickerStyle(.segmented)

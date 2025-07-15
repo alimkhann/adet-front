@@ -334,15 +334,21 @@ actor APIService {
                 proofType = .text
                 proofUrls = []
                 proofContent = textProof ?? todayTask?.proofContent ?? ""
+#if DEBUG
                 print("[DEBUG] createPost: proofType .text, proofContent=\(String(describing: proofContent))")
+#endif
             default:
                 proofType = .image
                 proofUrls = [todayTask?.proofContent].compactMap { $0 }
                 proofContent = nil
+#if DEBUG
                 print("[DEBUG] createPost: proofType .image, proofUrls=\(proofUrls)")
+#endif
             }
         }
+#if DEBUG
         print("[DEBUG] Final createPost values: proofType=\(proofType), proofUrls=\(proofUrls), proofContent=\(String(describing: proofContent))")
+#endif
 
         let assignedDate: String = todayTask?.assignedDate ?? DateFormatter.yyyyMMdd.string(from: Date())
 
@@ -366,8 +372,10 @@ actor APIService {
         let encoder = JSONEncoder()
         encoder.outputFormatting = .prettyPrinted
         let jsonData = try encoder.encode(postCreate)
+#if DEBUG
         print("[DEBUG] PostCreate JSON body:\n" + (String(data: jsonData, encoding: .utf8) ?? "<invalid json>"))
         print("[DEBUG] PostCreate request headers: \(request.allHTTPHeaderFields ?? [:])")
+#endif
         request.httpBody = jsonData
 
         let (data, response) = try await URLSession.shared.data(for: request)

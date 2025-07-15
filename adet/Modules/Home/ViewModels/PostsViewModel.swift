@@ -29,7 +29,9 @@ class PostsViewModel: ObservableObject {
     var isLoading: Bool { isLoadingMyPosts || isLoadingFeed }
 
     init() {
+#if DEBUG
         print("DEBUG: PostsViewModel init at \(Date())")
+#endif
         setupNotifications()
     }
 
@@ -99,7 +101,9 @@ class PostsViewModel: ObservableObject {
     var posts: [Post] { feedPosts }
 
     func loadFeedPosts(refresh: Bool = false) async {
+#if DEBUG
         print("DEBUG: loadFeedPosts called at \(Date()) with refresh=\(refresh)")
+#endif
         guard !isLoadingFeed else { return }
 
         isLoadingFeed = true
@@ -123,7 +127,9 @@ class PostsViewModel: ObservableObject {
             hasMorePosts = response.hasMore
 
             logger.info("Loaded \(response.posts.count) feed posts")
+#if DEBUG
             print("DEBUG: Feed posts loaded: \(feedPosts.map { ($0.id, $0.userId, $0.privacy) })")
+#endif
 
         } catch {
             logger.error("Failed to load feed posts: \(error.localizedDescription)")
@@ -141,7 +147,9 @@ class PostsViewModel: ObservableObject {
     // MARK: - My Posts Operations
 
     func loadMyPosts(refresh: Bool = false) async {
+#if DEBUG
         print("DEBUG: loadMyPosts called at \(Date()) with refresh=\(refresh)")
+#endif
         guard !isLoadingMyPosts else { return }
 
         isLoadingMyPosts = true

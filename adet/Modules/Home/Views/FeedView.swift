@@ -24,11 +24,15 @@ struct FeedView: View {
             .navigationTitle("ädet")
             .navigationBarTitleDisplayMode(.inline)
             .refreshable {
+#if DEBUG
                 print("DEBUG: .refreshable triggered in FeedView at \(Date())")
+#endif
                 await refreshFeed()
             }
             .onAppear {
+#if DEBUG
                 print("DEBUG: .onAppear triggered in FeedView at \(Date())")
+#endif
                 Task {
                     await loadFeedIfNeeded()
                 }
@@ -153,14 +157,18 @@ struct FeedView: View {
     // MARK: - Actions
 
     private func loadFeedIfNeeded() async {
+#if DEBUG
         print("DEBUG: loadFeedIfNeeded called in FeedView at \(Date())")
+#endif
         if postsViewModel.posts.isEmpty && !postsViewModel.isLoading {
             await postsViewModel.loadFeed()
         }
     }
 
     private func refreshFeed() async {
+#if DEBUG
         print("DEBUG: refreshFeed called in FeedView at \(Date())")
+#endif
         await postsViewModel.refreshFeed()
     }
 
@@ -177,7 +185,9 @@ struct FeedView: View {
 
     private func sharePost(_ post: Post) {
         // TODO: Implement native sharing
+#if DEBUG
         print("Share post \(post.id)")
+#endif
     }
 
     private func showUserProfile(for user: UserBasic) {

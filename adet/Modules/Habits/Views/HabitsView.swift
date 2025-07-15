@@ -7,12 +7,15 @@ struct HabitsView: View {
     @State private var showingHabitDetails = false
     @State private var editingHabit: Habit? = nil
     @State private var lastDateChecked: Date = Calendar.current.startOfDay(for: Date())
+    @State private var hasLoadedHabits = false
 
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
                 // Carousel or Empty State
-                if viewModel.habits.isEmpty {
+                if viewModel.isLoading {
+                    ShimmerHabitsListView()
+                } else if viewModel.habits.isEmpty {
                     VStack(spacing: 16) {
                         Spacer()
                         EmptyHabitsView(onAddHabit: {
@@ -73,23 +76,26 @@ struct HabitsView: View {
             }
             .navigationBarBackButtonHidden(true)
             .onAppear {
-                viewModel.startCountdownTimer()
-                Task {
-                    if let habit = viewModel.selectedHabit {
-                        await viewModel.fetchTodayTask(for: habit)
-                        viewModel.updateTaskState()
-                    } else {
-                        await viewModel.fetchUserAndHabits()
-                        // Auto-select first habit if available and none selected
-                        if viewModel.selectedHabit == nil, let firstHabit = viewModel.habits.first {
-                            viewModel.selectHabit(firstHabit)
-                            await viewModel.fetchTodayTask(for: firstHabit)
-                            viewModel.updateTaskState()
-                        } else if let habit = viewModel.selectedHabit {
+                if !hasLoadedHabits {
+                    viewModel.startCountdownTimer()
+                    Task {
+                        if let habit = viewModel.selectedHabit {
                             await viewModel.fetchTodayTask(for: habit)
                             viewModel.updateTaskState()
+                        } else {
+                            await viewModel.fetchUserAndHabits()
+                            // Auto-select first habit if available and none selected
+                            if viewModel.selectedHabit == nil, let firstHabit = viewModel.habits.first {
+                                viewModel.selectHabit(firstHabit)
+                                await viewModel.fetchTodayTask(for: firstHabit)
+                                viewModel.updateTaskState()
+                            } else if let habit = viewModel.selectedHabit {
+                                await viewModel.fetchTodayTask(for: habit)
+                                viewModel.updateTaskState()
+                            }
                         }
                     }
+                    hasLoadedHabits = true
                 }
             }
             .onDisappear {
@@ -108,26 +114,28 @@ struct HabitsView: View {
             }
             // Habit Details Navigation
             .navigationDestination(isPresented: $showingHabitDetails) {
-                let isDevMode = false
-
                 if let habit = editingHabit {
                     HabitDetailsView(
                         habit: habit,
                         canEdit: {
-                            if isDevMode {
+                            #if DEBUG
+                            return true
+                            #else
+                            switch viewModel.currentTaskState {
+                            case .notToday, .successDone:
                                 return true
-                            } else {
-                                switch viewModel.currentTaskState {
-                                case .notToday, .successDone:
-                                    return true
-                                default:
-                                    return false
-                                }
+                            default:
+                                return false
                             }
+                            #endif
                         }()
                     )
                     .environmentObject(viewModel)
                 }
+            }
+            .refreshable {
+                HapticManager.shared.selection()
+                await viewModel.fetchHabits()
             }
         }
     }

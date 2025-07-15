@@ -6,8 +6,8 @@ import UIKit
 
 public enum ProofInputType: String, CaseIterable {
     case photo = "Photo"
-    case video = "Video"
-    case audio = "Audio"
+    // case video = "Video"
+    // case audio = "Audio"
     case text = "Text"
 }
 
@@ -170,68 +170,68 @@ struct SubmitProofModalView: View {
                 }
             }
 
-        case .video:
-            HStack(spacing: 12) {
-                Button(action: { showVideoPicker = true }) {
-                    Text(videoURL == nil ? "Upload Video" : "Change Video")
-                        .frame(maxWidth: .infinity, minHeight: 44)
-                }
-                .buttonStyle(SecondaryButtonStyle())
-                .fileImporter(isPresented: $showVideoPicker, allowedContentTypes: [.movie, .video]) { result in
-                    switch result {
-                    case .success(let url):
-                        videoURL = url
-                        if let data = try? Data(contentsOf: url) {
-                            proofState = .readyToSubmit(.video(data))
-                        }
-                    default: break
-                    }
-                }
-                Button(action: { showVideoCameraSheet = true }) {
-                    Text("Record Video")
-                        .frame(maxWidth: .infinity, minHeight: 44)
-                }
-                .buttonStyle(PrimaryButtonStyle())
-            }
-            .sheet(isPresented: $showVideoCameraSheet) {
-                VideoPicker(sourceType: .camera) { url in
-                    if let url = url, let data = try? Data(contentsOf: url) {
-                        videoURL = url
-                        proofState = .readyToSubmit(.video(data))
-                    }
-                    showVideoCameraSheet = false
-                }
-            }
+        // case .video:
+        //     HStack(spacing: 12) {
+        //         Button(action: { showVideoPicker = true }) {
+        //             Text(videoURL == nil ? "Upload Video" : "Change Video")
+        //                 .frame(maxWidth: .infinity, minHeight: 44)
+        //         }
+        //         .buttonStyle(SecondaryButtonStyle())
+        //         .fileImporter(isPresented: $showVideoPicker, allowedContentTypes: [.movie, .video]) { result in
+        //             switch result {
+        //             case .success(let url):
+        //                 videoURL = url
+        //                 if let data = try? Data(contentsOf: url) {
+        //                     proofState = .readyToSubmit(.video(data))
+        //                 }
+        //             default: break
+        //             }
+        //         }
+        //         Button(action: { showVideoCameraSheet = true }) {
+        //             Text("Record Video")
+        //                 .frame(maxWidth: .infinity, minHeight: 44)
+        //         }
+        //         .buttonStyle(PrimaryButtonStyle())
+        //     }
+        //     .sheet(isPresented: $showVideoCameraSheet) {
+        //         VideoPicker(sourceType: .camera) { url in
+        //             if let url = url, let data = try? Data(contentsOf: url) {
+        //                 videoURL = url
+        //                 proofState = .readyToSubmit(.video(data))
+        //             }
+        //             showVideoCameraSheet = false
+        //         }
+        //     }
 
-        case .audio:
-            HStack(spacing: 12) {
-                Button(action: { showAudioPicker = true }) {
-                    Text(audioURL == nil ? "Upload Audio" : "Change Audio")
-                        .frame(maxWidth: .infinity, minHeight: 44)
-                }
-                .buttonStyle(SecondaryButtonStyle())
-                .fileImporter(isPresented: $showAudioPicker, allowedContentTypes: [.audio]) { result in
-                    switch result {
-                    case .success(let url):
-                        audioURL = url
-                        if let data = try? Data(contentsOf: url) {
-                            proofState = .readyToSubmit(.audio(data))
-                        }
-                    default: break
-                    }
-                }
-                Button(action: {
-                    if isRecordingAudio {
-                        stopAudioRecording()
-                    } else {
-                        startAudioRecording()
-                    }
-                }) {
-                    Text(isRecordingAudio ? "Stop Recording" : "Record Audio")
-                        .frame(maxWidth: .infinity, minHeight: 44)
-                }
-                .buttonStyle(PrimaryButtonStyle())
-            }
+        // case .audio:
+        //     HStack(spacing: 12) {
+        //         Button(action: { showAudioPicker = true }) {
+        //             Text(audioURL == nil ? "Upload Audio" : "Change Audio")
+        //                 .frame(maxWidth: .infinity, minHeight: 44)
+        //         }
+        //         .buttonStyle(SecondaryButtonStyle())
+        //         .fileImporter(isPresented: $showAudioPicker, allowedContentTypes: [.audio]) { result in
+        //             switch result {
+        //             case .success(let url):
+        //                 audioURL = url
+        //                 if let data = try? Data(contentsOf: url) {
+        //                     proofState = .readyToSubmit(.audio(data))
+        //                 }
+        //             default: break
+        //             }
+        //         }
+        //         Button(action: {
+        //             if isRecordingAudio {
+        //                 stopAudioRecording()
+        //             } else {
+        //                 startAudioRecording()
+        //             }
+        //         }) {
+        //             Text(isRecordingAudio ? "Stop Recording" : "Record Audio")
+        //                 .frame(maxWidth: .infinity, minHeight: 44)
+        //         }
+        //         .buttonStyle(PrimaryButtonStyle())
+        //     }
 
         case .text:
             VStack(alignment: .leading) {
@@ -274,18 +274,18 @@ struct SubmitProofModalView: View {
             }
             onSubmit(.photo, data, nil)
             ToastManager.shared.showSuccess("Photo proof submitted!")
-        case .video:
-            guard let url = videoURL, let data = try? Data(contentsOf: url) else {
-                ToastManager.shared.showError("No video selected."); return
-            }
-            onSubmit(.video, data, nil)
-            ToastManager.shared.showSuccess("Video proof submitted!")
-        case .audio:
-            guard let url = audioURL, let data = try? Data(contentsOf: url) else {
-                ToastManager.shared.showError("No audio selected."); return
-            }
-            onSubmit(.audio, data, nil)
-            ToastManager.shared.showSuccess("Audio proof submitted!")
+        // case .video:
+        //     guard let url = videoURL, let data = try? Data(contentsOf: url) else {
+        //         ToastManager.shared.showError("No video selected."); return
+        //     }
+        //     onSubmit(.video, data, nil)
+        //     ToastManager.shared.showSuccess("Video proof submitted!")
+        // case .audio:
+        //     guard let url = audioURL, let data = try? Data(contentsOf: url) else {
+        //         ToastManager.shared.showError("No audio selected."); return
+        //     }
+        //     onSubmit(.audio, data, nil)
+        //     ToastManager.shared.showSuccess("Audio proof submitted!")
         case .text:
             guard !textProof.isEmpty else {
                 ToastManager.shared.showError("No text entered."); return
@@ -295,40 +295,40 @@ struct SubmitProofModalView: View {
         }
     }
 
-    /// Audio recording helpers
-    private func startAudioRecording() {
-        let session = AVAudioSession.sharedInstance()
-        do {
-            try session.setCategory(.playAndRecord, mode: .default)
-            try session.setActive(true)
-            let fileURL = FileManager.default.temporaryDirectory
-                .appendingPathComponent(UUID().uuidString + ".m4a")
-            let settings: [String: Any] = [
-                AVFormatIDKey: Int(kAudioFormatMPEG4AAC),
-                AVSampleRateKey: 44100,
-                AVNumberOfChannelsKey: 1,
-                AVEncoderAudioQualityKey: AVAudioQuality.high.rawValue
-            ]
-            audioRecorder = try AVAudioRecorder(url: fileURL, settings: settings)
-            audioRecorder?.record()
-            audioFileURL = fileURL
-            isRecordingAudio = true
-            ToastManager.shared.showSuccess("Recording started")
-        } catch {
-            ToastManager.shared.showError("Failed to start recording: \(error.localizedDescription)")
-        }
-    }
+    // Comment out audio recording helpers for App Store
+    // private func startAudioRecording() {
+    //     let session = AVAudioSession.sharedInstance()
+    //     do {
+    //         try session.setCategory(.playAndRecord, mode: .default)
+    //         try session.setActive(true)
+    //         let fileURL = FileManager.default.temporaryDirectory
+    //             .appendingPathComponent(UUID().uuidString + ".m4a")
+    //         let settings: [String: Any] = [
+    //             AVFormatIDKey: Int(kAudioFormatMPEG4AAC),
+    //             AVSampleRateKey: 44100,
+    //             AVNumberOfChannelsKey: 1,
+    //             AVEncoderAudioQualityKey: AVAudioQuality.high.rawValue
+    //         ]
+    //         audioRecorder = try AVAudioRecorder(url: fileURL, settings: settings)
+    //         audioRecorder?.record()
+    //         audioFileURL = fileURL
+    //         isRecordingAudio = true
+    //         ToastManager.shared.showSuccess("Recording started")
+    //     } catch {
+    //         ToastManager.shared.showError("Failed to start recording: \(error.localizedDescription)")
+    //     }
+    // }
 
-    private func stopAudioRecording() {
-        audioRecorder?.stop()
-        isRecordingAudio = false
-        guard let url = audioFileURL, let data = try? Data(contentsOf: url) else {
-            ToastManager.shared.showError("Failed to save audio recording."); return
-        }
-        audioURL = url
-        proofState = .readyToSubmit(.audio(data))
-        ToastManager.shared.showSuccess("Audio recorded!")
-    }
+    // private func stopAudioRecording() {
+    //     audioRecorder?.stop()
+    //     isRecordingAudio = false
+    //     guard let url = audioFileURL, let data = try? Data(contentsOf: url) else {
+    //         ToastManager.shared.showError("Failed to save audio recording."); return
+    //     }
+    //     audioURL = url
+    //     proofState = .readyToSubmit(.audio(data))
+    //     ToastManager.shared.showSuccess("Audio recorded!")
+    // }
 
     @ViewBuilder
     private var proofPreviewSection: some View {
@@ -356,44 +356,44 @@ struct SubmitProofModalView: View {
                     }
                 }
             }
-        case .video:
-            if let url = videoURL {
-                Text("Selected: \(url.lastPathComponent)")
-            } else {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 10)
-                        .stroke(style: StrokeStyle(lineWidth: 2, dash: [8]))
-                        .foregroundColor(.gray.opacity(0.5))
-                        .frame(maxHeight: .infinity)
-                    VStack {
-                        Image(systemName: "video.circle")
-                            .font(.system(size: 40))
-                            .foregroundColor(.gray)
-                        Text("Add a video as proof")
-                            .font(.subheadline)
-                            .foregroundColor(.gray)
-                    }
-                }
-            }
-        case .audio:
-            if let url = audioURL {
-                Text("Selected: \(url.lastPathComponent)")
-            } else {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 10)
-                        .stroke(style: StrokeStyle(lineWidth: 2, dash: [8]))
-                        .foregroundColor(.gray.opacity(0.5))
-                        .frame(maxHeight: .infinity)
-                    VStack {
-                        Image(systemName: "waveform.circle")
-                            .font(.system(size: 40))
-                            .foregroundColor(.gray)
-                        Text("Add an audio recording as proof")
-                            .font(.subheadline)
-                            .foregroundColor(.gray)
-                    }
-                }
-            }
+        // case .video:
+        //     if let url = videoURL {
+        //         Text("Selected: \(url.lastPathComponent)")
+        //     } else {
+        //         ZStack {
+        //             RoundedRectangle(cornerRadius: 10)
+        //                 .stroke(style: StrokeStyle(lineWidth: 2, dash: [8]))
+        //                 .foregroundColor(.gray.opacity(0.5))
+        //                 .frame(maxHeight: .infinity)
+        //             VStack {
+        //                 Image(systemName: "video.circle")
+        //                     .font(.system(size: 40))
+        //                     .foregroundColor(.gray)
+        //                 Text("Add a video as proof")
+        //                     .font(.subheadline)
+        //                     .foregroundColor(.gray)
+        //             }
+        //         }
+        //     }
+        // case .audio:
+        //     if let url = audioURL {
+        //         Text("Selected: \(url.lastPathComponent)")
+        //     } else {
+        //         ZStack {
+        //             RoundedRectangle(cornerRadius: 10)
+        //                 .stroke(style: StrokeStyle(lineWidth: 2, dash: [8]))
+        //                 .foregroundColor(.gray.opacity(0.5))
+        //                 .frame(maxHeight: .infinity)
+        //             VStack {
+        //                 Image(systemName: "waveform.circle")
+        //                     .font(.system(size: 40))
+        //                     .foregroundColor(.gray)
+        //                 Text("Add an audio recording as proof")
+        //                     .font(.subheadline)
+        //                     .foregroundColor(.gray)
+        //             }
+        //         }
+        //     }
         case .text:
             EmptyView()
         }

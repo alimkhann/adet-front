@@ -5,6 +5,7 @@ struct FriendsView: View {
     @StateObject private var viewModel = FriendsViewModel()
     @EnvironmentObject var authViewModel: AuthViewModel
     @FocusState private var isSearchFocused: Bool
+    @State private var hasLoadedFriends = false
 
     private let logger = Logger(subsystem: "com.adet.friends", category: "FriendsView")
 
@@ -40,8 +41,11 @@ struct FriendsView: View {
             }
             .onAppear {
                 logger.info("FriendsView appeared")
-                Task {
-                    await viewModel.loadAllData()
+                if !hasLoadedFriends {
+                    Task {
+                        await viewModel.loadAllData()
+                    }
+                    hasLoadedFriends = true
                 }
             }
             .refreshable {

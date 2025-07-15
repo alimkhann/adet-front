@@ -7,6 +7,7 @@ struct ChatsView: View {
     @State private var selectedConversation: Conversation?
     @State private var searchText = ""
     @FocusState private var isSearchFocused: Bool
+    @State private var hasLoadedChats = false
 
     private let logger = Logger(subsystem: "com.adet.chats", category: "ChatsView")
 
@@ -69,7 +70,10 @@ struct ChatsView: View {
                 await viewModel.refreshConversations()
             }
             .task {
-                await viewModel.loadConversations()
+                if !hasLoadedChats {
+                    await viewModel.loadConversations()
+                    hasLoadedChats = true
+                }
             }
             .alert("Error", isPresented: showingError) {
                 Button("OK") {

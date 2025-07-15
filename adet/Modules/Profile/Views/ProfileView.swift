@@ -9,6 +9,7 @@ struct ProfileView: View {
     @State private var showSettings = false
     @State private var selectedTab: ProfileTab = .posts
     @Environment(\.colorScheme) private var colorScheme
+    @State private var hasLoadedProfile = false
 
     private let logger = Logger(subsystem: "com.adet.profile", category: "ProfileView")
 
@@ -44,14 +45,19 @@ struct ProfileView: View {
                 }
                 .background(Color(.systemBackground))
                 .onAppear {
+#if DEBUG
                     print("DEBUG: .onAppear triggered in ProfileView at \(Date())")
+#endif
                     // Update the ViewModel with the current AuthViewModel
                     viewModel.updateAuthViewModel(authViewModel)
-                    loadUserPosts()
-                    Task {
-                        await viewModel.loadFriendsCount()
-                        await viewModel.loadUserHabits()
-                        await viewModel.refreshPostCount()
+                    if !hasLoadedProfile {
+                        loadUserPosts()
+                        Task {
+                            await viewModel.loadFriendsCount()
+                            await viewModel.loadUserHabits()
+                            await viewModel.refreshPostCount()
+                        }
+                        hasLoadedProfile = true
                     }
                     logger.info("ProfileView appeared")
                 }
@@ -86,6 +92,13 @@ struct ProfileView: View {
                         }
                     }
                 }
+            }
+            .refreshable {
+                HapticManager.shared.selection()
+                await postsViewModel.loadMyPosts(refresh: true)
+                await viewModel.loadUserHabits()
+                await viewModel.loadFriendsCount()
+                await viewModel.refreshPostCount()
             }
         }
     }
@@ -258,15 +271,7 @@ struct ProfileView: View {
     private var postsContentView: some View {
         VStack(spacing: 16) {
             if postsViewModel.isLoadingMyPosts {
-                HStack {
-                    ProgressView()
-                        .scaleEffect(0.8)
-                    Text("Loading posts...")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                }
-                .frame(maxWidth: .infinity, alignment: .center)
-                .padding(.top, 40)
+                ShimmerPostsListView()
             } else if postsViewModel.myPosts.isEmpty {
                 VStack(spacing: 16) {
                     Image(systemName: "photo.on.rectangle.angled")
@@ -324,15 +329,7 @@ struct ProfileView: View {
     private var habitsContentView: some View {
         VStack(spacing: 16) {
             if viewModel.isLoadingHabits {
-                HStack {
-                    ProgressView()
-                        .scaleEffect(0.8)
-                    Text("Loading habits...")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                }
-                .frame(maxWidth: .infinity, alignment: .center)
-                .padding(.top, 40)
+                ShimmerHabitsListView()
             } else if viewModel.userHabits.isEmpty {
                 VStack(spacing: 16) {
                     Image(systemName: "target")
@@ -387,7 +384,9 @@ struct ProfileView: View {
 
     // MARK: - Helper Methods
     private func loadUserPosts() {
+#if DEBUG
         print("DEBUG: loadUserPosts called in ProfileView at \(Date())")
+#endif
         Task {
             await postsViewModel.loadMyPosts(refresh: true)
         }

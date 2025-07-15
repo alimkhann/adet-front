@@ -13,5 +13,9 @@
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
+	<key>NSCameraUsageDescription</key>
+	<string>We use your camera so you can submit photo proof for your habits or change your profile picture.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>We use your photo library so you can upload photos as proof for your habits or change your profile picture.</string>
 </dict>
 </plist>
