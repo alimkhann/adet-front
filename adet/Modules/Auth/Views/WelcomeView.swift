@@ -18,7 +18,7 @@ struct WelcomeView: View {
                 
                 VStack(spacing: 16) {
                     NavigationLink {
-                        OnboardingView()
+                        RegistrationOnboardingView()
                     } label: {
                         Text("Get Started")
                             .frame(maxWidth: .infinity, minHeight: 48)

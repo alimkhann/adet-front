@@ -4,13 +4,14 @@ struct LoadingButton: View {
     let title: String
     let isLoading: Bool
     let action: () -> Void
+    @Environment(\.colorScheme) var colorScheme
     
 
     var body: some View {
         Button(action: action) {
             if isLoading {
                 ProgressView()
-                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                    .progressViewStyle(CircularProgressViewStyle(tint: colorScheme == .dark ? .black : .white))
                     .frame(maxWidth: .infinity, minHeight: 48)
             } else {
                 Text(title)

@@ -1,6 +1,7 @@
 import Foundation
 import SwiftUI
 import OSLog
+import FirebaseAnalytics
 
 @MainActor
 class PostsViewModel: ObservableObject {
@@ -130,10 +131,13 @@ class PostsViewModel: ObservableObject {
 #if DEBUG
             print("DEBUG: Feed posts loaded: \(feedPosts.map { ($0.id, $0.userId, $0.privacy) })")
 #endif
+            AnalyticsHelper.logEvent("feed_loaded", parameters: ["count": feedPosts.count])
 
         } catch {
             logger.error("Failed to load feed posts: \(error.localizedDescription)")
             errorMessage = "Failed to load posts. Please try again."
+            AnalyticsHelper.logError(error, userInfo: ["context": "load_feed_posts"])
+            AnalyticsHelper.logEvent("feed_load_failed", parameters: ["error": error.localizedDescription])
         }
 
         isLoadingFeed = false
@@ -172,10 +176,13 @@ class PostsViewModel: ObservableObject {
             myPostsCursor = response.nextCursor
 
             logger.info("Loaded \(response.posts.count) my posts")
+            AnalyticsHelper.logEvent("my_posts_loaded", parameters: ["count": myPosts.count])
 
         } catch {
             logger.error("Failed to load my posts: \(error.localizedDescription)")
             errorMessage = "Failed to load your posts. Please try again."
+            AnalyticsHelper.logError(error, userInfo: ["context": "load_my_posts"])
+            AnalyticsHelper.logEvent("my_posts_load_failed", parameters: ["error": error.localizedDescription])
         }
 
         isLoadingMyPosts = false
@@ -223,10 +230,20 @@ class PostsViewModel: ObservableObject {
 
                 logger.info("Successfully created post \(newPost.id)")
                 isCreatingPost = false
+                // Log analytics event
+                AnalyticsHelper.logEvent("post_created", parameters: [
+                    "post_id": newPost.id,
+                    "privacy": newPost.privacy.rawValue
+                ])
                 return true
             } else {
                 errorMessage = response.message
                 isCreatingPost = false
+                AnalyticsHelper.logEvent("error_occurred", parameters: [
+                    "context": "create_post",
+                    "message": response.message
+                ])
+                AnalyticsHelper.logError(NSError(domain: "PostCreate", code: 0, userInfo: [NSLocalizedDescriptionKey: response.message]))
                 return false
             }
 
@@ -234,6 +251,8 @@ class PostsViewModel: ObservableObject {
             logger.error("Failed to create post: \(error.localizedDescription)")
             errorMessage = "Failed to create post. Please try again."
             isCreatingPost = false
+            AnalyticsHelper.logError(error, userInfo: ["context": "create_post"])
+            AnalyticsHelper.logEvent("post_create_failed", parameters: ["error": error.localizedDescription])
             return false
         }
     }
@@ -255,11 +274,19 @@ class PostsViewModel: ObservableObject {
                 impactFeedback.impactOccurred()
 
                 logger.debug("Toggled like for post \(post.id): \(response.isLiked)")
+                AnalyticsHelper.logEvent(response.isLiked ? "post_liked" : "post_unliked", parameters: [
+                    "post_id": post.id
+                ])
+            } else {
+                AnalyticsHelper.logEvent("toggle_like_failed", parameters: ["post_id": post.id])
+                AnalyticsHelper.logError(NSError(domain: "ToggleLike", code: 0, userInfo: [NSLocalizedDescriptionKey: "Failed to toggle like"]))
             }
 
         } catch {
             logger.error("Failed to toggle like: \(error.localizedDescription)")
             errorMessage = "Failed to like post. Please try again."
+            AnalyticsHelper.logError(error, userInfo: ["context": "toggle_like"])
+            AnalyticsHelper.logEvent("toggle_like_failed", parameters: ["post_id": post.id, "error": error.localizedDescription])
         }
     }
 
@@ -303,15 +330,20 @@ class PostsViewModel: ObservableObject {
                 }
 
                 logger.info("Successfully updated post \(postId)")
+                AnalyticsHelper.logEvent("post_updated", parameters: ["post_id": postId])
                 return true
             } else {
                 errorMessage = response.message
+                AnalyticsHelper.logEvent("post_update_failed", parameters: ["post_id": postId, "error": response.message])
+                AnalyticsHelper.logError(NSError(domain: "PostUpdate", code: 0, userInfo: [NSLocalizedDescriptionKey: response.message]))
                 return false
             }
 
         } catch {
             logger.error("Failed to update post: \(error.localizedDescription)")
             errorMessage = "Failed to update post. Please try again."
+            AnalyticsHelper.logError(error, userInfo: ["context": "update_post"])
+            AnalyticsHelper.logEvent("post_update_failed", parameters: ["post_id": postId, "error": error.localizedDescription])
             return false
         }
     }
@@ -326,17 +358,66 @@ class PostsViewModel: ObservableObject {
                 }
 
                 logger.info("Successfully updated post \(postId) privacy to \(privacy.rawValue)")
+                AnalyticsHelper.logEvent("post_privacy_updated", parameters: [
+                    "post_id": postId,
+                    "privacy": privacy.rawValue
+                ])
                 return true
             } else {
                 errorMessage = response.message
+                AnalyticsHelper.logEvent("post_privacy_update_failed", parameters: ["post_id": postId, "error": response.message])
+                AnalyticsHelper.logError(NSError(domain: "PostPrivacyUpdate", code: 0, userInfo: [NSLocalizedDescriptionKey: response.message]))
                 return false
             }
 
         } catch {
             logger.error("Failed to update post privacy: \(error.localizedDescription)")
             errorMessage = "Failed to update post privacy. Please try again."
+            AnalyticsHelper.logError(error, userInfo: ["context": "update_post_privacy"])
+            AnalyticsHelper.logEvent("post_privacy_update_failed", parameters: ["post_id": postId, "error": error.localizedDescription])
             return false
         }
+    }
+
+    func reportPost(postId: Int, reason: String) async {
+        do {
+            let response = try await postService.reportPost(postId: postId, reason: reason)
+            if response.success {
+                AnalyticsHelper.logEvent("post_reported", parameters: [
+                    "post_id": postId,
+                    "reason": reason
+                ])
+            } else {
+                AnalyticsHelper.logEvent("report_post_failed", parameters: ["post_id": postId, "error": response.message])
+                AnalyticsHelper.logError(NSError(domain: "PostReport", code: 0, userInfo: [NSLocalizedDescriptionKey: response.message]))
+            }
+        } catch {
+            AnalyticsHelper.logError(error, userInfo: ["context": "report_post"])
+            AnalyticsHelper.logEvent("report_post_failed", parameters: ["post_id": postId, "error": error.localizedDescription])
+        }
+    }
+
+    func commentOnPost(postId: Int, comment: String) async {
+        do {
+            let response = try await postService.commentOnPost(postId: postId, comment: comment)
+            if response.success {
+                AnalyticsHelper.logEvent("post_commented", parameters: [
+                    "post_id": postId
+                ])
+            } else {
+                AnalyticsHelper.logEvent("comment_post_failed", parameters: ["post_id": postId, "error": response.message])
+                AnalyticsHelper.logError(NSError(domain: "PostComment", code: 0, userInfo: [NSLocalizedDescriptionKey: response.message]))
+            }
+        } catch {
+            AnalyticsHelper.logError(error, userInfo: ["context": "comment_post"])
+            AnalyticsHelper.logEvent("comment_post_failed", parameters: ["post_id": postId, "error": error.localizedDescription])
+        }
+    }
+
+    func sharePost(postId: Int) {
+        AnalyticsHelper.logEvent("post_shared", parameters: [
+            "post_id": postId
+        ])
     }
 
     // MARK: - Helper Methods
@@ -415,6 +496,7 @@ class PostsViewModel: ObservableObject {
         errorMessage = message
         showError = true
         logger.error("\(message)")
+        AnalyticsHelper.logError(NSError(domain: "PostsViewModel", code: 0, userInfo: [NSLocalizedDescriptionKey: message]))
     }
 
     private func showSuccessMessage(_ message: String) {
@@ -425,6 +507,15 @@ class PostsViewModel: ObservableObject {
 
     var privacyOptions: [PostPrivacy] {
         PostPrivacy.allCases
+    }
+
+    // Call this in FeedView and PostDetailView .onAppear for funneling
+    func logScreenViewed(screen: String, postId: Int? = nil) {
+        var params: [String: Any] = ["screen": screen]
+        if let postId = postId {
+            params["post_id"] = postId
+        }
+        AnalyticsHelper.logEvent("screen_viewed", parameters: params)
     }
 }
 

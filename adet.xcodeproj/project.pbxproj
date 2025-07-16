@@ -7,6 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		47601AA52E2704DF00B2BD50 /* FirebaseAnalytics in Frameworks */ = {isa = PBXBuildFile; productRef = 47601AA42E2704DF00B2BD50 /* FirebaseAnalytics */; };
+		47601AA72E2704DF00B2BD50 /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = 47601AA62E2704DF00B2BD50 /* FirebaseCore */; };
+		47601AA92E2704DF00B2BD50 /* FirebaseCrashlytics in Frameworks */ = {isa = PBXBuildFile; productRef = 47601AA82E2704DF00B2BD50 /* FirebaseCrashlytics */; };
 		47992D052E0BBD9200D0756A /* Kingfisher in Frameworks */ = {isa = PBXBuildFile; productRef = 47992D042E0BBD9200D0756A /* Kingfisher */; };
 		47A725F22E03D2B700616FE2 /* Clerk in Frameworks */ = {isa = PBXBuildFile; productRef = 47A725F12E03D2B700616FE2 /* Clerk */; };
 /* End PBXBuildFile section */
@@ -39,6 +42,7 @@
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				adetApp.swift,
+				"GoogleService-Info.plist",
 				Models/AITaskModels.swift,
 				Models/APIModels.swift,
 				Models/Chat.swift,
@@ -50,9 +54,11 @@
 				Models/Theme.swift,
 				Models/User.swift,
 				Modules/Auth/ViewModels/AuthViewModel.swift,
+				Modules/Auth/Views/EmailSignInFormView.swift,
+				Modules/Auth/Views/EmailSignUpFormView.swift,
+				Modules/Auth/Views/OnboardingView.swift,
 				Modules/Auth/Views/SignInView.swift,
 				Modules/Auth/Views/SignUpView.swift,
-				Modules/Auth/Views/VerificationView.swift,
 				Modules/Auth/Views/WelcomeView.swift,
 				Modules/Chats/ViewModels/ChatDetailViewModel.swift,
 				Modules/Chats/ViewModels/ChatsListViewModel.swift,
@@ -83,8 +89,8 @@
 				Modules/Home/ViewModels/PostsViewModel.swift,
 				Modules/Home/Views/FeedView.swift,
 				Modules/Home/Views/HomeView.swift,
-				Modules/Onboarding/Views/OnboardingView.swift,
 				Modules/Onboarding/Views/QuestionPageView.swift,
+				Modules/Onboarding/Views/RegistrationOnboardingView.swift,
 				Modules/Profile/ViewModels/ProfileViewModel.swift,
 				Modules/Profile/Views/EditProfileView.swift,
 				Modules/Profile/Views/ProfileView.swift,
@@ -107,6 +113,7 @@
 				Services/Network/PostService.swift,
 				Services/Network/SupportService.swift,
 				Services/Network/WebSocketManager.swift,
+				Shared/Components/Auth/SignInWithAppleView.swift,
 				Shared/Components/ButtonStyles.swift,
 				Shared/Components/CameraView.swift,
 				Shared/Components/Chats/ConversationCardView.swift,
@@ -146,6 +153,7 @@
 				Shared/Extensions/CombineExtensions.swift,
 				Shared/RootView.swift,
 				Shared/TabBarView.swift,
+				Shared/Utilities/AnalyticsHelper.swift,
 				Shared/Utilities/APIConfig.swift,
 				Shared/Utilities/ContentLimits.swift,
 				Shared/Utilities/HapticManager.swift,
@@ -176,6 +184,9 @@
 			files = (
 				47992D052E0BBD9200D0756A /* Kingfisher in Frameworks */,
 				47A725F22E03D2B700616FE2 /* Clerk in Frameworks */,
+				47601AA92E2704DF00B2BD50 /* FirebaseCrashlytics in Frameworks */,
+				47601AA72E2704DF00B2BD50 /* FirebaseCore in Frameworks */,
+				47601AA52E2704DF00B2BD50 /* FirebaseAnalytics in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -233,6 +244,9 @@
 			packageProductDependencies = (
 				47A725F12E03D2B700616FE2 /* Clerk */,
 				47992D042E0BBD9200D0756A /* Kingfisher */,
+				47601AA42E2704DF00B2BD50 /* FirebaseAnalytics */,
+				47601AA62E2704DF00B2BD50 /* FirebaseCore */,
+				47601AA82E2704DF00B2BD50 /* FirebaseCrashlytics */,
 			);
 			productName = adet;
 			productReference = 47C504042DF69FE700D30B0B /* adet.app */;
@@ -313,6 +327,7 @@
 			packageReferences = (
 				47A725F02E03D2B700616FE2 /* XCRemoteSwiftPackageReference "clerk-ios" */,
 				47992D032E0BBD9200D0756A /* XCRemoteSwiftPackageReference "Kingfisher" */,
+				47601AA32E2704DF00B2BD50 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 47C504052DF69FE700D30B0B /* Products */;
@@ -513,6 +528,8 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
+				CODE_SIGN_ENTITLEMENTS = adet/adet.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"adet/Resources/Preview Content\"";
@@ -522,6 +539,8 @@
 				INFOPLIST_FILE = adet/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "ädet";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
+				INFOPLIST_KEY_NSCameraUsageDescription = "We use your camera so you can submit photo proof for your habits or change your profile picture.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "We use your photo library so you can upload photos as proof for your habits or change your profile picture.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -534,8 +553,9 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "Allikhan-Gubayev.adet";
+				PRODUCT_BUNDLE_IDENTIFIER = "Alimkhan-Yergebayev.adet";
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 1;
@@ -548,6 +568,8 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
+				CODE_SIGN_ENTITLEMENTS = adet/adet.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"adet/Resources/Preview Content\"";
@@ -557,6 +579,8 @@
 				INFOPLIST_FILE = adet/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "ädet";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
+				INFOPLIST_KEY_NSCameraUsageDescription = "We use your camera so you can submit photo proof for your habits or change your profile picture.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "We use your photo library so you can upload photos as proof for your habits or change your profile picture.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -569,8 +593,9 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "Allikhan-Gubayev.adet";
+				PRODUCT_BUNDLE_IDENTIFIER = "Alimkhan-Yergebayev.adet";
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 1;
@@ -691,6 +716,14 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
+		47601AA32E2704DF00B2BD50 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/firebase/firebase-ios-sdk";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 12.0.0;
+			};
+		};
 		47992D032E0BBD9200D0756A /* XCRemoteSwiftPackageReference "Kingfisher" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/onevcat/Kingfisher.git";
@@ -710,6 +743,21 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		47601AA42E2704DF00B2BD50 /* FirebaseAnalytics */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 47601AA32E2704DF00B2BD50 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAnalytics;
+		};
+		47601AA62E2704DF00B2BD50 /* FirebaseCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 47601AA32E2704DF00B2BD50 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseCore;
+		};
+		47601AA82E2704DF00B2BD50 /* FirebaseCrashlytics */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 47601AA32E2704DF00B2BD50 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseCrashlytics;
+		};
 		47992D042E0BBD9200D0756A /* Kingfisher */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 47992D032E0BBD9200D0756A /* XCRemoteSwiftPackageReference "Kingfisher" */;

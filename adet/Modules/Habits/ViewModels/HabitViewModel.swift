@@ -1,6 +1,7 @@
 import SwiftUI
 import Combine
 import UIKit
+import FirebaseAnalytics
 
 @MainActor
 public class HabitViewModel: ObservableObject {
@@ -139,10 +140,14 @@ public class HabitViewModel: ObservableObject {
             // Refresh the habits list from the server to ensure consistency
             await fetchHabits()
 
+            // Log analytics event
+            AnalyticsHelper.logEvent("habit_deleted", parameters: [
+                "habit_name": habit.name
+            ])
         } catch NetworkError.unauthorized {
             errorMessage = "Authentication failed. Please try again."
             print("Authentication failed for habit deletion")
-
+            AnalyticsHelper.logError(NetworkError.unauthorized)
             // Try to refresh authentication and retry once
             do {
                 // Wait a moment for network to recover
@@ -157,13 +162,20 @@ public class HabitViewModel: ObservableObject {
                 errorMessage = nil
                 // Reset motivation and ability after deletion
                 resetMotivationAndAbility()
+                // Log analytics event
+                AnalyticsHelper.logEvent("habit_deleted", parameters: [
+                    "habit_name": habit.name,
+                    "retry": true
+                ])
             } catch {
                 errorMessage = "Failed to delete habit after retry: \(error.localizedDescription)"
                 print("Failed to delete habit on retry: \(error.localizedDescription)")
+                AnalyticsHelper.logError(error)
             }
         } catch {
             errorMessage = "Failed to delete habit: \(error.localizedDescription)"
             print(errorMessage ?? "Unknown error")
+            AnalyticsHelper.logError(error)
         }
     }
 
@@ -198,9 +210,16 @@ public class HabitViewModel: ObservableObject {
 
             // Select the newly created habit
             selectedHabit = habits.first { $0.id == newHabit.id }
+
+            // Log analytics event
+            AnalyticsHelper.logEvent("habit_created", parameters: [
+                "habit_name": newHabit.name,
+                "difficulty": newHabit.difficulty
+            ])
         } catch {
             errorMessage = "Failed to create habit: \(error.localizedDescription)"
             print(errorMessage ?? "Unknown error")
+            AnalyticsHelper.logError(error)
         }
     }
 
@@ -222,6 +241,10 @@ public class HabitViewModel: ObservableObject {
             if selectedHabit?.id == habit.id {
                 selectedHabit = updatedHabit
             }
+
+            AnalyticsHelper.logEvent("habit_updated", parameters: [
+                "habit_id": habit.id
+            ])
 
             return updatedHabit
         } catch {
@@ -254,6 +277,11 @@ public class HabitViewModel: ObservableObject {
         let today = formatter.string(from: Date())
         do {
             _ = try await apiService.submitMotivationEntry(habitId: habitId, date: today, level: level)
+
+            AnalyticsHelper.logEvent("motivation_submitted", parameters: [
+                "habit_id": habitId
+            ])
+
             return true
         } catch let error as NSError {
             if error.localizedDescription.contains("already exists") {
@@ -261,6 +289,7 @@ public class HabitViewModel: ObservableObject {
                 return false
             }
             ToastManager.shared.showError(error.localizedDescription)
+            AnalyticsHelper.logError(error)
             return false
         }
     }
@@ -301,8 +330,14 @@ public class HabitViewModel: ObservableObject {
         let today = formatter.string(from: Date())
         do {
             _ = try await apiService.submitAbilityEntry(habitId: habitId, date: today, level: level)
+
+            AnalyticsHelper.logEvent("ability_submitted", parameters: [
+                "habit_id": habitId
+            ])
+
             return true
         } catch {
+            AnalyticsHelper.logError(error)
             return false
         }
     }
@@ -732,8 +767,13 @@ public class HabitViewModel: ObservableObject {
                     self.taskGenerationError = nil
                     self.currentTaskState = .showTask(task: makeTaskDetails(), proof: proofState)
                     self.updateTaskState() // Ensure state machine is up to date
+
+                    AnalyticsHelper.logEvent("task_generated", parameters: [
+                        "selected_habit_id": selectedHabit.id
+                    ])
                 } else {
                     self.currentTaskState = .readyToGenerateTask
+                    AnalyticsHelper.logError(NSError(domain: "HabitViewModel", code: 0, userInfo: [NSLocalizedDescriptionKey: "Failed to generate task"]))
                     self.taskGenerationError = "Failed to generate task. Please try again."
                 }
             }
@@ -880,28 +920,6 @@ public class HabitViewModel: ObservableObject {
                     fileName: "proof.jpg",
                     mimeType: "image/jpeg"
                 )
-            case .video:
-                guard let videoData = data else { throw NSError(domain: "No video data", code: 0) }
-                _ = TaskProofSubmissionData(proof_type: "video", proof_content: "video")
-                response = try await apiService.submitTaskProofWithFile(
-                    taskId: task.id,
-                    proofType: "video",
-                    proofContent: "video",
-                    fileData: videoData,
-                    fileName: "proof.mov",
-                    mimeType: "video/quicktime"
-                )
-            case .audio:
-                guard let audioData = data else { throw NSError(domain: "No audio data", code: 0) }
-                _ = TaskProofSubmissionData(proof_type: "audio", proof_content: "audio")
-                response = try await apiService.submitTaskProofWithFile(
-                    taskId: task.id,
-                    proofType: "audio",
-                    proofContent: "audio",
-                    fileData: audioData,
-                    fileName: "proof.m4a",
-                    mimeType: "audio/mp4"
-                )
             case .text:
                 guard let textProof = text else { throw NSError(domain: "No text proof", code: 0) }
 #if DEBUG
@@ -926,18 +944,6 @@ public class HabitViewModel: ObservableObject {
                 case .photo:
                     if let data = data {
                         proofForShare = .readyToSubmit(.image(data))
-                    } else {
-                        proofForShare = .submitted
-                    }
-                case .video:
-                    if let data = data {
-                        proofForShare = .readyToSubmit(.video(data))
-                    } else {
-                        proofForShare = .submitted
-                    }
-                case .audio:
-                    if let data = data {
-                        proofForShare = .readyToSubmit(.audio(data))
                     } else {
                         proofForShare = .submitted
                     }
@@ -1005,6 +1011,17 @@ public class HabitViewModel: ObservableObject {
             } else {
                 self.autoCreatedPostId = nil as Int?
             }
+            // Log proof submitted event
+            AnalyticsHelper.logEvent("proof_submitted", parameters: [
+                "task_id": task.id,
+                "habit_id": selectedHabit?.id ?? "unknown"
+            ])
+            // If a streak freezer was used (e.g., attemptsLeft == 0 and validation is not valid), log it
+            if let attempts = attemptsLeft, attempts == 0, validation?.isValid == false {
+                AnalyticsHelper.logEvent("streak_freezer_used", parameters: [
+                    "habit_id": selectedHabit?.id ?? "unknown"
+                ])
+            }
         } catch {
             await MainActor.run {
                 self.proofState = .error(message: error.localizedDescription)
@@ -1056,6 +1073,9 @@ public class HabitViewModel: ObservableObject {
             await MainActor.run {
                 self.streakFreezers = response.streak_freezers
             }
+            AnalyticsHelper.logEvent("streak_freezer_awarded", parameters: [
+                "user_id": "current" // Replace with actual user id if available
+            ])
         } catch {
             print("Failed to award streak freezer: \(error.localizedDescription)")
         }
@@ -1065,7 +1085,7 @@ public class HabitViewModel: ObservableObject {
     func shareProof(visibility: String, description: String, task: HabitTaskDetails, proof: HabitProofState, proofInputType: ProofInputType? = nil, textProof: String? = nil) async {
         let shouldIncreaseStreak = (visibility == "Friends" || visibility == "Close Friends")
         do {
-            let habitId = selectedHabit?.id
+            let habitId = selectedHabit?.id ?? -1
             // Extract text proof if this HabitProofState contains text
             var proofInput: ProofInputType? = nil
             var actualTextProof: String? = nil
@@ -1089,7 +1109,7 @@ public class HabitViewModel: ObservableObject {
                     proof: proof,
                     description: description,
                     visibility: visibility,
-                    habitId: habitId,
+                    habitId: selectedHabit?.id,
                     proofInputType: proofInput,
                     textProof: actualTextProof,
                     todayTask: todayTask,
@@ -1119,6 +1139,10 @@ public class HabitViewModel: ObservableObject {
                 // --- Reset private post state ---
                 self.autoCreatedPostId = nil as Int?
             }
+            AnalyticsHelper.logEvent("proof_shared", parameters: [
+                "habit_id": habitId,
+                "visibility": visibility
+            ])
         } catch {
             await MainActor.run {
                 ToastManager.shared.showError("Failed to share proof: \(error.localizedDescription)")
@@ -1128,7 +1152,7 @@ public class HabitViewModel: ObservableObject {
 
     private func createPrivatePostForSuccessShare(task: HabitTaskDetails, proof: HabitProofState) async {
         if autoCreatedPostId != nil { return }
-        let habitId = selectedHabit?.id
+        let habitId = selectedHabit?.id ?? -1
         // Extract text proof if this HabitProofState contains text
         var proofInput: ProofInputType? = nil
         var actualTextProof: String? = nil
@@ -1151,9 +1175,9 @@ public class HabitViewModel: ObservableObject {
                 proof: proof,
                 description: "",
                 visibility: "Private",
-                habitId: habitId,
-                proofInputType: proofInput,
-                textProof: actualTextProof,
+                habitId: selectedHabit?.id,
+                proofInputType: nil,
+                textProof: nil,
                 todayTask: todayTask,
                 autoCreatedPostId: autoCreatedPostId
             )
@@ -1161,6 +1185,9 @@ public class HabitViewModel: ObservableObject {
             await MainActor.run {
                 self.lastCreatedPost = post
             }
+            AnalyticsHelper.logEvent("private_post_created", parameters: [
+                "habit_id": habitId
+            ])
         } catch {
             print("[HabitViewModel] Failed to create private post: \(error)")
         }
@@ -1370,6 +1397,9 @@ public class HabitViewModel: ObservableObject {
             self.lastValidationResult = nil
             self.updateTaskState()
         }
+        AnalyticsHelper.logEvent("retry_after_failure", parameters: [
+            "habit_id": habit.id
+        ])
     }
 
     /// Reload the last created post from backend (for share modal after relaunch)
@@ -1403,6 +1433,15 @@ public class HabitViewModel: ObservableObject {
                 self.freshProofUrl = nil
             }
         }
+    }
+
+    // Call this in HabitsView and HabitDetailsView .onAppear for funneling
+    func logScreenViewed(screen: String, habitId: Int? = nil) {
+        var params: [String: Any] = ["screen": screen]
+        if let habitId = habitId {
+            params["habit_id"] = habitId
+        }
+        AnalyticsHelper.logEvent("screen_viewed", parameters: params)
     }
 }
 

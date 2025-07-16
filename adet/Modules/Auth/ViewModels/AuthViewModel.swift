@@ -1,6 +1,7 @@
 import Foundation
 import SwiftUI
 import Clerk
+import FirebaseAnalytics
 
 @MainActor
 class AuthViewModel: ObservableObject {
@@ -27,6 +28,8 @@ class AuthViewModel: ObservableObject {
     @Published var isDeletingProfileImage = false
     @Published var jwtToken: String? = nil
 
+    @AppStorage("shouldShowOnboarding") private var shouldShowOnboarding: Bool = false
+
     func fetchUser() async {
         do {
             self.user = try await apiService.getCurrentUser()
@@ -39,6 +42,7 @@ class AuthViewModel: ObservableObject {
             print("Failed to fetch user: \(error.localizedDescription)")
 #endif
             self.user = nil
+            AnalyticsHelper.logError(NSError(domain: "AuthViewModel", code: 0, userInfo: [NSLocalizedDescriptionKey: "Failed to fetch user: \(error.localizedDescription)"]))
         }
     }
 
@@ -52,6 +56,7 @@ class AuthViewModel: ObservableObject {
 #if DEBUG
             print("Failed to sync user from Clerk: \(error.localizedDescription)")
 #endif
+            AnalyticsHelper.logError(NSError(domain: "AuthViewModel", code: 0, userInfo: [NSLocalizedDescriptionKey: "Failed to sync user from Clerk: \(error.localizedDescription)"]))
         }
     }
 
@@ -66,11 +71,36 @@ class AuthViewModel: ObservableObject {
         self.isClerkVerifying = authService.isVerifying
         if let error = authService.error {
             toastManager.showError(error)
+            AnalyticsHelper.logError(NSError(domain: "AuthViewModel", code: 0, userInfo: [NSLocalizedDescriptionKey: "Failed to sign up user: \(error)"]))
+            AnalyticsHelper.logEvent("registration_failed", parameters: ["email": email, "error": error])
+        } else {
+            AnalyticsHelper.logEvent("registration_success", parameters: ["email": email])
         }
 #if DEBUG
         print("Sign up initiated, isVerifying: \(isClerkVerifying)")
 #endif
         await fetchJWT()
+        // Set onboarding flag after successful registration
+        if authService.error == nil {
+            shouldShowOnboarding = true
+            if let user = self.user ?? Clerk.shared.user.map({
+                User(
+                    id: 0,
+                    clerkId: $0.id,
+                    email: $0.emailAddresses.first?.emailAddress ?? "",
+                    name: $0.firstName ?? "",
+                    username: $0.username,
+                    bio: nil,
+                    profileImageUrl: nil,
+                    isActive: true,
+                    createdAt: Date(),
+                    updatedAt: nil,
+                    plan: "free"
+                )
+            }) {
+                AnalyticsHelper.setUserId(user.clerkId)
+            }
+        }
     }
 
     func verifyClerk(_ code: String) async {
@@ -82,6 +112,10 @@ class AuthViewModel: ObservableObject {
         self.isClerkVerifying = authService.isVerifying
         if let error = authService.error {
             toastManager.showError(error)
+            AnalyticsHelper.logError(NSError(domain: "AuthViewModel", code: 0, userInfo: [NSLocalizedDescriptionKey: "Failed to verify user: \(error)"]))
+            AnalyticsHelper.logEvent("verification_failed", parameters: ["error": error])
+        } else {
+            AnalyticsHelper.logEvent("verification_success", parameters: nil)
         }
 
         try? await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
@@ -118,6 +152,10 @@ class AuthViewModel: ObservableObject {
                     pendingOnboardingAnswers = nil // Clear after submitting
                 }
             }
+        }
+        // Set user ID after verification
+        if let user = self.user {
+            AnalyticsHelper.setUserId(user.clerkId)
         }
     }
 
@@ -161,6 +199,13 @@ class AuthViewModel: ObservableObject {
         }
         if let error = authService.error {
             toastManager.showError(error)
+            AnalyticsHelper.logError(NSError(domain: "AuthViewModel", code: 0, userInfo: [NSLocalizedDescriptionKey: "Failed to sign in user: \(error)"]))
+            AnalyticsHelper.logEvent("login_failed", parameters: ["email": email, "error": error])
+        } else {
+            AnalyticsHelper.logEvent("login_success", parameters: ["email": email])
+            if let user = self.user {
+                AnalyticsHelper.setUserId(user.clerkId)
+            }
         }
     }
 
@@ -170,11 +215,13 @@ class AuthViewModel: ObservableObject {
 #if DEBUG
             print("Successfully submitted onboarding answers.")
 #endif
+            AnalyticsHelper.logEvent("onboarding_complete", parameters: nil)
         } catch {
 #if DEBUG
             print("Failed to submit onboarding answers: \(error.localizedDescription)")
 #endif
             toastManager.showError("Account created, but failed to save onboarding answers.")
+            AnalyticsHelper.logError(NSError(domain: "AuthViewModel", code: 0, userInfo: [NSLocalizedDescriptionKey: "Failed to submit onboarding answers: \(error.localizedDescription)"]))
         }
     }
 
@@ -188,20 +235,25 @@ class AuthViewModel: ObservableObject {
 #if DEBUG
             print("Account deleted from backend successfully")
 #endif
+            AnalyticsHelper.logEvent("account_deleted_backend", parameters: nil)
 
             // Then delete from Clerk
             await authService.delete()
 #if DEBUG
             print("Account deleted from Clerk successfully")
 #endif
+            AnalyticsHelper.logEvent("account_deleted_clerk", parameters: nil)
 
             // Clear local user data
             self.user = nil
+            AnalyticsHelper.logEvent("account_deleted", parameters: nil)
 
         } catch {
 #if DEBUG
             print("Failed to delete account: \(error.localizedDescription)")
 #endif
+            AnalyticsHelper.logError(error)
+            AnalyticsHelper.logEvent("account_delete_failed", parameters: ["error": error.localizedDescription])
             // Even if backend deletion fails, still try to delete from Clerk
             await authService.delete()
             self.user = nil
@@ -264,11 +316,14 @@ class AuthViewModel: ObservableObject {
 
             // Clear any previous errors on success
             toastManager.dismiss()
+            AnalyticsHelper.logEvent("username_updated", parameters: ["username": username])
 
         } catch {
 #if DEBUG
             print("Failed to update username: \(error.localizedDescription)")
 #endif
+            AnalyticsHelper.logError(error)
+            AnalyticsHelper.logEvent("username_update_failed", parameters: ["username": username, "error": error.localizedDescription])
             toastManager.showError("Failed to update username: \(error.localizedDescription)")
 
             // Revert local changes on error
@@ -286,6 +341,7 @@ class AuthViewModel: ObservableObject {
 #if DEBUG
             print("Signed out from Clerk successfully")
 #endif
+            AnalyticsHelper.logEvent("sign_out_success", parameters: nil)
 
             // Clear local user data
             self.user = nil
@@ -294,6 +350,8 @@ class AuthViewModel: ObservableObject {
 #if DEBUG
             print("Failed to sign out: \(error.localizedDescription)")
 #endif
+            AnalyticsHelper.logError(error)
+            AnalyticsHelper.logEvent("sign_out_failed", parameters: ["error": error.localizedDescription])
             // Even if sign out fails, clear local data
             self.user = nil
         }
@@ -394,10 +452,14 @@ class AuthViewModel: ObservableObject {
             let updatedUser = try await NetworkService.shared.updateProfile(name: name, username: username, bio: bio)
             self.user = updatedUser
             toastManager.dismiss()
+            AnalyticsHelper.logEvent("profile_updated", parameters: ["username": username])
         } catch let NetworkError.requestFailed(statusCode, _) where statusCode == 409 {
             toastManager.showError("Username already taken. Please choose another.")
+            AnalyticsHelper.logEvent("profile_update_failed", parameters: ["username": username, "error": "username_taken"])
         } catch {
             toastManager.showError("Failed to update profile: \(error.localizedDescription)")
+            AnalyticsHelper.logError(error)
+            AnalyticsHelper.logEvent("profile_update_failed", parameters: ["username": username, "error": error.localizedDescription])
         }
     }
 

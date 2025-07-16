@@ -4,8 +4,6 @@ import PhotosUI
 private func proofInputType(from requirements: String) -> ProofInputType {
     let lower = requirements.lowercased()
     if lower.contains("photo") { return .photo }
-    if lower.contains("video") { return .video }
-    if lower.contains("audio") { return .audio }
     if lower.contains("text") { return .text }
     return .photo // default fallback
 }

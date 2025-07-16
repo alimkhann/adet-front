@@ -1,7 +1,9 @@
 import SwiftUI
+import Clerk
 
 struct SignUpView: View {
     @EnvironmentObject var viewModel: AuthViewModel
+    @Environment(\.colorScheme) var colorScheme
 
     let onboardingAnswers: OnboardingAnswers
 
@@ -11,9 +13,22 @@ struct SignUpView: View {
     @State private var repeatPassword = ""
     @State private var code     = ""
     @State private var passwordMismatch = false
+    @State private var agreedToTerms = false
+    @FocusState private var emailFieldFocused: Bool
+    @FocusState private var passwordFieldFocused: Bool
+    @State private var showEmailFields = false
+    @State private var showEmailForm = false // New state for navigation
 
     var passwordsMatch: Bool {
         !password.isEmpty && password == repeatPassword
+    }
+
+    var passwordStrength: PasswordStrength {
+        PasswordStrength(password)
+    }
+
+    var canSignUp: Bool {
+        passwordsMatch && agreedToTerms && !email.isEmpty && !username.isEmpty && !password.isEmpty
     }
 
     var body: some View {
@@ -23,82 +38,32 @@ struct SignUpView: View {
                     .padding(.top, 40)
                     .padding(.bottom, 32)
 
-                Group {
-                    StyledTextField(
-                        placeholder: "Email",
-                        text: $email)
-                    .accessibilityIdentifier("Email")
-                    .padding(.bottom, 12)
+                Spacer()
 
-                    StyledTextField(
-                        placeholder: "Username",
-                        text: $username
-                    )
-                    .accessibilityIdentifier("Username")
-                    .padding(.bottom, 12)
+                // Social Auth Buttons
+                VStack(spacing: 12) {
+                    SignInWithAppleView()
+                        .frame(height: 48)
+                        .cornerRadius(12)
+                        .padding(.horizontal, 24)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(colorScheme == .dark ? Color.white.opacity(0.3) : Color.black.opacity(0.3), lineWidth: 1)
+                                .padding(.horizontal, 24)
+                        )
 
-                    StyledTextField(
-                        placeholder: "Password",
-                        text: $password,
-                        isSecure: true
-                    )
-                    .accessibilityIdentifier("Password")
-                    .padding(.bottom, 12)
-
-                    StyledTextField(
-                        placeholder: "Repeat Password",
-                        text: $repeatPassword,
-                        isSecure: true
-                    )
-                    .accessibilityIdentifier("RepeatPassword")
-                    .padding(.bottom, 4)
-
-                    if !repeatPassword.isEmpty && !passwordsMatch {
-                        Text("Passwords do not match.")
-                            .foregroundColor(.red)
-                            .font(.caption)
-                            .padding(.bottom, 8)
+                    Button(action: {
+                        showEmailForm = true
+                    }) {
+                        Text("Continue with Email")
+                            .frame(maxWidth: .infinity, minHeight: 48)
                     }
+                    .buttonStyle(SecondaryButtonStyle())
+                    .padding(.horizontal, 24)
                 }
-                .padding(.horizontal, 24)
-
-                if viewModel.isClerkVerifying {
-                    StyledTextField(
-                        placeholder: "Verification Code",
-                        text: $code
-                    )
-                    .accessibilityIdentifier("VerificationCode")
-                    .padding(.horizontal, 24)
-                    .padding(.bottom, 12)
-
-                    LoadingButton(
-                        title: "Verify",
-                        isLoading: false
-                    ) {
-                        Task { await viewModel.verifyClerk(code) }
-                    }
-                    .accessibilityIdentifier("Verify")
-                    .padding(.horizontal, 24)
-                } else {
-                    LoadingButton(
-                        title: "Get Started",
-                        isLoading: false
-                    ) {
-                        if passwordsMatch {
-                            passwordMismatch = false
-                            Task { await viewModel.signUpClerk(
-                                email: email,
-                                password: password,
-                                username: username,
-                                answers: onboardingAnswers
-                            ) }
-                        } else {
-                            passwordMismatch = true
-                        }
-                    }
-                    .accessibilityIdentifier("Sign Up")
-                    .padding(.horizontal, 24)
-                    .disabled(!passwordsMatch)
+                .padding(.bottom, 24)
+                .navigationDestination(isPresented: $showEmailForm) {
+                    EmailSignUpFormView(onboardingAnswers: onboardingAnswers).environmentObject(viewModel)
                 }
 
                 NavigationLink("Already have an account? Sign In", destination: SignInView())
@@ -109,6 +74,7 @@ struct SignUpView: View {
                 Spacer()
             }
         }
+        .tint(.primary)
         .onAppear {
             viewModel.clearErrors()
         }

@@ -5,6 +5,8 @@ struct RootView: View {
     @Environment(Clerk.self) private var clerk
     @EnvironmentObject private var authManager: AuthManager
     @StateObject private var authViewModel = AuthViewModel()
+    @AppStorage("shouldShowOnboarding") private var shouldShowOnboarding: Bool = false
+    @State private var showOnboarding: Bool = false
 
     var body: some View {
         ZStack {
@@ -37,6 +39,14 @@ struct RootView: View {
                     await authManager.handleSignOut()
                 }
             }
+        }
+        .fullScreenCover(isPresented: Binding<Bool>(
+            get: { shouldShowOnboarding && authManager.isAuthenticated },
+            set: { _ in }
+        )) {
+            OnboardingView(onFinish: {
+                shouldShowOnboarding = false
+            })
         }
     }
 }

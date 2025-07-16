@@ -1,6 +1,6 @@
 import SwiftUI
 
-struct OnboardingView: View {
+struct RegistrationOnboardingView: View {
     @State private var currentStep = 0
     @State private var answers = OnboardingAnswers()
     @State private var isFinished = false
@@ -72,8 +72,4 @@ struct OnboardingView: View {
         }
         .tint(.primary)
     }
-}
-
-#Preview {
-    OnboardingView()
 }

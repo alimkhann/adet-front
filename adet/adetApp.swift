@@ -1,12 +1,29 @@
 import SwiftUI
 import Clerk
+import FirebaseCore
+import FirebaseAnalytics
+import FirebaseCrashlytics
+
+class AppDelegate: NSObject, UIApplicationDelegate {
+  func application(_ application: UIApplication,
+                   didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey : Any]? = nil) -> Bool {
+    FirebaseApp.configure()
+
+    return true
+  }
+}
 
 @main
 struct adetApp: App {
+    @UIApplicationDelegateAdaptor(AppDelegate.self) var delegate
     @State private var clerk = Clerk.shared
     @StateObject private var authManager = AuthManager()
     @AppStorage("appTheme") private var themeRawValue: String = Theme.system.rawValue
     @AppStorage("appLanguage") var appLanguage: String = Locale.current.language.languageCode?.identifier ?? "en"
+
+    init() {
+        Analytics.logEvent(AnalyticsEventAppOpen, parameters: nil)
+    }
 
     var body: some Scene {
         WindowGroup {

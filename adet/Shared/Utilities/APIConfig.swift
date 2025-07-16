@@ -11,5 +11,5 @@ struct APIConfig {
     static let wsBaseURL = "wss://api.tryadet.com"
     #endif
 
-    static let apiBaseURL = "\(baseURL)/v1"
+    static let apiBaseURL = "\(baseURL)/api/v1"
 }

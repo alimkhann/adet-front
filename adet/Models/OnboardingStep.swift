@@ -30,7 +30,7 @@ let onboardingSteps: [OnboardingStep] = [
     ),
     .init(
         title: "Validation/proof style preference?",
-        subtitle: "Photo, video, audio or text",
+        subtitle: "Photo or text",
         // options: ["Photo", "Video (Coming soon)", "Audio (Coming soon)", "Text"]
         options: ["Photo", "Text"] // Video/Audio
     )

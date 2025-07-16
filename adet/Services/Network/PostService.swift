@@ -748,6 +748,54 @@ class PostService: ObservableObject {
             return postsResponse.posts
         }
     }
+
+    // MARK: - Report Post
+    func reportPost(postId: Int, reason: String) async throws -> PostActionResponse {
+        let url = URL(string: "\(baseURL)/posts/\(postId)/report")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        if let token = await AuthService.shared.getValidToken() {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        let body: [String: Any] = ["reason": reason]
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        let (data, response) = try await session.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw NetworkError.requestFailed(statusCode: 0, body: "Invalid response")
+        }
+        guard httpResponse.statusCode == 200 else {
+            if let errorData = try? JSONDecoder().decode(APIError.self, from: data) {
+                throw NetworkError.requestFailed(statusCode: httpResponse.statusCode, body: errorData.detail)
+            }
+            throw NetworkError.requestFailed(statusCode: httpResponse.statusCode, body: nil)
+        }
+        return try JSONDecoder().decode(PostActionResponse.self, from: data)
+    }
+
+    // MARK: - Comment on Post
+    func commentOnPost(postId: Int, comment: String) async throws -> CommentActionResponse {
+        let url = URL(string: "\(baseURL)/posts/comments")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        if let token = await AuthService.shared.getValidToken() {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        let body: [String: Any] = ["post_id": postId, "content": comment]
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        let (data, response) = try await session.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw NetworkError.requestFailed(statusCode: 0, body: "Invalid response")
+        }
+        guard httpResponse.statusCode == 200 else {
+            if let errorData = try? JSONDecoder().decode(APIError.self, from: data) {
+                throw NetworkError.requestFailed(statusCode: httpResponse.statusCode, body: errorData.detail)
+            }
+            throw NetworkError.requestFailed(statusCode: httpResponse.statusCode, body: nil)
+        }
+        return try JSONDecoder().decode(CommentActionResponse.self, from: data)
+    }
 }
 
 // MARK: - Request/Response Models
