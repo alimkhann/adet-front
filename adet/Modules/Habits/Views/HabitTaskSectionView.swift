@@ -393,7 +393,11 @@ struct HabitTaskSectionView: View {
                 .sheet(isPresented: $showShareModal) {
                     if let todayTask = viewModel.todayTask {
                         // Reload the post if needed when the sheet appears
-                        ShareProofModalSheetLoader(viewModel: viewModel, todayTask: todayTask, proof: viewModel.lastSuccessShareProof ?? proof)
+                        ShareProofModalSheetLoader(
+                            viewModel: viewModel,
+                            todayTask: todayTask,
+                            proof: viewModel.lastSuccessShareProof[viewModel.selectedHabit?.id ?? -1] ?? proof
+                        )
                     }
                 }
 

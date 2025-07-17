@@ -94,6 +94,7 @@ struct HabitsView: View {
                                 viewModel.updateTaskState()
                             }
                         }
+                        await viewModel.fetchStreakFreezers()
                     }
                     hasLoadedHabits = true
                 }

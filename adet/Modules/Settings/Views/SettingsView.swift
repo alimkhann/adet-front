@@ -103,9 +103,6 @@ struct SettingsView: View {
 
                 // Support Section
                 Section(header: Text("support".t(language))) {
-                    NavigationLink(destination: FAQView()) {
-                        Text("faq".t(language))
-                    }
                     NavigationLink(destination: ContactSupportView()) {
                         Text("contact_support".t(language))
                     }

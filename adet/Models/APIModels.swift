@@ -53,7 +53,7 @@ struct HabitCreateRequest: Codable {
         case frequency
         case validationTime = "validation_time"
         case difficulty
-        case proofStyle = "proof_style"
+        case proofStyle
     }
 }
 

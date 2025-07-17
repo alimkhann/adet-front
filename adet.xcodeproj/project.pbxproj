@@ -95,7 +95,6 @@
 				Modules/Profile/Views/EditProfileView.swift,
 				Modules/Profile/Views/ProfileView.swift,
 				Modules/Settings/Views/ContactSupportView.swift,
-				Modules/Settings/Views/FAQView.swift,
 				Modules/Settings/Views/ReportBugView.swift,
 				Modules/Settings/Views/SettingsView.swift,
 				Resources/Assets.xcassets,
@@ -556,9 +555,11 @@
 				PRODUCT_BUNDLE_IDENTIFIER = "Alimkhan-Yergebayev.adet";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = 1;
+				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Debug;
 		};
@@ -596,9 +597,11 @@
 				PRODUCT_BUNDLE_IDENTIFIER = "Alimkhan-Yergebayev.adet";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = 1;
+				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Release;
 		};

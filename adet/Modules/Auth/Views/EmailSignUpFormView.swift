@@ -132,7 +132,7 @@ struct EmailSignUpFormView: View {
                                 username: username,
                                 answers: onboardingAnswers
                             )
-                            
+
                             showVerificationField = true
                         }
                     } else {

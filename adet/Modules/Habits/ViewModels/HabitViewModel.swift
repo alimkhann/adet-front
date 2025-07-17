@@ -44,22 +44,21 @@ public class HabitViewModel: ObservableObject {
     private let maxPollAttempts = 10 // 10 attempts = ~50 seconds
 
     // --- SuccessShare Persistence ---
-    @Published var isInSuccessShare: Bool = false
-    private var lastSuccessShareTask: HabitTaskDetails? = nil
-    var lastSuccessShareProof: HabitProofState? = nil
-    private var lastSuccessShareDate: Date? = nil
+    @Published var isInSuccessShare: [Int: Bool] = [:] // habitId: Bool
+    private var lastSuccessShareTask: [Int: HabitTaskDetails] = [:]
+    var lastSuccessShareProof: [Int: HabitProofState] = [:]
+    private var lastSuccessShareDate: [Int: Date] = [:]
 
     // --- SuccessDone Persistence ---
-    @Published var isInSuccessDone: Bool = false
-    private var lastSuccessDoneDate: Date? = nil
+    @Published var successDoneState: [Int: Date] = [:] // habitId: date
 
     // --- Failed/Missed Persistence ---
-    @Published var isInFailed: Bool = false
-    private var lastFailedAttemptsLeft: Int? = nil
-    private var lastFailedDate: Date? = nil
-    @Published var isInMissed: Bool = false
-    private var lastMissedNextTaskDate: Date? = nil
-    private var lastMissedDate: Date? = nil
+    @Published var isInFailed: [Int: Bool] = [:]
+    private var lastFailedAttemptsLeft: [Int: Int] = [:]
+    private var lastFailedDate: [Int: Date] = [:]
+    @Published var isInMissed: [Int: Bool] = [:]
+    private var lastMissedNextTaskDate: [Int: Date] = [:]
+    private var lastMissedDate: [Int: Date] = [:]
 
     @Published var timeUntilValidation: TimeInterval = 0
     @Published var timeUntilExpiration: TimeInterval = 0
@@ -428,55 +427,54 @@ public class HabitViewModel: ObservableObject {
         }
 
         // Persist .successDone if set and day hasn't changed
-        if isInSuccessDone, let date = lastSuccessDoneDate {
+        if let date = successDoneState[habit.id] {
             let today = Calendar.current.startOfDay(for: Date())
             let last = Calendar.current.startOfDay(for: date)
             if today == last {
                 currentTaskState = .successDone
                 return
             } else {
-                isInSuccessDone = false
-                lastSuccessDoneDate = nil
+                successDoneState[habit.id] = nil
             }
         }
         // Persist .successShare if set and day hasn't changed
-        if isInSuccessShare, let task = lastSuccessShareTask, let proof = lastSuccessShareProof, let date = lastSuccessShareDate {
+        if isInSuccessShare[habit.id] == true, let task = lastSuccessShareTask[habit.id], let proof = lastSuccessShareProof[habit.id], let date = lastSuccessShareDate[habit.id] {
             let today = Calendar.current.startOfDay(for: Date())
             let last = Calendar.current.startOfDay(for: date)
             if today == last {
                 currentTaskState = .successShare(task: task, proof: proof)
                 return
             } else {
-                isInSuccessShare = false
-                lastSuccessShareTask = nil
-                lastSuccessShareProof = nil
-                lastSuccessShareDate = nil
+                isInSuccessShare[habit.id] = false
+                lastSuccessShareTask[habit.id] = nil
+                lastSuccessShareProof[habit.id] = nil
+                lastSuccessShareDate[habit.id] = nil
             }
         }
         // Persist .failed if set and day hasn't changed
-        if isInFailed, let attempts = lastFailedAttemptsLeft, let date = lastFailedDate {
+        if isInFailed[habit.id] == true, let attempts = lastFailedAttemptsLeft[habit.id], let date = lastFailedDate[habit.id] {
             let today = Calendar.current.startOfDay(for: Date())
             let last = Calendar.current.startOfDay(for: date)
             if today == last {
                 currentTaskState = .failed(attemptsLeft: attempts)
                 return
             } else {
-                isInFailed = false
-                lastFailedAttemptsLeft = nil
-                lastFailedDate = nil
+                isInFailed[habit.id] = false
+                lastFailedAttemptsLeft[habit.id] = nil
+                lastFailedDate[habit.id] = nil
             }
         }
         // Persist .missed if set and day hasn't changed
-        if isInMissed, let nextDate = lastMissedNextTaskDate, let date = lastMissedDate {
+        if isInMissed[habit.id] == true, let nextDate = lastMissedNextTaskDate[habit.id], let date = lastMissedDate[habit.id] {
             let today = Calendar.current.startOfDay(for: Date())
             let last = Calendar.current.startOfDay(for: date)
             if today == last {
                 currentTaskState = .missed(nextTaskDate: nextDate)
                 return
             } else {
-                isInMissed = false
-                lastMissedNextTaskDate = nil
-                lastMissedDate = nil
+                isInMissed[habit.id] = false
+                lastMissedNextTaskDate[habit.id] = nil
+                lastMissedDate[habit.id] = nil
             }
         }
 
@@ -494,11 +492,10 @@ public class HabitViewModel: ObservableObject {
 #if DEBUG
                 print("[DEBUG] Shared posts found:", sharedPosts)
 #endif
-                if !sharedPosts.isEmpty {
+                if let todayPost = sharedPosts.first(where: { Calendar.current.isDateInToday($0.createdAt) }) {
                     await MainActor.run {
                         self.currentTaskState = .successDone
-                        self.isInSuccessDone = true
-                        self.lastSuccessDoneDate = Date()
+                        self.successDoneState[habit.id] = todayPost.createdAt
                     }
                     return
                 }
@@ -566,7 +563,18 @@ public class HabitViewModel: ObservableObject {
                         }
                     }
                     currentTaskState = .successShare(task: makeTaskDetails(), proof: proofState)
-                    return
+                    let habitId = selectedHabit?.id ?? -1
+                    self.isInSuccessShare[habitId] = true
+                    self.lastSuccessShareTask[habitId] = makeTaskDetails()
+                    self.lastSuccessShareProof[habitId] = proofState
+                    self.lastSuccessShareDate[habitId] = Date()
+                    // Reset failed/missed persistence
+                    self.isInFailed[habitId] = false
+                    self.lastFailedAttemptsLeft[habitId] = nil
+                    self.lastFailedDate[habitId] = nil
+                    self.isInMissed[habitId] = false
+                    self.lastMissedNextTaskDate[habitId] = nil
+                    self.lastMissedDate[habitId] = nil
                 case .pending:
                     print("[HabitViewModel] updateTaskState: transitioning to .showTask")
                     currentTaskState = .showTask(task: makeTaskDetails(), proof: proofState)
@@ -966,43 +974,46 @@ public class HabitViewModel: ObservableObject {
                         await self.createPrivatePostForSuccessShare(task: details, proof: proofForShare)
                     }
                     self.currentTaskState = .successShare(task: details, proof: proofForShare)
-                    self.isInSuccessShare = true
-                    self.lastSuccessShareTask = details
-                    self.lastSuccessShareProof = proofForShare
-                    self.lastSuccessShareDate = Date()
+                    let habitId = selectedHabit?.id ?? -1
+                    self.isInSuccessShare[habitId] = true
+                    self.lastSuccessShareTask[habitId] = details
+                    self.lastSuccessShareProof[habitId] = proofForShare
+                    self.lastSuccessShareDate[habitId] = Date()
                     // Reset failed/missed persistence
-                    self.isInFailed = false
-                    self.lastFailedAttemptsLeft = nil
-                    self.lastFailedDate = nil
-                    self.isInMissed = false
-                    self.lastMissedNextTaskDate = nil
-                    self.lastMissedDate = nil
+                    self.isInFailed[habitId] = false
+                    self.lastFailedAttemptsLeft[habitId] = nil
+                    self.lastFailedDate[habitId] = nil
+                    self.isInMissed[habitId] = false
+                    self.lastMissedNextTaskDate[habitId] = nil
+                    self.lastMissedDate[habitId] = nil
                 } else if (attemptsLeft ?? 0) > 0 {
                     self.currentTaskState = .failed(attemptsLeft: attemptsLeft ?? 0)
-                    self.isInFailed = true
-                    self.lastFailedAttemptsLeft = attemptsLeft
-                    self.lastFailedDate = Date()
+                    let habitId = selectedHabit?.id ?? -1
+                    self.isInFailed[habitId] = true
+                    self.lastFailedAttemptsLeft[habitId] = attemptsLeft
+                    self.lastFailedDate[habitId] = Date()
                     // Reset others
-                    self.isInSuccessShare = false
-                    self.lastSuccessShareTask = nil
-                    self.lastSuccessShareProof = nil
-                    self.lastSuccessShareDate = nil
-                    self.isInMissed = false
-                    self.lastMissedNextTaskDate = nil
-                    self.lastMissedDate = nil
+                    self.isInSuccessShare[habitId] = false
+                    self.lastSuccessShareTask[habitId] = nil
+                    self.lastSuccessShareProof[habitId] = nil
+                    self.lastSuccessShareDate[habitId] = nil
+                    self.isInMissed[habitId] = false
+                    self.lastMissedNextTaskDate[habitId] = nil
+                    self.lastMissedDate[habitId] = nil
                 } else {
                     self.currentTaskState = .failedNoAttempts(nextTaskDate: nextTaskDate ?? Date())
+                    let habitId = selectedHabit?.id ?? -1
                     // Reset all persistence for failedNoAttempts
-                    self.isInFailed = false
-                    self.lastFailedAttemptsLeft = nil
-                    self.lastFailedDate = nil
-                    self.isInSuccessShare = false
-                    self.lastSuccessShareTask = nil
-                    self.lastSuccessShareProof = nil
-                    self.lastSuccessShareDate = nil
-                    self.isInMissed = false
-                    self.lastMissedNextTaskDate = nil
-                    self.lastMissedDate = nil
+                    self.isInFailed[habitId] = false
+                    self.lastFailedAttemptsLeft[habitId] = nil
+                    self.lastFailedDate[habitId] = nil
+                    self.isInSuccessShare[habitId] = false
+                    self.lastSuccessShareTask[habitId] = nil
+                    self.lastSuccessShareProof[habitId] = nil
+                    self.lastSuccessShareDate[habitId] = nil
+                    self.isInMissed[habitId] = false
+                    self.lastMissedNextTaskDate[habitId] = nil
+                    self.lastMissedDate[habitId] = nil
                 }
                 self.resetMotivationAndAbility()
             }
@@ -1129,13 +1140,12 @@ public class HabitViewModel: ObservableObject {
             }
             // --- Reset successShare state after sharing ---
             await MainActor.run {
-                self.isInSuccessShare = false
-                self.lastSuccessShareTask = nil
-                self.lastSuccessShareProof = nil
-                self.lastSuccessShareDate = nil
+                self.isInSuccessShare[habitId] = false
+                self.lastSuccessShareTask[habitId] = nil
+                self.lastSuccessShareProof[habitId] = nil
+                self.lastSuccessShareDate[habitId] = nil
                 // --- Set persistent successDone state ---
-                self.isInSuccessDone = true
-                self.lastSuccessDoneDate = Date()
+                self.successDoneState[habitId] = Date()
                 // --- Reset private post state ---
                 self.autoCreatedPostId = nil as Int?
             }
@@ -1215,27 +1225,29 @@ public class HabitViewModel: ObservableObject {
 
     // When marking missed, persist missed state
     func markTaskMissed(nextTaskDate: Date) {
+        guard let habitId = selectedHabit?.id else { return }
         self.currentTaskState = .missed(nextTaskDate: nextTaskDate)
-        self.isInMissed = true
-        self.lastMissedNextTaskDate = nextTaskDate
-        self.lastMissedDate = Date()
+        self.isInMissed[habitId] = true
+        self.lastMissedNextTaskDate[habitId] = nextTaskDate
+        self.lastMissedDate[habitId] = Date()
         // Reset others
-        self.isInFailed = false
-        self.lastFailedAttemptsLeft = nil
-        self.lastFailedDate = nil
-        self.isInSuccessShare = false
-        self.lastSuccessShareTask = nil
-        self.lastSuccessShareProof = nil
-        self.lastSuccessShareDate = nil
+        self.isInFailed[habitId] = false
+        self.lastFailedAttemptsLeft[habitId] = nil
+        self.lastFailedDate[habitId] = nil
+        self.isInSuccessShare[habitId] = false
+        self.lastSuccessShareTask[habitId] = nil
+        self.lastSuccessShareProof[habitId] = nil
+        self.lastSuccessShareDate[habitId] = nil
     }
     // When user retries or dismisses, reset failed/missed persistence
     func resetFailedMissedPersistence() {
-        self.isInFailed = false
-        self.lastFailedAttemptsLeft = nil
-        self.lastFailedDate = nil
-        self.isInMissed = false
-        self.lastMissedNextTaskDate = nil
-        self.lastMissedDate = nil
+        guard let habitId = selectedHabit?.id else { return }
+        self.isInFailed[habitId] = false
+        self.lastFailedAttemptsLeft[habitId] = nil
+        self.lastFailedDate[habitId] = nil
+        self.isInMissed[habitId] = false
+        self.lastMissedNextTaskDate[habitId] = nil
+        self.lastMissedDate[habitId] = nil
     }
 
     /// Call this when entering successShare state to fetch close friends
@@ -1385,9 +1397,9 @@ public class HabitViewModel: ObservableObject {
 #if DEBUG
         print("[HabitViewModel] retryAfterFailure: Fetching today's task for habit id \(habit.id)")
 #endif
-        self.isInFailed = false
-        self.lastFailedAttemptsLeft = nil
-        self.lastFailedDate = nil
+        self.isInFailed[habit.id] = false
+        self.lastFailedAttemptsLeft[habit.id] = nil
+        self.lastFailedDate[habit.id] = nil
         await fetchTodayTask(for: habit)
         await MainActor.run {
 #if DEBUG

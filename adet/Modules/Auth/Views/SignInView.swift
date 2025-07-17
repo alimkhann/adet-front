@@ -17,12 +17,12 @@ struct SignInView: View {
                 LargeRoundedTextView(label: "Sign Into Account")
                     .padding(.top, 40)
                     .padding(.bottom, 32)
-                
+
                 // Social Auth Buttons
                 VStack(spacing: 12) {
                     Spacer()
                         .frame(height: 160)
-                    
+
                     SignInWithAppleView()
                         .frame(height: 48)
                         .cornerRadius(12)
